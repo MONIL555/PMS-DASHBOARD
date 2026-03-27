@@ -109,7 +109,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         }}>
           PMS{!isCollapsed && <span style={{ color: 'var(--text-primary)' }}>.ERP</span>}
         </h2>
-        {!isCollapsed && <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Management System</p>}
+        {!isCollapsed && <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Project Management System</p>}
       </div>
 
       <nav style={{

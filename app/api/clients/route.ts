@@ -1,0 +1,70 @@
+import { NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import Client from '@/models/Client';
+import { verifyPermission } from '@/lib/auth';
+import { PERMISSIONS } from '@/lib/permissions';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  try {
+    await connectDB();
+    const auth = await verifyPermission(PERMISSIONS.CLIENTS_VIEW);
+    if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
+
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '9');
+    const search = searchParams.get('search') || '';
+    const activeOnly = searchParams.get('active') === 'true';
+    
+    const query: any = activeOnly ? { IsActive: true } : {};
+    if (search) {
+        query.$or = [
+            { Company_Name: { $regex: search, $options: 'i' } },
+            { Client_Name: { $regex: search, $options: 'i' } },
+            { Contact_Number: { $regex: search, $options: 'i' } },
+            { Email: { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    const totalItems = await Client.countDocuments(query);
+    const clients = await Client.find(query)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit);
+
+    return NextResponse.json({
+        clients,
+        totalItems
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    await connectDB();
+    
+    const auth = await verifyPermission(PERMISSIONS.CLIENTS_CREATE);
+    if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
+
+    const data = await request.json();
+    
+    // Check if company already exists
+    const existing = await Client.findOne({ Company_Name: { $regex: new RegExp(`^${data.Company_Name}$`, 'i') } });
+    if (existing) {
+      return NextResponse.json({ error: "A client with this company name already exists." }, { status: 400 });
+    }
+
+    const newClient = new Client(data);
+    await newClient.save();
+    return NextResponse.json(newClient, { status: 201 });
+  } catch (error: any) {
+    if (error.code === 11000) {
+       return NextResponse.json({ error: "A client with this company name already exists." }, { status: 400 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

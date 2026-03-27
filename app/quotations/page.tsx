@@ -1,0 +1,1320 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProjectTypes, fetchProducts } from '@/utils/api';
+import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
+import { useOptions } from '@/context/OptionsContext';
+import { X, ArrowRight, Loader2, MessageCircle, Search, FileText, CheckCircle, XCircle, MessageSquare, ArrowBigRightDashIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Pagination from '@/components/Pagination';
+import DateInput from '@/components/DateInput';
+import ClientAutocomplete from '@/components/ClientAutocomplete';
+import ProductAutocomplete from '@/components/ProductAutocomplete';
+import AddClientModal from '@/components/AddClientModal';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/lib/permissions';
+
+const Quotations = () => {
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const { optionsMap } = useOptions();
+  const { hasPermission } = usePermissions();
+  const [loading, setLoading] = useState(true);
+  const [projectTypes, setProjectTypes] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [error, setError] = useState('');
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('Newest');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusCounts, setStatusCounts] = useState({
+      Sent: 0,
+      'Follow-up': 0,
+      Approved: 0,
+      Rejected: 0,
+      Converted: 0
+  });
+  const ITEMS_PER_PAGE = 9;
+
+  const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
+  const [selectedDetailQuotation, setSelectedDetailQuotation] = useState<any | null>(null);
+  const [converting, setConverting] = useState(false);
+
+  const [selectedCancelQuotation, setSelectedCancelQuotation] = useState<any | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+
+  const [selectedFollowUpQuotation, setSelectedFollowUpQuotation] = useState<any | null>(null);
+  const [followingUp, setFollowingUp] = useState(false);
+  const [followUpData, setFollowUpData] = useState({
+    Remarks: '',
+    Outcome: 'Pending'
+  });
+
+  const [convertData, setConvertData] = useState({
+    Client_Reference: '',
+    Product_Reference: '',
+    Project_Type: '',
+    Project_Name: '',
+    Priority: 'Normal',
+    Assigned_Person: '',
+    Report_Type: 'Overview',
+    Costing: 0,
+    Phase: '',
+    Start_Date: '',
+    End_Date: ''
+  });
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editQuotationId, setEditQuotationId] = useState<string | null>(null);
+  const [editingQuotation, setEditingQuotation] = useState(false);
+  const [editQuotationData, setEditQuotationData] = useState({
+    Client_Reference: '',
+    Product_Reference: '',
+    Quotation_Status: 'Pending',
+    Commercial: '',
+    Client_Info: '',
+    Requirement: '',
+    Project_Scope_Description: '',
+    Timeline: '',
+    Payment_Terms: '',
+    Other_Terms: '',
+    Letterhead: 'No',
+    Sent_Via: 'Email',
+    Followup_Notification: false
+  });
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addingQuotation, setAddingQuotation] = useState(false);
+  const [addQuotationData, setAddQuotationData] = useState({
+    Lead_ID: '',
+    Client_Reference: '',
+    Product_Reference: '',
+    Commercial: '',
+    Client_Info: '',
+    Requirement: '',
+    Project_Scope_Description: '',
+    Timeline: '',
+    Payment_Terms: '',
+    Other_Terms: '',
+    Letterhead: 'No',
+    Sent_Via: 'Email',
+    Quotation_Status: 'Sent',
+    Followup_Notification: true
+  });
+
+  const [clientSearchName, setClientSearchName] = useState('');
+  const [productSearchName, setProductSearchName] = useState('');
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+
+  const loadData = async () => {
+    try {
+      const [quotationsResponse, productsData] = await Promise.all([
+        fetchQuotations({
+            page: currentPage,
+            limit: ITEMS_PER_PAGE,
+            search: debouncedSearch,
+            status: statusFilter,
+            sortBy: sortBy
+        }),
+        fetchProducts({ active: true, limit: 100 })
+      ]);
+      setQuotations(quotationsResponse.quotations);
+      setTotalItems(quotationsResponse.totalItems);
+      setStatusCounts(quotationsResponse.statusCounts);
+      setProducts(productsData.products);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClientCreated = (newClient: any) => {
+    if (isAddModalOpen) {
+      setAddQuotationData({
+        ...addQuotationData,
+        Client_Reference: newClient._id
+      });
+      setClientSearchName(`${newClient.Company_Name} (Newly Added)`);
+    }
+    toast.success(`Client "${newClient.Company_Name}" created and selected!`);
+  };
+
+  const handleClientSelect = (client: any) => {
+    // ... handles both add and edit
+    if (isAddModalOpen) {
+      setAddQuotationData({
+        ...addQuotationData,
+        Client_Reference: client._id
+      });
+      setClientSearchName(client.Client_Name);
+    } else if (isEditModalOpen) {
+      setEditQuotationData({
+        ...editQuotationData,
+        Client_Reference: client._id
+      });
+      setClientSearchName(client.Client_Name);
+    }
+    toast.success(`Client "${client.Client_Name}" selected!`);
+  };
+
+  const handleProductSelect = (product: any) => {
+    if (isAddModalOpen) {
+      setAddQuotationData({
+        ...addQuotationData,
+        Product_Reference: product._id
+      });
+      setProductSearchName(product.Product_Name);
+    } else if (isEditModalOpen) {
+      setEditQuotationData({
+        ...editQuotationData,
+        Product_Reference: product._id
+      });
+      setProductSearchName(product.Product_Name);
+    }
+    toast.success(`Product "${product.Product_Name}" selected!`);
+  };
+
+  const handleConvertProductSelect = (product: any) => {
+    setConvertData({
+      ...convertData,
+      Product_Reference: product._id
+    });
+    setProductSearchName(product.Product_Name);
+  };
+
+  const loadLeadsData = async () => {
+    try {
+      const response = await fetchLeads({ limit: 1000 });
+      setLeads(response.leads.filter((l: any) => l.Lead_Status !== 'Cancelled'));
+    } catch (err: any) {
+      toast.error('Error fetching leads: ' + err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    const loadTypes = async () => {
+      try {
+        const response = await fetchProjectTypes({ active: true, limit: 100 });
+        setProjectTypes(response.projectTypes);
+      } catch (err: any) {
+        console.error('Error fetching project types:', err);
+      }
+    };
+    loadTypes();
+    loadLeadsData();
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, sortBy]);
+
+  useEffect(() => {
+      loadData();
+  }, [currentPage, debouncedSearch, statusFilter, sortBy]);
+
+  useEffect(() => {
+    if (selectedQuotation) {
+      setProductSearchName(selectedQuotation.Product_Reference?.Product_Name || '');
+      setConvertData({
+        Client_Reference: selectedQuotation.Client_Reference?._id || selectedQuotation.Lead_ID?.Client_Reference?._id || '',
+        Product_Reference: selectedQuotation.Product_Reference?._id || '',
+        Project_Type: selectedQuotation.Project_Type?._id || '',
+        Project_Name: selectedQuotation.Client_Reference?.Company_Name || selectedQuotation.Lead_ID?.Client_Reference?.Company_Name || '',
+        Priority: 'Normal',
+        Assigned_Person: '',
+        Report_Type: 'Overview',
+        Costing: selectedQuotation.Commercial || 0,
+        Phase: '',
+        Start_Date: new Date().toISOString().split('T')[0],
+        End_Date: ''
+      });
+    }
+  }, [selectedQuotation]);
+
+  const handleConvert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedQuotation) return;
+
+    if (!convertData.Project_Name || convertData.Project_Name.length < 3) {
+      toast.error('Project Name must be at least 3 characters.');
+      return;
+    }
+    if (convertData.Costing < 0) {
+      toast.error('Costing cannot be negative.');
+      return;
+    }
+    if (convertData.Start_Date && convertData.End_Date && new Date(convertData.End_Date) < new Date(convertData.Start_Date)) {
+      toast.error('End Date cannot be before Start Date.');
+      return;
+    }
+
+    setConverting(true);
+    try {
+      await convertQuotationToProject(selectedQuotation._id, convertData);
+      setSelectedQuotation(null);
+      toast.success('Quotation converted to Project successfully!');
+      loadData();
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const handleCancelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCancelQuotation) return;
+
+    setCanceling(true);
+    try {
+      await cancelItem('quotation', selectedCancelQuotation._id, cancelReason);
+      setSelectedCancelQuotation(null);
+      toast.success('Quotation rejected and archived.');
+      loadData();
+    } catch (err: any) {
+      toast.error('Error canceling quotation: ' + err.message);
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleFollowUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFollowUpQuotation) return;
+
+    if (!followUpData.Remarks || followUpData.Remarks.length < 5) {
+      toast.error('Follow-up remarks must be at least 5 characters.');
+      return;
+    }
+
+    setFollowingUp(true);
+    try {
+      const isConverted = followUpData.Outcome === 'Converted';
+      const isCancelled = followUpData.Outcome === 'Cancelled';
+      const quoteToConvert = { ...selectedFollowUpQuotation, Quotation_Status: isConverted ? 'Approved' : isCancelled ? 'Rejected' : 'Follow-up' };
+
+      await addQuotationFollowUp(selectedFollowUpQuotation._id, followUpData);
+
+      setSelectedFollowUpQuotation(null);
+      const savedRemarks = followUpData.Remarks;
+      setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+      toast.success('Follow-up recorded successfully!');
+      loadData();
+
+      if (isConverted) {
+        setSelectedQuotation(quoteToConvert);
+      }
+      if (isCancelled) {
+        setSelectedCancelQuotation(selectedFollowUpQuotation);
+        setCancelReason(savedRemarks);
+      }
+    } catch (err: any) {
+      toast.error('Error adding follow-up: ' + err.message);
+    } finally {
+      setFollowingUp(false);
+    }
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setEditQuotationId(null);
+    setEditQuotationData({
+      Client_Reference: '',
+      Product_Reference: '',
+      Quotation_Status: 'Pending',
+      Commercial: '',
+      Client_Info: '',
+      Requirement: '',
+      Project_Scope_Description: '',
+      Timeline: '',
+      Payment_Terms: '',
+      Other_Terms: '',
+      Letterhead: 'No',
+      Sent_Via: 'Email',
+      Followup_Notification: false
+    });
+    setClientSearchName('');
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editQuotationId) return;
+
+    if (!editQuotationData.Product_Reference) {
+      toast.error('Please select a Product/Service.');
+      return;
+    }
+    if (parseFloat(editQuotationData.Commercial) <= 0) {
+      toast.error('Commercial value must be greater than 0.');
+      return;
+    }
+
+    const originalQuotation = quotations.find((q: any) => q._id === editQuotationId);
+    const originalStatus = originalQuotation?.Quotation_Status || 'Pending';
+    const newStatus = editQuotationData.Quotation_Status;
+    const isRejecting = newStatus.toLowerCase().includes('reject') || newStatus.toLowerCase().includes('cancel');
+    const statusChangedToReject = isRejecting && originalStatus !== newStatus;
+    const isApproving = newStatus === 'Approved';
+    const statusChangedToApprove = isApproving && originalStatus !== newStatus;
+
+    setEditingQuotation(true);
+    try {
+      let dataToUpdate = { ...editQuotationData };
+      if (statusChangedToReject) {
+        dataToUpdate.Quotation_Status = originalStatus;
+      }
+
+      const response = await updateQuotationDetails(editQuotationId, dataToUpdate);
+      toast.success('Quotation updated successfully!');
+      handleEditModalClose();
+      loadData();
+
+      if (statusChangedToReject && originalQuotation) {
+        setSelectedCancelQuotation(originalQuotation);
+        setCancelReason('');
+      }
+
+      if (statusChangedToApprove && response) {
+        setSelectedQuotation(response);
+      }
+    } catch (err: any) {
+      toast.error('Error updating quotation: ' + err.message);
+    } finally {
+      setEditingQuotation(false);
+    }
+  };
+
+  const handleAddModalClose = () => {
+    setIsAddModalOpen(false);
+    setAddQuotationData({
+      Lead_ID: '',
+      Client_Reference: '',
+      Product_Reference: '',
+      Commercial: '',
+      Client_Info: '',
+      Requirement: '',
+      Project_Scope_Description: '',
+      Timeline: '',
+      Payment_Terms: '',
+      Other_Terms: '',
+      Letterhead: 'No',
+      Sent_Via: 'Email',
+      Quotation_Status: 'Sent',
+      Followup_Notification: true
+    });
+    setClientSearchName('');
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!addQuotationData.Product_Reference) {
+      toast.error('Please select a Product/Service.');
+      return;
+    }
+    if (parseFloat(addQuotationData.Commercial) <= 0) {
+      toast.error('Commercial value must be greater than 0.');
+      return;
+    }
+
+    setAddingQuotation(true);
+    try {
+      await createQuotation(addQuotationData);
+      toast.success('Quotation added successfully!');
+      handleAddModalClose();
+      loadData();
+    } catch (err: any) {
+      toast.error('Error adding quotation: ' + err.message);
+    } finally {
+      setAddingQuotation(false);
+    }
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', height: '80vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
+      <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div>
+      <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading quotations...</p>
+    </div>
+  );
+  if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  
+  // No client-side filtering needed anymore
+  const filteredQuotations = quotations;
+  const paginatedQuotations = quotations;
+
+  const overdueQuotations = quotations.filter((q: any) => {
+    if (q.Quotation_Status === 'Approved' || q.Quotation_Status === 'Rejected' || q.Quotation_Status === 'Cancelled' || q.Quotation_Status === 'Converted') return false;
+    const hasFollowUps = q.Follow_Ups && q.Follow_Ups.length > 0;
+    const lastActionDate = hasFollowUps
+      ? new Date(q.Follow_Ups[q.Follow_Ups.length - 1].Followup_Date)
+      : new Date(q.Quotation_Date);
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - lastActionDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (!hasFollowUps) return diffDays > 10;
+    const lastOutcome = q.Follow_Ups[q.Follow_Ups.length - 1].Outcome;
+    return lastOutcome === 'Pending' && diffDays > 5;
+  });
+
+  return (
+    <div className="quotations-page">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>Quotations</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Manage and convert your approved quotations to active projects.</p>
+        </div>
+        {hasPermission(PERMISSIONS.QUOTATIONS_CREATE) && (
+          <button className="btn btn-primary" onClick={() => {
+            setIsAddModalOpen(true);
+            loadLeadsData();
+          }}>Add Quotation</button>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem', marginBottom: '2rem', marginTop: '1.5rem' }}>
+        {[
+          { label: 'Sent', key: 'Sent', count: statusCounts.Sent, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <ArrowBigRightDashIcon size={22} /> },
+          { label: 'Follow-up', key: 'Follow-up', count: statusCounts['Follow-up'], color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <MessageSquare size={22} /> },
+          { label: 'Approved', key: 'Approved', count: statusCounts.Approved, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <CheckCircle size={22} /> },
+          { label: 'Rejected', key: 'Rejected', count: statusCounts.Rejected, color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: <XCircle size={22} /> },
+          { label: 'Converted', key: 'Converted', count: statusCounts.Converted, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <FileText size={22} /> }
+        ].map((block) => (
+          <div
+            key={block.key}
+            className="premium-card"
+            onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
+            style={{
+              padding: '1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1.25rem',
+              cursor: 'pointer',
+              borderRadius: '16px',
+              backgroundColor: statusFilter === block.key ? block.bgColor : '#ffffff',
+              boxShadow: statusFilter === block.key
+                ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
+                : `inset 0 0 0 1px var(--border-color)`,
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <div style={{
+              backgroundColor: block.bgColor,
+              padding: '0.85rem',
+              borderRadius: '14px',
+              color: block.color,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 4px 6px -1px rgba(0,0,0,0.05)`,
+            }}>
+              {block.icon}
+            </div>
+
+            <div>
+              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>
+                {block.count}
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.25rem', letterSpacing: '0.025em' }}>
+                {block.label}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="page-controls">
+        <div className="search-wrapper">
+          <Search className="search-icon" size={18} />
+          <input
+            type="text"
+            placeholder="Search by ID, Company, or Service..."
+            className="premium-search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="controls-right">
+          {/*<div className="control-item">
+            <span className="control-label">Status</span>
+            <select
+              className="premium-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Status</option>
+              {optionsMap?.quotation?.status?.map((status: string) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>*/}
+
+          <div className="control-item">
+            <span className="control-label">Sort By</span>
+            <select
+              className="premium-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="Newest">Newest First</option>
+              <option value="Oldest">Oldest First</option>
+              <option value="Commercial-High">Price: High to Low</option>
+              <option value="Commercial-Low">Price: Low to High</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>QTN ID</th>
+              <th>Company Name</th>
+              <th>Product / Service</th>
+              <th>Commercial</th>
+              <th>Time Duration</th>
+              <th>Status</th>
+              <th>Quotation Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedQuotations.map((qtn: any) => (
+              <tr
+                key={qtn._id}
+                onClick={() => setSelectedDetailQuotation(qtn)}
+                style={{ cursor: 'pointer' }}
+              >
+                <td><span className="font-semibold text-primary">{qtn.Quotation_ID}</span></td>
+                <td>{qtn.Client_Reference?.Company_Name || qtn.Lead_ID?.Client_Reference?.Company_Name || qtn.Client_Info || 'Unknown Lead'}</td>
+                <td>{qtn.Product_Reference?.Product_Name || '-'}</td>
+                <td className="font-mono">Rs. {qtn.Commercial?.toLocaleString() || '0'}</td>
+                <td>{qtn.Timeline || '-'}</td>
+                <td>
+                  <span className={`badge ${qtn.Quotation_Status === 'Approved' ? 'badge-green' : qtn.Quotation_Status === 'Converted' ? 'badge-blue' : qtn.Quotation_Status === 'Rejected' ? 'badge-red' : 'badge-yellow'}`}>
+                    {qtn.Quotation_Status}
+                  </span>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {formatDateDDMMYYYY(qtn.Quotation_Date)}
+                    {overdueQuotations.some((oq: any) => oq._id === qtn._id) && (
+                      <span title="Overdue for follow-up" style={{ color: '#EF4444' }}>
+                        <XCircle size={14} />
+                      </span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filteredQuotations.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                  No quotations found matching your search.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={setCurrentPage}
+        itemName="quotations"
+      />
+
+      {/* Details Modal */}
+      {selectedDetailQuotation && (
+        <div className="modal-overlay" onClick={() => setSelectedDetailQuotation(null)}>
+          <div className="modal-content" style={{ maxWidth: '1100px', width: '95%', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{selectedDetailQuotation.Lead_ID?.Company_Name || 'Direct Quotation'}</h2>
+                <p className="text-secondary" style={{ fontSize: '0.875rem', margin: 0 }}>Quotation ID: {selectedDetailQuotation.Quotation_ID}</p>
+              </div>
+              <button className="modal-close" onClick={() => setSelectedDetailQuotation(null)}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.25rem' }}>Proposal Details</h3>
+                <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
+                  <div><strong className="text-secondary">Service/Product:</strong> <span className="font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{selectedDetailQuotation.Product_Reference?.Product_Name || '-'}</span></div>
+                  <div><strong className="text-secondary">Company Name:</strong> {selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || selectedDetailQuotation.Client_Info || '-'}</div>
+                  {(selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name) && (
+                    <div><strong className="text-secondary">Client Name:</strong> {selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name}</div>
+                  )}
+                  {(selectedDetailQuotation.Client_Reference?.Contact_Number || selectedDetailQuotation.Lead_ID?.Client_Reference?.Contact_Number) && (
+                    <div><strong className="text-secondary">Contact Number:</strong> {selectedDetailQuotation.Client_Reference?.Contact_Number || selectedDetailQuotation.Lead_ID?.Client_Reference?.Contact_Number}</div>
+                  )}
+                  <div><strong className="text-secondary">Timeline:</strong> {selectedDetailQuotation.Timeline || '-'}</div>
+                  <div><strong className="text-secondary">Sent Via:</strong> {selectedDetailQuotation.Sent_Via || '-'}</div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.25rem' }}>Status & Commercials</h3>
+                <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
+                  <div><strong className="text-secondary">Commercial Amount:</strong> <span className="font-mono text-lg font-semibold text-green-600">Rs. {selectedDetailQuotation.Commercial?.toLocaleString() || '0'}</span></div>
+                  <div><strong className="text-secondary">Payment Terms:</strong> {selectedDetailQuotation.Payment_Terms || '-'}</div>
+                  <div><strong className="text-secondary">Quotation Date:</strong> {formatDateDDMMYYYY(selectedDetailQuotation.Quotation_Date)}</div>
+                  <div>
+                    <strong className="text-secondary">Current Status:</strong>{' '}
+                    <span className={`badge ${selectedDetailQuotation.Quotation_Status === 'Approved' ? 'badge-green' : selectedDetailQuotation.Quotation_Status === 'Converted' ? 'badge-blue' : selectedDetailQuotation.Quotation_Status === 'Rejected' ? 'badge-red' : 'badge-yellow'}`}>
+                      {selectedDetailQuotation.Quotation_Status}
+                    </span>
+                  </div>
+                  <div><strong className="text-secondary">Letterhead:</strong> {selectedDetailQuotation.Letterhead || '-'}</div>
+                  {/*<div><strong className="text-secondary">Follow-up Notifications:</strong> {selectedDetailQuotation.Followup_Notification ? 'Enabled ✅' : 'Disabled ❌'}</div> */}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem' }}>Core Requirement</h3>
+                <div style={{ backgroundColor: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
+                  {selectedDetailQuotation.Requirement || <span className="text-secondary italic">No core requirement documented.</span>}
+                </div>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem' }}>Project Scope</h3>
+                <div style={{ backgroundColor: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
+                  {selectedDetailQuotation.Project_Scope_Description || <span className="text-secondary italic">No detailed scope attached.</span>}
+                </div>
+              </div>
+            </div>
+
+            {(selectedDetailQuotation.Other_Terms || selectedDetailQuotation.Cancel_Reason) && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem' }}>Additional Notes</h3>
+                <div style={{ backgroundColor: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
+                  {selectedDetailQuotation.Other_Terms && (
+                    <div style={{ marginBottom: selectedDetailQuotation.Cancel_Reason ? '0.5rem' : 0 }}>
+                      <strong className="text-secondary">Other Terms:</strong> {selectedDetailQuotation.Other_Terms}
+                    </div>
+                  )}
+                  {selectedDetailQuotation.Cancel_Reason && (
+                    <div className="text-red-600">
+                      <strong>Cancellation Reason:</strong> {selectedDetailQuotation.Cancel_Reason}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selectedDetailQuotation.Follow_Ups && selectedDetailQuotation.Follow_Ups.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MessageCircle size={16} /> Follow-up History ({selectedDetailQuotation.Follow_Ups.length})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', maxHeight: '150px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {selectedDetailQuotation.Follow_Ups.map((fu: any, idx: number) => (
+                    <div key={idx} style={{ padding: '0.5rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '0.5rem', borderLeft: '3px solid #3B82F6' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1E40AF' }}>
+                          {formatDateTimeDDMMYYYY(fu.Followup_Date)}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', padding: '0.1rem 0.5rem', backgroundColor: fu.Outcome === 'Converted' ? '#DCFCE7' : fu.Outcome === 'Cancelled' ? '#FEE2E2' : '#FEF3C7', color: fu.Outcome === 'Converted' ? '#166534' : fu.Outcome === 'Cancelled' ? '#991B1B' : '#92400E', borderRadius: '1rem', fontWeight: 500 }}>
+                          {fu.Outcome}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.85rem', margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+                        {fu.Remarks}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="modal-footer" style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                {selectedDetailQuotation.Quotation_Status !== 'Rejected' && selectedDetailQuotation.Quotation_Status !== 'Approved' && selectedDetailQuotation.Quotation_Status !== 'Converted' && hasPermission(PERMISSIONS.QUOTATIONS_DELETE) && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.5rem 1rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)', backgroundColor: 'transparent' }}
+                    onClick={() => {
+                      setSelectedCancelQuotation(selectedDetailQuotation);
+                      setCancelReason('');
+                      setSelectedDetailQuotation(null);
+                    }}
+                  >
+                    Reject Quotation
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                {selectedDetailQuotation.Quotation_Status !== 'Rejected' && selectedDetailQuotation.Quotation_Status !== 'Approved' && selectedDetailQuotation.Quotation_Status !== 'Converted' && (
+                  <>
+                    {hasPermission(PERMISSIONS.QUOTATIONS_EDIT) && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '0.5rem 1rem', color: '#0369a1', borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#f0f9ff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                        onClick={() => {
+                          setSelectedFollowUpQuotation(selectedDetailQuotation);
+                          setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+                          setSelectedDetailQuotation(null);
+                        }}
+                      >
+                        <MessageCircle size={16} /> Record Follow-up
+                      </button>
+                    )}
+
+                    {hasPermission(PERMISSIONS.QUOTATIONS_EDIT) && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setEditQuotationId(selectedDetailQuotation._id);
+                          setEditQuotationData({
+                            Client_Reference: selectedDetailQuotation.Client_Reference?._id || selectedDetailQuotation.Lead_ID?.Client_Reference?._id || '',
+                            Product_Reference: selectedDetailQuotation.Product_Reference?._id || '',
+                            Quotation_Status: selectedDetailQuotation.Quotation_Status || 'Pending',
+                            Commercial: selectedDetailQuotation.Commercial || '',
+                            Client_Info: selectedDetailQuotation.Client_Info || '',
+                            Requirement: selectedDetailQuotation.Requirement || '',
+                            Project_Scope_Description: selectedDetailQuotation.Project_Scope_Description || '',
+                            Timeline: selectedDetailQuotation.Timeline || '',
+                            Payment_Terms: selectedDetailQuotation.Payment_Terms || '',
+                            Other_Terms: selectedDetailQuotation.Other_Terms || '',
+                            Letterhead: selectedDetailQuotation.Letterhead || 'No',
+                            Sent_Via: selectedDetailQuotation.Sent_Via || 'Email',
+                            Followup_Notification: selectedDetailQuotation.Followup_Notification || false
+                          });
+                          setClientSearchName(selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || '');
+                          setProductSearchName(selectedDetailQuotation.Product_Reference?.Product_Name || '');
+                          setSelectedDetailQuotation(null);
+                          setIsEditModalOpen(true);
+                        }}
+                      >
+                        Edit Details
+                      </button>
+                    )}
+                  </>
+
+                )}
+                {selectedDetailQuotation.Quotation_Status === 'Approved' && hasPermission(PERMISSIONS.QUOTATIONS_CONVERT) && hasPermission(PERMISSIONS.PROJECTS_CREATE) && (
+                  <button
+                    className="btn btn-success"
+                    style={{ padding: '0.5rem 1rem' }}
+                    onClick={() => {
+                      setSelectedQuotation(selectedDetailQuotation);
+                      setSelectedDetailQuotation(null);
+                    }}
+                  >
+                    Convert to Project <ArrowRight size={16} style={{ marginLeft: '0.5rem' }} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Convert Modal */}
+      {selectedQuotation && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2>Convert to Project</h2>
+              <button className="modal-close" onClick={() => setSelectedQuotation(null)}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleConvert}>
+              <div style={{ marginBottom: '1rem', padding: '0.5rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <p style={{ fontSize: '0.875rem', color: 'var(--primary-color)', margin: 0, marginBottom: '0.25rem' }}>Converting Quotation: <strong>{selectedQuotation.Quotation_ID}</strong></p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Service: {selectedQuotation.Product_Reference?.Product_Name}</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service *</label>
+                  <ProductAutocomplete
+                    value={productSearchName}
+                    onChange={(val) => setProductSearchName(val)}
+                    onSelect={handleConvertProductSelect}
+                    placeholder="Search product..."
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Priority</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Priority} onChange={e => setConvertData({ ...convertData, Priority: e.target.value })}>
+                    <option value="Normal">Normal</option>
+                    <option value="High">High</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Type *</label>
+                  <select
+                    className="form-select"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    required
+                    value={convertData.Project_Type}
+                    onChange={e => setConvertData({ ...convertData, Project_Type: e.target.value })}
+                  >
+                    <option value="">-- Select Type --</option>
+                    {projectTypes.map(t => (
+                      <option key={t._id} value={t._id}>{t.Type_Name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Assigned Person</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Assigned_Person} onChange={e => setConvertData({ ...convertData, Assigned_Person: e.target.value })} placeholder="Name of assignee" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Report Type</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Report_Type} onChange={e => setConvertData({ ...convertData, Report_Type: e.target.value })}>
+                    <option value="Overview">Overview</option>
+                    <option value="Detailed">Detailed</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Costing</label>
+                  <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Costing} onChange={e => setConvertData({ ...convertData, Costing: parseFloat(e.target.value) })} placeholder="Project cost" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Initial Phase</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Phase} onChange={e => setConvertData({ ...convertData, Phase: e.target.value })} placeholder="e.g. UAT, Deployment..." />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Start Date</label>
+                  <DateInput
+                    required
+                    className="form-input"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    value={convertData.Start_Date}
+                    onChange={val => setConvertData({ ...convertData, Start_Date: val })}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>End Date</label>
+                  <DateInput
+                    required
+                    className="form-input"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    value={convertData.End_Date}
+                    onChange={val => setConvertData({ ...convertData, End_Date: val })}
+                  />
+                </div>
+                {/* Fixed the mapping here for consistency if needed, but original was End_Date */}
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setSelectedQuotation(null)}>Cancel</button>
+                <button type="submit" className="btn btn-success" disabled={converting}>
+                  {converting ? <><Loader2 size={16} className="animate-spin" /> Converting...</> : 'Convert Now'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Quotation Modal */}
+      {selectedCancelQuotation && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', width: '95%', padding: '1.5rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2 className="text-red-500 flex items-center gap-2" style={{ fontSize: '1.2rem' }}>Cancel Quotation</h2>
+              <button className="modal-close" onClick={() => setSelectedCancelQuotation(null)}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleCancelSubmit}>
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <p style={{ fontSize: '0.85rem', color: '#ef4444', marginBottom: '0.25rem' }}>Canceling Quotation: <strong>{selectedCancelQuotation.Quotation_ID}</strong></p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>This action will mark the quotation as Rejected and move it to Archives.</p>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Reason for Rejection/Cancellation *</label>
+                <textarea
+                  required
+                  rows={3}
+                  className="form-textarea"
+                  style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder="Explain why this quotation is being rejected/canceled..."
+                />
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setSelectedCancelQuotation(null)}>Go Back</button>
+                <button type="submit" className="btn btn-secondary" style={{ backgroundColor: '#ef4444', color: 'white', borderColor: '#ef4444' }} disabled={canceling}>
+                  {canceling ? <><Loader2 size={16} className="animate-spin" /> Canceling...</> : 'Cancel Quotation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Follow-up Modal */}
+      {selectedFollowUpQuotation && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '650px', width: '95%', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2 className="text-blue-600 flex items-center gap-2" style={{ fontSize: '1.2rem' }}>Record Follow-up</h2>
+              <button className="modal-close" onClick={() => setSelectedFollowUpQuotation(null)}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleFollowUp}>
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <p style={{ fontSize: '0.85rem', color: '#2563EB', marginBottom: '0.25rem' }}>Quotation <strong>{selectedFollowUpQuotation.Quotation_ID}</strong></p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Company: {selectedFollowUpQuotation.Lead_ID?.Company_Name || 'Unknown'}</p>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Remarks / Discussion Notes *</label>
+                <textarea
+                  required
+                  rows={4}
+                  className="form-textarea"
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  value={followUpData.Remarks}
+                  onChange={e => setFollowUpData({ ...followUpData, Remarks: e.target.value })}
+                  placeholder="Summarize the conversation or next steps..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Follow-up Outcome</label>
+                <select
+                  className="form-select"
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  value={followUpData.Outcome}
+                  onChange={e => setFollowUpData({ ...followUpData, Outcome: e.target.value })}
+                >
+                  <option value="Pending">Pending (Still Negotiating)</option>
+                  <option value="Converted">Converted (Ready exactly for Approval)</option>
+                  {hasPermission(PERMISSIONS.QUOTATIONS_DELETE) && (
+                    <option value="Cancelled">Cancelled / Lost Deal</option>
+                  )}
+                </select>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                  * This is a note on the follow-up.
+                </p>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setSelectedFollowUpQuotation(null)}>Cancel</button>
+                <button type="submit" className="btn btn-secondary" style={{ backgroundColor: '#2563EB', color: 'white', borderColor: '#2563EB' }} disabled={followingUp}>
+                  {followingUp ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : 'Save Follow-up'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '1100px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2>Edit Quotation</h2>
+              <button className="modal-close" onClick={handleEditModalClose}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service Name *</label>
+                  <ProductAutocomplete
+                    value={productSearchName}
+                    onChange={(val) => setProductSearchName(val)}
+                    onSelect={handleProductSelect}
+                    placeholder="Search product..."
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Quotation Status *</label>
+                  <select
+                    className="form-select"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    value={editQuotationData.Quotation_Status}
+                    onChange={e => {
+                      setEditQuotationData({ ...editQuotationData, Quotation_Status: e.target.value });
+                    }}
+                  >
+                    {optionsMap?.quotation?.status?.filter((status: string) => {
+                      if (!hasPermission(PERMISSIONS.QUOTATIONS_DELETE)) {
+                        const s = status.toLowerCase();
+                        return !s.includes('reject') && !s.includes('cancel');
+                      }
+                      return true;
+                    }).map((status: string) => (
+                      <option key={status} value={status}>{status}</option>
+                    )) || (
+                        <>
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          {hasPermission(PERMISSIONS.QUOTATIONS_DELETE) && <option value="Rejected">Rejected</option>}
+                          <option value="Follow-up">Follow-up</option>
+                        </>
+                      )}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Commercial Amount *</label>
+                  <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Commercial} onChange={e => setEditQuotationData({ ...editQuotationData, Commercial: e.target.value })} placeholder="e.g. 5000" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Client *</label>
+                  <ClientAutocomplete
+                    value={clientSearchName}
+                    onChange={(val) => setClientSearchName(val)}
+                    onSelect={handleClientSelect}
+                    placeholder="Search client..."
+                  />
+                  {editQuotationData.Client_Reference && !clientSearchName.includes("Selected") && (
+                    <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                  )}
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 3' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Requirements</label>
+                      <textarea className="form-textarea" style={{ minHeight: '60px', padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Requirement} onChange={e => setEditQuotationData({ ...editQuotationData, Requirement: e.target.value })} placeholder="Client requirements..." />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Scope Description</label>
+                      <textarea className="form-textarea" style={{ minHeight: '60px', padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Project_Scope_Description} onChange={e => setEditQuotationData({ ...editQuotationData, Project_Scope_Description: e.target.value })} placeholder="Detailed scope of work..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Timeline</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Timeline} onChange={e => setEditQuotationData({ ...editQuotationData, Timeline: e.target.value })} placeholder="e.g. 4 Weeks" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Payment Terms</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Payment_Terms} onChange={e => setEditQuotationData({ ...editQuotationData, Payment_Terms: e.target.value })} placeholder="e.g. 50% Advance" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Other Terms</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Other_Terms} onChange={e => setEditQuotationData({ ...editQuotationData, Other_Terms: e.target.value })} placeholder="Any additional terms..." />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Letterhead Required?</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Letterhead} onChange={e => setEditQuotationData({ ...editQuotationData, Letterhead: e.target.value })}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Sent Via</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={editQuotationData.Sent_Via} onChange={e => setEditQuotationData({ ...editQuotationData, Sent_Via: e.target.value })}>
+                    <option value="Email">Email</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', marginBottom: 0, paddingTop: '1.2rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                    <input type="checkbox" id="followupCheck" checked={editQuotationData.Followup_Notification} onChange={e => setEditQuotationData({ ...editQuotationData, Followup_Notification: e.target.checked })} style={{ width: '16px', height: '16px', margin: 0 }} />
+                    Enable Follow-up Notifications
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={handleEditModalClose}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={editingQuotation}>
+                  {editingQuotation ? <><Loader2 size={16} className="animate-spin" /> Updating...</> : 'Update Quotation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Quotation Modal */}
+      {isAddModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '1100px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2>Add New Quotation</h2>
+              <button className="modal-close" onClick={handleAddModalClose}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleAddSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Select Lead</label>
+                  <select
+                    className="form-select"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    value={addQuotationData.Lead_ID}
+                    onChange={e => {
+                      const leadId = e.target.value;
+                      const lead = leads.find(l => l._id === leadId);
+                      if (lead) {
+                        setAddQuotationData({
+                          ...addQuotationData,
+                          Lead_ID: leadId,
+                          Product_Reference: lead.Product_Reference?._id || '',
+                          Client_Reference: lead.Client_Reference?._id || '',
+                          Requirement: lead.Notes || ''
+                        });
+                        setClientSearchName(lead.Client_Reference?.Company_Name || '');
+                        setProductSearchName(lead.Product_Reference?.Product_Name || '');
+                      } else {
+                        setAddQuotationData({ ...addQuotationData, Lead_ID: '' });
+                      }
+                    }}
+                  >
+                    <option value="">-- Select a Lead --</option>
+                    {leads.map(lead => (
+                      <option key={lead._id} value={lead._id}>{lead.Lead_ID} - {lead.Client_Reference?.Company_Name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service Name *</label>
+                  <ProductAutocomplete
+                    value={productSearchName}
+                    onChange={(val) => setProductSearchName(val)}
+                    onSelect={handleProductSelect}
+                    placeholder="Search product..."
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Commercial Amount *</label>
+                  <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Commercial} onChange={e => setAddQuotationData({ ...addQuotationData, Commercial: e.target.value })} placeholder="e.g. 5000" />
+                </div>                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client *</label>
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      style={{ fontSize: '0.75rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      onClick={() => setIsAddClientModalOpen(true)}
+                    >
+                      + Add New
+                    </button>
+                  </div>
+                  <ClientAutocomplete
+                    value={clientSearchName}
+                    onChange={(val) => setClientSearchName(val)}
+                    onSelect={handleClientSelect}
+                    placeholder="Search client..."
+                  />
+                  {addQuotationData.Client_Reference && !clientSearchName.includes("Selected") && (
+                    <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                  )}
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Requirements</label>
+                      <textarea className="form-textarea" style={{ minHeight: '60px', padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Requirement} onChange={e => setAddQuotationData({ ...addQuotationData, Requirement: e.target.value })} placeholder="Client requirements..." />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Scope Description</label>
+                      <textarea className="form-textarea" style={{ minHeight: '60px', padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Project_Scope_Description} onChange={e => setAddQuotationData({ ...addQuotationData, Project_Scope_Description: e.target.value })} placeholder="Detailed scope of work..." />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Timeline</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Timeline} onChange={e => setAddQuotationData({ ...addQuotationData, Timeline: e.target.value })} placeholder="e.g. 4 Weeks" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Payment Terms</label>
+                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Payment_Terms} onChange={e => setAddQuotationData({ ...addQuotationData, Payment_Terms: e.target.value })} placeholder="e.g. 50% Advance" />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Other Terms</label>
+                  <input type="text" className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Other_Terms} onChange={e => setAddQuotationData({ ...addQuotationData, Other_Terms: e.target.value })} placeholder="Any additional terms..." />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Letterhead Required?</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Letterhead} onChange={e => setAddQuotationData({ ...addQuotationData, Letterhead: e.target.value })}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Sent Via</label>
+                  <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Sent_Via} onChange={e => setAddQuotationData({ ...addQuotationData, Sent_Via: e.target.value })}>
+                    <option value="Email">Email</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', marginBottom: 0, paddingTop: '1.2rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                    <input type="checkbox" checked={addQuotationData.Followup_Notification} onChange={e => setAddQuotationData({ ...addQuotationData, Followup_Notification: e.target.checked })} style={{ width: '16px', height: '16px', margin: 0 }} />
+                    Enable Follow-up Notifications
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={handleAddModalClose}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={addingQuotation}>
+                  {addingQuotation ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : 'Save Quotation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <AddClientModal
+        isOpen={isAddClientModalOpen}
+        onClose={() => setIsAddClientModalOpen(false)}
+        onSuccess={handleClientCreated}
+        isStacked={true}
+      />
+    </div>
+  );
+};
+
+export default Quotations;

@@ -25,11 +25,11 @@ const ProductSchema = new Schema<IProduct, IProductModel>({
   },
   SubType: {
     type: String,
-    required: [true, "Sub Type is required"]
+    default: ""
   },
   SubSubType: {
     type: String,
-    required: [true, "Sub-Sub Type is required"]
+    default: ""
   },
   Description: {
     type: String,

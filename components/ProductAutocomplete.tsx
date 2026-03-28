@@ -152,11 +152,15 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{product.Type}</span>
-                  <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>/</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{product.SubType}</span>
+                  {product.SubType && (
+                    <>
+                      <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>/</span>
+                      <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{product.SubType}</span>
+                    </>
+                  )}
                 </div>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>
-                  {product.SubSubType}
+                  {product.SubSubType || product.SubType || product.Type}
                 </span>
                 {product.Description && (
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

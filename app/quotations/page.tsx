@@ -169,15 +169,15 @@ const Quotations = () => {
         ...addQuotationData,
         Product_Reference: product._id
       });
-      setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+      setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
     } else if (isEditModalOpen) {
       setEditQuotationData({
         ...editQuotationData,
         Product_Reference: product._id
       });
-      setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+      setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
     }
-    toast.success(`Service "${product.SubSubType}" selected!`);
+    toast.success(`Service "${product.SubSubType || product.SubType || product.Type}" selected!`);
   };
 
   const handleConvertProductSelect = (product: any) => {
@@ -185,7 +185,7 @@ const Quotations = () => {
       ...convertData,
       Product_Reference: product._id
     });
-    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+    setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
   };
 
   const loadLeadsData = async () => {
@@ -228,7 +228,7 @@ const Quotations = () => {
 
   useEffect(() => {
     if (selectedQuotation) {
-      setProductSearchName(selectedQuotation.Product_Reference ? `${selectedQuotation.Product_Reference.Type} > ${selectedQuotation.Product_Reference.SubType} > ${selectedQuotation.Product_Reference.SubSubType}` : '');
+      setProductSearchName(selectedQuotation.Product_Reference ? [selectedQuotation.Product_Reference.Type, selectedQuotation.Product_Reference.SubType, selectedQuotation.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '');
       setConvertData({
         Client_Reference: selectedQuotation.Client_Reference?._id || selectedQuotation.Lead_ID?.Client_Reference?._id || '',
         Product_Reference: selectedQuotation.Product_Reference?._id || '',
@@ -606,10 +606,10 @@ const Quotations = () => {
                  <td>
                   <div style={{ fontSize: '0.85rem' }}>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      {qtn.Product_Reference?.Type} / {qtn.Product_Reference?.SubType}
+                      {[qtn.Product_Reference?.Type, qtn.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                     </div>
                     <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
-                      {qtn.Product_Reference?.SubSubType || '-'}
+                      {qtn.Product_Reference?.SubSubType || qtn.Product_Reference?.SubType || qtn.Product_Reference?.Type || '-'}
                     </div>
                   </div>
                 </td>
@@ -672,9 +672,9 @@ const Quotations = () => {
                     <strong className="text-secondary">Service/Product:</strong>
                     <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
                       <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {selectedDetailQuotation.Product_Reference?.Type} / {selectedDetailQuotation.Product_Reference?.SubType}
+                        {[selectedDetailQuotation.Product_Reference?.Type, selectedDetailQuotation.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                       </span>
-                      <span className="font-bold text-blue-700">{selectedDetailQuotation.Product_Reference?.SubSubType || '-'}</span>
+                      <span className="font-bold text-blue-700">{selectedDetailQuotation.Product_Reference?.SubSubType || selectedDetailQuotation.Product_Reference?.SubType || selectedDetailQuotation.Product_Reference?.Type || '-'}</span>
                     </div>
                   </div>
                   <div><strong className="text-secondary">Company Name:</strong> {selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || selectedDetailQuotation.Client_Info || '-'}</div>
@@ -821,7 +821,7 @@ const Quotations = () => {
                             Followup_Notification: selectedDetailQuotation.Followup_Notification || false
                           });
                           setClientSearchName(selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || '');
-                          setProductSearchName(selectedDetailQuotation.Product_Reference ? `${selectedDetailQuotation.Product_Reference.Type} > ${selectedDetailQuotation.Product_Reference.SubType} > ${selectedDetailQuotation.Product_Reference.SubSubType}` : '');
+                          setProductSearchName(selectedDetailQuotation.Product_Reference ? [selectedDetailQuotation.Product_Reference.Type, selectedDetailQuotation.Product_Reference.SubType, selectedDetailQuotation.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '');
                           setSelectedDetailQuotation(null);
                           setIsEditModalOpen(true);
                         }}
@@ -862,7 +862,7 @@ const Quotations = () => {
             <form onSubmit={handleConvert}>
               <div style={{ marginBottom: '1rem', padding: '0.5rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <p style={{ fontSize: '0.875rem', color: 'var(--primary-color)', margin: 0, marginBottom: '0.25rem' }}>Converting Quotation: <strong>{selectedQuotation.Quotation_ID}</strong></p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Service: {selectedQuotation.Product_Reference ? `${selectedQuotation.Product_Reference.Type} > ${selectedQuotation.Product_Reference.SubType} > ${selectedQuotation.Product_Reference.SubSubType}` : '-'}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Service: {selectedQuotation.Product_Reference ? [selectedQuotation.Product_Reference.Type, selectedQuotation.Product_Reference.SubType, selectedQuotation.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '-'}</p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>

@@ -109,8 +109,8 @@ export default function ProductsMaster() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.Type || !formData.SubType || !formData.SubSubType) {
-      return toast.error("Please select all category levels.");
+    if (!formData.Type) {
+      return toast.error("Please select a classification type.");
     }
 
     setIsSubmitting(true);
@@ -444,8 +444,9 @@ export default function ProductsMaster() {
           Object.entries(groupedProducts).map(([type, items]: [string, any[]]) => {
             const subTypeGroups: { [key: string]: any[] } = {};
             items.forEach(p => {
-              if (!subTypeGroups[p.SubType]) subTypeGroups[p.SubType] = [];
-              subTypeGroups[p.SubType].push(p);
+              const groupKey = p.SubType || 'Direct Category';
+              if (!subTypeGroups[groupKey]) subTypeGroups[groupKey] = [];
+              subTypeGroups[groupKey].push(p);
             });
 
             return (
@@ -477,7 +478,7 @@ export default function ProductsMaster() {
                       <div key={subType} className="subtype-group">
                         <div className="subtype-label">
                           <div className="subtype-line"></div>
-                          {subType}
+                          {subType === 'Direct Category' ? 'Direct Entries' : subType}
                         </div>
 
                         <div className="product-grid">
@@ -495,7 +496,7 @@ export default function ProductsMaster() {
                               </div>
 
                               <div className="row-content">
-                                <span className="row-title">{product.SubSubType}</span>
+                                <span className="row-title">{product.SubSubType || product.SubType || product.Type}</span>
                                 <div className="row-desc" title={product.Description}>
                                   {product.Description || "No additional technical documentation provided."}
                                 </div>
@@ -580,7 +581,6 @@ export default function ProductsMaster() {
                 <div className="form-group">
                   <label className="form-label">Functional Domain</label>
                   <input
-                    required
                     list="datalist-subtype"
                     className="form-input"
                     value={formData.SubType}
@@ -597,7 +597,6 @@ export default function ProductsMaster() {
                 <div className="form-group">
                   <label className="form-label">Implementation / Solution</label>
                   <input
-                    required
                     list="datalist-subsubtype"
                     className="form-input"
                     style={{ fontWeight: 700, color: 'var(--primary-color)' }}

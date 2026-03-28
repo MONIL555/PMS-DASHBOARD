@@ -231,8 +231,8 @@ const Leads = () => {
       ...addLeadData,
       Product_Reference: product._id
     });
-    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
-    toast.success(`Service "${product.SubSubType}" selected!`);
+    setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
+    toast.success(`Service "${product.SubSubType || product.SubType || product.Type}" selected!`);
   };
 
   const handleConvertProductSelect = (product: any) => {
@@ -240,8 +240,8 @@ const Leads = () => {
       ...convertData,
       Product_Reference: product._id
     });
-    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
-    toast.success(`Service "${product.SubSubType}" selected!`);
+    setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
+    toast.success(`Service "${product.SubSubType || product.SubType || product.Type}" selected!`);
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -449,10 +449,10 @@ const Leads = () => {
                 <td>
                   <div style={{ fontSize: '0.85rem' }}>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                      {lead.Product_Reference?.Type} / {lead.Product_Reference?.SubType}
+                      {[lead.Product_Reference?.Type, lead.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                     </div>
                     <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
-                      {lead.Product_Reference?.SubSubType || '-'}
+                      {lead.Product_Reference?.SubSubType || lead.Product_Reference?.SubType || lead.Product_Reference?.Type || '-'}
                     </div>
                   </div>
                 </td>
@@ -515,9 +515,9 @@ const Leads = () => {
                     <strong className="text-secondary">Service Required:</strong>
                     <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
                       <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {selectedDetailLead.Product_Reference?.Type} / {selectedDetailLead.Product_Reference?.SubType}
+                        {[selectedDetailLead.Product_Reference?.Type, selectedDetailLead.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                       </span>
-                      <span className="font-bold text-blue-700">{selectedDetailLead.Product_Reference?.SubSubType || '-'}</span>
+                      <span className="font-bold text-blue-700">{selectedDetailLead.Product_Reference?.SubSubType || selectedDetailLead.Product_Reference?.SubType || selectedDetailLead.Product_Reference?.Type || '-'}</span>
                     </div>
                   </div>
                   <div><strong className="text-secondary">Source:</strong> {selectedDetailLead.Source_Reference?.Source_Name || '-'}</div>
@@ -568,7 +568,7 @@ const Leads = () => {
                       onClick={() => {
                         setEditLeadId(selectedDetailLead._id);
                         setClientSearchName(selectedDetailLead.Client_Reference?.Company_Name || '');
-                        setProductSearchName(selectedDetailLead.Product_Reference ? `${selectedDetailLead.Product_Reference.Type} > ${selectedDetailLead.Product_Reference.SubType} > ${selectedDetailLead.Product_Reference.SubSubType}` : '');
+                        setProductSearchName(selectedDetailLead.Product_Reference ? [selectedDetailLead.Product_Reference.Type, selectedDetailLead.Product_Reference.SubType, selectedDetailLead.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '');
                         setAddLeadData({
                           Client_Reference: selectedDetailLead.Client_Reference?._id || '',
                           Product_Reference: selectedDetailLead.Product_Reference?._id || '',
@@ -590,7 +590,7 @@ const Leads = () => {
                       style={{ padding: '0.5rem 1rem' }}
                       onClick={() => {
                         openConvertModal(selectedDetailLead);
-                        setProductSearchName(selectedDetailLead.Product_Reference ? `${selectedDetailLead.Product_Reference.Type} > ${selectedDetailLead.Product_Reference.SubType} > ${selectedDetailLead.Product_Reference.SubSubType}` : '');
+                        setProductSearchName(selectedDetailLead.Product_Reference ? [selectedDetailLead.Product_Reference.Type, selectedDetailLead.Product_Reference.SubType, selectedDetailLead.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '');
                         setSelectedDetailLead(null);
                       }}
                     >

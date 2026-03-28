@@ -176,8 +176,8 @@ const Projects = () => {
         ...addProjectData,
         Product_Reference: product._id
       });
-      setProductSearchName(product.Product_Name);
-      toast.success(`Product "${product.Product_Name}" selected!`);
+      setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+      toast.success(`Service "${product.SubSubType}" selected!`);
     }
   };
 
@@ -1273,13 +1273,13 @@ const Projects = () => {
                           setClientSearchName(q.Client_Reference.Company_Name);
                         }
                         if (q?.Product_Reference) {
-                          setProductSearchName(q.Product_Reference.Product_Name);
+                          setProductSearchName(`${q.Product_Reference.Type} > ${q.Product_Reference.SubType} > ${q.Product_Reference.SubSubType}`);
                         }
                       }}
                     >
                       <option value="">-- No Quotation --</option>
-                      {quotations.map(q => (
-                        <option key={q._id} value={q._id}>{q.Quotation_ID} - {q.Product_Reference?.Product_Name || 'Unknown Product'}</option>
+                       {quotations.map(q => (
+                        <option key={q._id} value={q._id}>{q.Quotation_ID} - {q.Product_Reference ? `${q.Product_Reference.Type} / ${q.Product_Reference.SubSubType}` : 'Unknown Product'}</option>
                       ))}
                     </select>
                   ) : (
@@ -1305,13 +1305,13 @@ const Projects = () => {
                           setClientSearchName(l.Client_Reference.Company_Name);
                         }
                         if (l?.Product_Reference) {
-                          setProductSearchName(l.Product_Reference.Product_Name);
+                          setProductSearchName(`${l.Product_Reference.Type} > ${l.Product_Reference.SubType} > ${l.Product_Reference.SubSubType}`);
                         }
                       }}
                     >
                       <option value="">-- No Lead --</option>
-                      {leads.map(l => (
-                        <option key={l._id} value={l._id}>{l.Lead_ID} - {l.Client_Reference?.Company_Name || 'Unknown Client'}</option>
+                       {leads.map(l => (
+                        <option key={l._id} value={l._id}>{l.Lead_ID} - {l.Client_Reference?.Company_Name || 'Unknown Client'} ({l.Product_Reference ? `${l.Product_Reference.Type} / ${l.Product_Reference.SubSubType}` : 'Unknown Product'})</option>
                       ))}
                     </select>
                   )}

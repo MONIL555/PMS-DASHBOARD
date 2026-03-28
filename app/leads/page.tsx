@@ -231,8 +231,8 @@ const Leads = () => {
       ...addLeadData,
       Product_Reference: product._id
     });
-    setProductSearchName(product.Product_Name);
-    toast.success(`Product "${product.Product_Name}" selected!`);
+    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+    toast.success(`Service "${product.SubSubType}" selected!`);
   };
 
   const handleConvertProductSelect = (product: any) => {
@@ -240,8 +240,8 @@ const Leads = () => {
       ...convertData,
       Product_Reference: product._id
     });
-    setProductSearchName(product.Product_Name);
-    toast.success(`Product "${product.Product_Name}" selected!`);
+    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
+    toast.success(`Service "${product.SubSubType}" selected!`);
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -446,7 +446,16 @@ const Leads = () => {
                 <td>
                   <div className="font-medium text-primary">{lead.Client_Reference?.Company_Name || '-'}</div>
                 </td>
-                <td>{lead.Product_Reference?.Product_Name || '-'}</td>
+                <td>
+                  <div style={{ fontSize: '0.85rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                      {lead.Product_Reference?.Type} / {lead.Product_Reference?.SubType}
+                    </div>
+                    <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
+                      {lead.Product_Reference?.SubSubType || '-'}
+                    </div>
+                  </div>
+                </td>
                 <td>
                   <span className={`badge ${lead.Lead_Status === 'Converted' ? 'badge-green' : lead.Lead_Status === 'In Progress' ? 'badge-blue' : lead.Lead_Status === 'New' ? 'badge-gray' : 'badge-red'}`}>
                     {lead.Lead_Status}
@@ -502,7 +511,15 @@ const Leads = () => {
               <div>
                 <h3 style={{ fontSize: '1rem', color: 'var(--primary-color)', marginBottom: '1rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>Lead Details</h3>
                 <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.875rem' }}>
-                  <div><strong className="text-secondary">Service Required:</strong> <span className="font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{selectedDetailLead.Product_Reference?.Product_Name || '-'}</span></div>
+                  <div>
+                    <strong className="text-secondary">Service Required:</strong>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
+                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                        {selectedDetailLead.Product_Reference?.Type} / {selectedDetailLead.Product_Reference?.SubType}
+                      </span>
+                      <span className="font-bold text-blue-700">{selectedDetailLead.Product_Reference?.SubSubType || '-'}</span>
+                    </div>
+                  </div>
                   <div><strong className="text-secondary">Source:</strong> {selectedDetailLead.Source_Reference?.Source_Name || '-'}</div>
                   <div><strong className="text-secondary">Inquiry Date:</strong> {formatDateDDMMYYYY(selectedDetailLead.Inquiry_Date)}</div>
                   <div>
@@ -551,7 +568,7 @@ const Leads = () => {
                       onClick={() => {
                         setEditLeadId(selectedDetailLead._id);
                         setClientSearchName(selectedDetailLead.Client_Reference?.Company_Name || '');
-                        setProductSearchName(selectedDetailLead.Product_Reference?.Product_Name || '');
+                        setProductSearchName(selectedDetailLead.Product_Reference ? `${selectedDetailLead.Product_Reference.Type} > ${selectedDetailLead.Product_Reference.SubType} > ${selectedDetailLead.Product_Reference.SubSubType}` : '');
                         setAddLeadData({
                           Client_Reference: selectedDetailLead.Client_Reference?._id || '',
                           Product_Reference: selectedDetailLead.Product_Reference?._id || '',
@@ -573,7 +590,7 @@ const Leads = () => {
                       style={{ padding: '0.5rem 1rem' }}
                       onClick={() => {
                         openConvertModal(selectedDetailLead);
-                        setProductSearchName(selectedDetailLead.Product_Reference?.Product_Name || '');
+                        setProductSearchName(selectedDetailLead.Product_Reference ? `${selectedDetailLead.Product_Reference.Type} > ${selectedDetailLead.Product_Reference.SubType} > ${selectedDetailLead.Product_Reference.SubSubType}` : '');
                         setSelectedDetailLead(null);
                       }}
                     >

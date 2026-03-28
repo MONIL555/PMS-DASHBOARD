@@ -363,7 +363,7 @@ const ProjectDetails = () => {
               </span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0, fontWeight: 500 }}>
-              ID: {project.Project_ID} &nbsp;•&nbsp; {project.Client_Reference?.Company_Name || project.Lead_Reference?.Client_Reference?.Company_Name || 'Standalone Project'} &nbsp;•&nbsp; {project.Project_Type?.Type_Name || project.Project_Type || 'Type Not Configured'} &nbsp;•&nbsp; {project.Product_Reference?.Product_Name || project.Start_Details?.Product_Name_Service || project.Quotation_Reference?.Product_Reference?.Product_Name || 'Service'}
+              ID: {project.Project_ID} &nbsp;•&nbsp; {project.Client_Reference?.Company_Name || project.Lead_Reference?.Client_Reference?.Company_Name || 'Standalone Project'} &nbsp;•&nbsp; {project.Project_Type?.Type_Name || project.Project_Type || 'Type Not Configured'} &nbsp;•&nbsp; {project.Product_Reference ? `${project.Product_Reference.Type} > ${project.Product_Reference.SubType} > ${project.Product_Reference.SubSubType}` : project.Start_Details?.Product_Name_Service || project.Quotation_Reference?.Product_Reference ? `${project.Quotation_Reference.Product_Reference.Type} > ${project.Quotation_Reference.Product_Reference.SubType} > ${project.Quotation_Reference.Product_Reference.SubSubType}` : 'Service'}
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>

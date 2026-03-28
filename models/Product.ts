@@ -3,7 +3,9 @@ import Counter from './Counter';
 
 export interface IProduct extends Document {
   Product_ID: string;
-  Product_Name: string;
+  Type: string;
+  SubType: string;
+  SubSubType: string;
   Description?: string;
   IsActive: boolean;
   createdAt: Date;
@@ -17,11 +19,17 @@ const ProductSchema = new Schema<IProduct, IProductModel>({
     type: String,
     unique: true
   },
-  Product_Name: {
+  Type: {
     type: String,
-    required: [true, "Product Name is required"],
-    trim: true,
-    unique: true // Product names should be unique in the master list
+    required: [true, "Product Type is required"]
+  },
+  SubType: {
+    type: String,
+    required: [true, "Sub Type is required"]
+  },
+  SubSubType: {
+    type: String,
+    required: [true, "Sub-Sub Type is required"]
   },
   Description: {
     type: String,
@@ -35,6 +43,9 @@ const ProductSchema = new Schema<IProduct, IProductModel>({
   timestamps: true
 });
 
+// Compound Unique Index: Ensure each hierarchical path only exists once
+ProductSchema.index({ Type: 1, SubType: 1, SubSubType: 1 }, { unique: true });
+
 // Auto-Increment Product_ID (PRD-0001)
 ProductSchema.pre('save', async function() {
   if (this.isNew) {
@@ -46,5 +57,10 @@ ProductSchema.pre('save', async function() {
     this.Product_ID = `PRD-${counter.seq.toString().padStart(4, '0')}`;
   }
 });
+
+// Force model re-initialization if needed in development
+if (mongoose.models.Product) {
+  // delete mongoose.models.Product; // Only if you suspect serious ghosting
+}
 
 export default mongoose.models.Product as IProductModel || mongoose.model<IProduct, IProductModel>('Product', ProductSchema);

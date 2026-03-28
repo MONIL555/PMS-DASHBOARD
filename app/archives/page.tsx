@@ -166,10 +166,10 @@ const CancelledItems = () => {
               let identifierName2 = 'Unknown';
               const data = item.Document_Data;
               if (data) {
-                if (item.Original_Collection === 'Lead') identifierName = data.Product_Reference?.Product_Name || 'Title/ Service not Defined';
-                if (item.Original_Collection === 'Quotation') identifierName = data.Product_Reference?.Product_Name || data.Client_Reference?.Company_Name || 'Title/ Service not Defined';
+                if (item.Original_Collection === 'Lead') identifierName = data.Product_Reference ? `${data.Product_Reference.Type} / ${data.Product_Reference.SubSubType}` : 'Title/ Service not Defined';
+                if (item.Original_Collection === 'Quotation') identifierName = data.Product_Reference ? `${data.Product_Reference.Type} / ${data.Product_Reference.SubSubType}` : data.Client_Reference?.Company_Name || 'Title/ Service not Defined';
                 if (item.Original_Collection === 'Project') identifierName = data.Project_Type?.Type_Name || 'Title/ Service not Defined';
-                if (item.Original_Collection === 'Project') identifierName2 = data.Product_Reference?.Product_Name || 'Title/ Service not Defined';
+                if (item.Original_Collection === 'Project') identifierName2 = data.Product_Reference ? `${data.Product_Reference.Type} / ${data.Product_Reference.SubSubType}` : 'Title/ Service not Defined';
                 if (item.Original_Collection === 'Ticket') identifierName = data.Title || data.Client_Reference?.Company_Name || 'Title/ Service not Defined';
               }
 
@@ -262,7 +262,7 @@ const CancelledItems = () => {
                   </div>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Product/Service</p>
-                    <p style={{ fontWeight: 500, margin: 0 }}>{selectedItem.Document_Data?.Product_Reference?.Product_Name || 'N/A'}</p>
+                    <p style={{ fontWeight: 500, margin: 0 }}>{selectedItem.Document_Data?.Product_Reference ? `${selectedItem.Document_Data.Product_Reference.Type} > ${selectedItem.Document_Data.Product_Reference.SubType} > ${selectedItem.Document_Data.Product_Reference.SubSubType}` : 'N/A'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Source</p>
@@ -279,7 +279,7 @@ const CancelledItems = () => {
                 <>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Product/Service</p>
-                    <p style={{ fontWeight: 500, margin: 0 }}>{selectedItem.Document_Data?.Product_Reference?.Product_Name || 'N/A'}</p>
+                    <p style={{ fontWeight: 500, margin: 0 }}>{selectedItem.Document_Data?.Product_Reference ? `${selectedItem.Document_Data.Product_Reference.Type} > ${selectedItem.Document_Data.Product_Reference.SubType} > ${selectedItem.Document_Data.Product_Reference.SubSubType}` : 'N/A'}</p>
                   </div>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Project Type</p>

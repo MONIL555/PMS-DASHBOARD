@@ -41,26 +41,30 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
   useEffect(() => {
     if (value && value.length > 0) {
-      const filtered = products.filter(p =>
-        p.Product_Name?.toLowerCase().includes(value.toLowerCase())
+      const filtered = products.filter(p => {
+        const type = p.Type?.toLowerCase() || '';
+        const subType = p.SubType?.toLowerCase() || '';
+        const subSub = p.SubSubType?.toLowerCase() || '';
+        const search = value.toLowerCase();
+        return type.includes(search) || subType.includes(search) || subSub.includes(search);
+      });
+
+      // Check if the current value matches a full hierarchical path exactly
+      const hasExactMatch = filtered.some(p => 
+        `${p.Type} > ${p.SubType} > ${p.SubSubType}` === value
       );
 
-      // Check if the current value is an exact match for one of the filtered results
-      const hasExactMatch = filtered.some(p => p.Product_Name === value);
-
-      setFilteredProducts(filtered.slice(0, 10)); // Allow more than 5 results if needed, but 10 is safe
+      setFilteredProducts(filtered.slice(0, 15));
       setIsOpen(filtered.length > 0 && !hasExactMatch);
     } else {
-      // If empty, show some suggestions? Or just close. Usually better to show all if focused and empty, or just close.
-      // Based on ClientAutocomplete, it closes if length <= 1.
       setIsOpen(false);
     }
   }, [value, products]);
 
-  // Handle focus to show all products if value is empty
+  // Handle focus to show some suggestions if value is empty
   const handleFocus = () => {
     if (!value) {
-      setFilteredProducts(products.slice(0, 10));
+      setFilteredProducts(products.slice(0, 15));
       setIsOpen(products.length > 0);
     }
   };
@@ -75,6 +79,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
+  const getDisplayPath = (p: any) => `${p.Type} > ${p.SubType} > ${p.SubSubType}`;
+
   return (
     <div ref={wrapperRef} className={`relative ${className}`} style={{ position: 'relative' }}>
       <div className="relative">
@@ -82,12 +88,13 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           type="text"
           className="form-input"
           style={{
-            padding: '0.4rem 0.75rem',
+            padding: '0.45rem 0.75rem',
             fontSize: '0.85rem',
             width: '100%',
             backgroundColor: 'var(--input-bg)',
             border: '1px solid var(--border-color)',
-            color: 'var(--text-primary)'
+            color: 'var(--text-primary)',
+            borderRadius: '0.5rem'
           }}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -96,12 +103,6 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           autoComplete="off"
           required
         />
-        {/*<div 
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-          style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)' }}
-        >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-        </div>*/}
       </div>
 
       {isOpen && (
@@ -112,11 +113,11 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             zIndex: 1000,
             width: '100%',
             marginTop: '0.25rem',
-            backgroundColor: 'white',
+            backgroundColor: '#ffffff',
             border: '1px solid #e2e8f0',
-            borderRadius: '0.5rem',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            maxHeight: '250px',
+            borderRadius: '0.75rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            maxHeight: '320px',
             overflowY: 'auto'
           }}
         >
@@ -125,12 +126,12 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               key={product._id}
               className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b last:border-0 border-slate-100 transition-colors"
               style={{
-                padding: '0.6rem 1rem',
+                padding: '0.75rem 1rem',
                 cursor: 'pointer',
                 borderBottom: '1px solid #f1f5f9',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.75rem'
+                gap: '0.85rem'
               }}
               onClick={() => {
                 onSelect(product);
@@ -138,17 +139,27 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               }}
             >
               <div style={{
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                padding: '0.4rem',
-                borderRadius: '6px',
-                color: '#3b82f6'
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                padding: '0.5rem',
+                borderRadius: '8px',
+                color: '#3b82f6',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
-                <Package size={14} />
+                <Package size={16} />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e293b' }}>{product.Product_Name}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{product.Type}</span>
+                  <span style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>/</span>
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>{product.SubType}</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1e293b' }}>
+                  {product.SubSubType}
+                </span>
                 {product.Description && (
-                  <span style={{ fontSize: '0.7rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '400px' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {product.Description}
                   </span>
                 )}
@@ -156,8 +167,8 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             </div>
           ))}
           {filteredProducts.length === 0 && (
-            <div style={{ padding: '1rem', textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
-              No products found
+            <div style={{ padding: '2rem 1rem', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
+              No master records found
             </div>
           )}
         </div>

@@ -42,7 +42,11 @@ export async function GET(request: Request) {
 
       // 2. Find matching products
       const matchingProducts = await Product.find({
-        Product_Name: searchRegex
+        $or: [
+          { Type: searchRegex },
+          { SubType: searchRegex },
+          { SubSubType: searchRegex }
+        ]
       }).select('_id');
 
       const productIds = matchingProducts.map(p => p._id);

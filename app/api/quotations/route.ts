@@ -35,7 +35,13 @@ export async function GET(request: Request) {
     // Search Logic
     if (search) {
         const clientIds = await Client.find({ Company_Name: { $regex: search, $options: 'i' } }).distinct('_id');
-        const productIds = await Product.find({ Product_Name: { $regex: search, $options: 'i' } }).distinct('_id');
+        const productIds = await Product.find({
+          $or: [
+            { Type: { $regex: search, $options: 'i' } },
+            { SubType: { $regex: search, $options: 'i' } },
+            { SubSubType: { $regex: search, $options: 'i' } }
+          ]
+        }).distinct('_id');
         
         filter.$or = [
             { Quotation_ID: { $regex: search, $options: 'i' } },

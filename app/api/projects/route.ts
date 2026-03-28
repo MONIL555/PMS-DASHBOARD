@@ -53,7 +53,13 @@ export async function GET(request: Request) {
     // Search Logic
     if (search) {
         const clientIds = await Client.find({ Company_Name: { $regex: search, $options: 'i' } }).distinct('_id');
-        const productIds = await Product.find({ Product_Name: { $regex: search, $options: 'i' } }).distinct('_id');
+        const productIds = await Product.find({
+          $or: [
+            { Type: { $regex: search, $options: 'i' } },
+            { SubType: { $regex: search, $options: 'i' } },
+            { SubSubType: { $regex: search, $options: 'i' } }
+          ]
+        }).distinct('_id');
         
         filter.$or = [
             { Project_Name: { $regex: search, $options: 'i' } },
@@ -72,7 +78,7 @@ export async function GET(request: Request) {
     const totalItems = await Project.countDocuments(filter);
     const projects = await Project.find(filter)
         .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
-        .populate('Product_Reference', 'Product_Name')
+        .populate('Product_Reference', 'Type SubType SubSubType')
         .populate('Lead_Reference', 'Lead_ID')
         .populate('Project_Type', 'Type_Name')
         .populate('Quotation_Reference', 'Quotation_ID Commercial Requirement Project_Scope_Description')
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
     }
     await newProject.populate([
         { path: 'Client_Reference', select: 'Company_Name Client_Name Contact_Number' },
-        { path: 'Product_Reference', select: 'Product_Name' },
+        { path: 'Product_Reference', select: 'Type SubType SubSubType' },
         { path: 'Lead_Reference', select: 'Lead_ID' },
         { path: 'Project_Type', select: 'Type_Name' },
         { path: 'Quotation_Reference', select: 'Quotation_ID Commercial Requirement Project_Scope_Description' }

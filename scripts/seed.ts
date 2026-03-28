@@ -44,6 +44,14 @@ async function seed() {
       Ticket.deleteMany({}),
       Counter.deleteMany({}) // Reset all counters for clean slate
     ]);
+
+    try {
+      await Product.collection.dropIndexes();
+      console.log("✅ Product indexes dropped.");
+    } catch (e) {
+      console.log("ℹ️ No product indexes to drop or collection empty.");
+    }
+
     console.log("✅ Database wiped clean!");
 
     // ============================================
@@ -90,35 +98,38 @@ async function seed() {
     }
     console.log(`✅ Seeded ${leadSources.length} Lead Sources with descriptions.`);
 
-    // Products
-    const productPool = [
-      { name: "Enterprise ERP", desc: "Comprehensive business management suite for large organizations." },
-      { name: "NextGen CRM", desc: "Advanced customer relationship management with AI insights." },
-      { name: "Cloud Infrastructure", desc: "Scalable server and network solutions for modern web apps." },
-      { name: "Custom Mobile App", desc: "Tailored iOS and Android applications with cross-platform support." },
-      { name: "SEO & Marketing", desc: "Digital visibility and brand growth strategy services." },
-      { name: "Machine Learning Engine", desc: "Predictive modeling and data pattern recognition tools." },
-      { name: "Patient Portal V2", desc: "Secure healthcare communication and medical record access." },
-      { name: "Aviation Tracking", desc: "Real-time flight, fleet, and maintenance monitoring system." },
-      { name: "Warehouse Automation", desc: "Robotic and software-driven inventory and logistics management." },
-      { name: "Payment Gateway", desc: "Secure, multi-currency online transaction processing API." },
-      { name: "Cybersecurity Suite", desc: "Multi-layered threat protection, encryption, and monitoring." },
-      { name: "E-learning Platform", desc: "Digital classroom, course management, and student tracking." },
-      { name: "Supply Chain Manager", desc: "End-to-end logistics and vendor lifecycle optimization." },
-      { name: "Social Engine", desc: "Scalable community and social networking framework." },
-      { name: "HR Portal", desc: "Employee lifecycle, attendance, and payroll management." },
-      { name: "Big Data Analytics", desc: "Large-scale data processing for actionable business insights." },
-      { name: "IoT Gateway", desc: "Smart device connectivity and sensor data aggregation." },
-      { name: "Blockchain Core", desc: "Decentralized ledger and smart contract integration platform." },
-      { name: "Video Streamer", desc: "High-performance media delivery and real-time encoding." },
-      { name: "FinTech Hub", desc: "Integrated digital banking and financial services toolkit." }
+     const productPool = [
+      // Software Solutions
+      { type: "Software Solution", subType: "ERP (Enterprise Resource Planning)", subSub: "Core Module", desc: "Foundational ERP features for business management." },
+      { type: "Software Solution", subType: "ERP (Enterprise Resource Planning)", subSub: "Finance & Accounting", desc: "Advanced financial tracking and reporting." },
+      { type: "Software Solution", subType: "ERP (Enterprise Resource Planning)", subSub: "Inventory & Warehouse", desc: "Real-time stock management and audit." },
+      { type: "Software Solution", subType: "CRM (Customer Relation)", subSub: "Sales Pipeline", desc: "Visual sales tracking and forecasting." },
+      { type: "Software Solution", subType: "CRM (Customer Relation)", subSub: "Customer Support", desc: "Integrated helpdesk and ticketing system." },
+      { type: "Software Solution", subType: "HRMS (Human Resource)", subSub: "Payroll Management", desc: "Automated salary processing and statutory compliance." },
+      { type: "Software Solution", subType: "HRMS (Human Resource)", subSub: "Attendance & Leave", desc: "Biometric and manual attendance management." },
+      { type: "Software Solution", subType: "Custom Web Application", subSub: "E-commerce Portal", desc: "Scalable online storefront with payment integration." },
+      
+      // Services
+      { type: "Services", subType: "Development Services", subSub: "Web Development", desc: "Modern, responsive web applications using React/Next.js." },
+      { type: "Services", subType: "Development Services", subSub: "Mobile App Development", desc: "Native and cross-platform mobile solutions." },
+      { type: "Services", subType: "Cloud & Infrastructure", subSub: "AWS/Azure Setup", desc: "Professional cloud infrastructure provisioning." },
+      { type: "Services", subType: "Consultancy", subSub: "Cybersecurity Audit", desc: "Comprehensive vulnerability assessment and mitigation." },
+      
+      // Hardware
+      { type: "Hardware", subType: "Computing Devices", subSub: "Laptops", desc: "High-performance enterprise laptop for professionals." },
+      { type: "Hardware", subType: "Networking Equipment", subSub: "Routers", desc: "High-speed core routing for large offices." },
+      { type: "Hardware", subType: "Networking Equipment", subSub: "Firewalls", desc: "Next-gen security gateway for network protection." },
+      { type: "Hardware", subType: "Storage Solutions", subSub: "Network Attached Storage (NAS)", desc: "Centralized data backup and sharing." },
+      { type: "Hardware", subType: "Peripherals", subSub: "Printers & Scanners", desc: "High-capacity network printer for office use." }
     ];
 
     const products = [];
     for (const item of productPool) {
       const prod = new Product({ 
-        Product_Name: item.name,
-        Description: item.desc // Added Description field
+        Type: item.type,
+        SubType: item.subType,
+        SubSubType: item.subSub,
+        Description: item.desc
       });
       await prod.save();
       products.push(prod);

@@ -32,7 +32,13 @@ export async function GET(request: Request) {
 
         if (searchStr) {
             const clientIds = await Client.find({ Company_Name: { $regex: searchStr, $options: 'i' } }).distinct('_id');
-            const productIds = await Product.find({ Product_Name: { $regex: searchStr, $options: 'i' } }).distinct('_id');
+            const productIds = await Product.find({
+              $or: [
+                { Type: { $regex: searchStr, $options: 'i' } },
+                { SubType: { $regex: searchStr, $options: 'i' } },
+                { SubSubType: { $regex: searchStr, $options: 'i' } }
+              ]
+            }).distinct('_id');
             
             const orClauses: any[] = [];
             if (modelName === 'Lead') {
@@ -113,14 +119,14 @@ export async function GET(request: Request) {
             model = Lead;
             populateKeys = [
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Email Contact_Number' },
-                { path: 'Product_Reference', select: 'Product_Name' },
+                { path: 'Product_Reference', select: 'Type SubType SubSubType' },
                 { path: 'Source_Reference', select: 'Source_Name' }
             ];
         } else if (item.Original_Collection === 'Quotation') {
             model = Quotation;
             populateKeys = [
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Email Contact_Number' },
-                { path: 'Product_Reference', select: 'Product_Name' },
+                { path: 'Product_Reference', select: 'Type SubType SubSubType' },
                 { path: 'Project_Type', select: 'Type_Name' }
             ];
         } else if (item.Original_Collection === 'Project') {
@@ -129,7 +135,7 @@ export async function GET(request: Request) {
                 { path: 'Lead_Reference', select: 'Lead_ID' },
                 { path: 'Quotation_Reference', select: 'Quotation_ID' },
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Email Contact_Number' },
-                { path: 'Product_Reference', select: 'Product_Name' },
+                { path: 'Product_Reference', select: 'Type SubType SubSubType' },
                 { path: 'Project_Type', select: 'Type_Name' }
             ];
         } else if (item.Original_Collection === 'Ticket') {

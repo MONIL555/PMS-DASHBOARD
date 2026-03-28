@@ -21,7 +21,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     return NextResponse.json(updatedProduct);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("API ID Error:", error);
+    let message = "An internal update error occurred.";
+    if (error.name === 'ValidationError') {
+      message = "Validation Failed: Detailed mapping data is incomplete.";
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

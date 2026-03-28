@@ -169,15 +169,15 @@ const Quotations = () => {
         ...addQuotationData,
         Product_Reference: product._id
       });
-      setProductSearchName(product.Product_Name);
+      setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
     } else if (isEditModalOpen) {
       setEditQuotationData({
         ...editQuotationData,
         Product_Reference: product._id
       });
-      setProductSearchName(product.Product_Name);
+      setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
     }
-    toast.success(`Product "${product.Product_Name}" selected!`);
+    toast.success(`Service "${product.SubSubType}" selected!`);
   };
 
   const handleConvertProductSelect = (product: any) => {
@@ -185,7 +185,7 @@ const Quotations = () => {
       ...convertData,
       Product_Reference: product._id
     });
-    setProductSearchName(product.Product_Name);
+    setProductSearchName(`${product.Type} > ${product.SubType} > ${product.SubSubType}`);
   };
 
   const loadLeadsData = async () => {
@@ -228,7 +228,7 @@ const Quotations = () => {
 
   useEffect(() => {
     if (selectedQuotation) {
-      setProductSearchName(selectedQuotation.Product_Reference?.Product_Name || '');
+      setProductSearchName(selectedQuotation.Product_Reference ? `${selectedQuotation.Product_Reference.Type} > ${selectedQuotation.Product_Reference.SubType} > ${selectedQuotation.Product_Reference.SubSubType}` : '');
       setConvertData({
         Client_Reference: selectedQuotation.Client_Reference?._id || selectedQuotation.Lead_ID?.Client_Reference?._id || '',
         Product_Reference: selectedQuotation.Product_Reference?._id || '',
@@ -603,7 +603,16 @@ const Quotations = () => {
               >
                 <td><span className="font-semibold text-primary">{qtn.Quotation_ID}</span></td>
                 <td>{qtn.Client_Reference?.Company_Name || qtn.Lead_ID?.Client_Reference?.Company_Name || qtn.Client_Info || 'Unknown Lead'}</td>
-                <td>{qtn.Product_Reference?.Product_Name || '-'}</td>
+                 <td>
+                  <div style={{ fontSize: '0.85rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                      {qtn.Product_Reference?.Type} / {qtn.Product_Reference?.SubType}
+                    </div>
+                    <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
+                      {qtn.Product_Reference?.SubSubType || '-'}
+                    </div>
+                  </div>
+                </td>
                 <td className="font-mono">Rs. {qtn.Commercial?.toLocaleString() || '0'}</td>
                 <td>{qtn.Timeline || '-'}</td>
                 <td>
@@ -659,7 +668,15 @@ const Quotations = () => {
               <div>
                 <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.25rem' }}>Proposal Details</h3>
                 <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
-                  <div><strong className="text-secondary">Service/Product:</strong> <span className="font-medium bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{selectedDetailQuotation.Product_Reference?.Product_Name || '-'}</span></div>
+                  <div>
+                    <strong className="text-secondary">Service/Product:</strong>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
+                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                        {selectedDetailQuotation.Product_Reference?.Type} / {selectedDetailQuotation.Product_Reference?.SubType}
+                      </span>
+                      <span className="font-bold text-blue-700">{selectedDetailQuotation.Product_Reference?.SubSubType || '-'}</span>
+                    </div>
+                  </div>
                   <div><strong className="text-secondary">Company Name:</strong> {selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || selectedDetailQuotation.Client_Info || '-'}</div>
                   {(selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name) && (
                     <div><strong className="text-secondary">Client Name:</strong> {selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name}</div>
@@ -804,7 +821,7 @@ const Quotations = () => {
                             Followup_Notification: selectedDetailQuotation.Followup_Notification || false
                           });
                           setClientSearchName(selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || '');
-                          setProductSearchName(selectedDetailQuotation.Product_Reference?.Product_Name || '');
+                          setProductSearchName(selectedDetailQuotation.Product_Reference ? `${selectedDetailQuotation.Product_Reference.Type} > ${selectedDetailQuotation.Product_Reference.SubType} > ${selectedDetailQuotation.Product_Reference.SubSubType}` : '');
                           setSelectedDetailQuotation(null);
                           setIsEditModalOpen(true);
                         }}
@@ -845,7 +862,7 @@ const Quotations = () => {
             <form onSubmit={handleConvert}>
               <div style={{ marginBottom: '1rem', padding: '0.5rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
                 <p style={{ fontSize: '0.875rem', color: 'var(--primary-color)', margin: 0, marginBottom: '0.25rem' }}>Converting Quotation: <strong>{selectedQuotation.Quotation_ID}</strong></p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Service: {selectedQuotation.Product_Reference?.Product_Name}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Service: {selectedQuotation.Product_Reference ? `${selectedQuotation.Product_Reference.Type} > ${selectedQuotation.Product_Reference.SubType} > ${selectedQuotation.Product_Reference.SubSubType}` : '-'}</p>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>

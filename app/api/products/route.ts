@@ -14,27 +14,43 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limitInput = searchParams.get('limit');
+    const limit = limitInput ? parseInt(limitInput) : 0;
     const search = searchParams.get('search') || '';
     const activeOnly = searchParams.get('active') === 'true';
     
     const query: any = activeOnly ? { IsActive: true } : {};
     if (search) {
-        query.Product_Name = { $regex: search, $options: 'i' };
+        query.$or = [
+            { Type: { $regex: search, $options: 'i' } },
+            { SubType: { $regex: search, $options: 'i' } },
+            { SubSubType: { $regex: search, $options: 'i' } },
+            { Description: { $regex: search, $options: 'i' } }
+        ];
     }
 
     const totalItems = await Product.countDocuments(query);
-    const products = await Product.find(query)
-        .sort({ Product_Name: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit);
+    let productsQuery = Product.find(query).sort({ Type: 1, SubType: 1, SubSubType: 1 });
+
+    if (limit > 0) {
+        productsQuery = productsQuery.skip((page - 1) * limit).limit(limit);
+    }
+
+    const products = await productsQuery;
 
     return NextResponse.json({
         products,
         totalItems
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("API Error:", error);
+    let message = "A system-wide classification error occurred.";
+    if (error.name === 'ValidationError') {
+      message = "Validation Failed: Incomplete hierarchical classification path.";
+    } else if (error.code === 11000) {
+      message = "A record with this exact classification already exists.";
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -47,12 +63,22 @@ export async function POST(request: Request) {
 
     const data = await request.json();
     
-    const existing = await Product.findOne({ Product_Name: { $regex: new RegExp(`^${data.Product_Name}$`, 'i') } });
+    // Check for existing product with the same category triple
+    const existing = await Product.findOne({
+      Type: data.Type,
+      SubType: data.SubType,
+      SubSubType: data.SubSubType
+    });
     if (existing) {
-      return NextResponse.json({ error: "A product with this name already exists." }, { status: 400 });
+      return NextResponse.json({ error: "A product with this hierarchical path already exists." }, { status: 400 });
     }
 
-    const newProduct = new Product(data);
+    const newProduct = new Product({
+      ...data,
+      Type: data.Type,
+      SubType: data.SubType,
+      SubSubType: data.SubSubType
+    });
     await newProduct.save();
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error: any) {

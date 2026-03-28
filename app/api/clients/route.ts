@@ -14,23 +14,32 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const activeOnly = searchParams.get('active') === 'true';
+    const sortBy = searchParams.get('sortBy') || 'Company-A-Z';
     
     const query: any = activeOnly ? { IsActive: true } : {};
     if (search) {
         query.$or = [
             { Company_Name: { $regex: search, $options: 'i' } },
+            { Client_ID: { $regex: search, $options: 'i' } },
             { Client_Name: { $regex: search, $options: 'i' } },
             { Contact_Number: { $regex: search, $options: 'i' } },
             { Email: { $regex: search, $options: 'i' } }
         ];
     }
 
+    let sortOption: any = { Company_Name: 1 };
+    if (sortBy === 'Company-A-Z') sortOption = { Company_Name: 1 };
+    if (sortBy === 'Company-Z-A') sortOption = { Company_Name: -1 };
+    if (sortBy === 'ID-ASC') sortOption = { Client_ID: 1 };
+    if (sortBy === 'ID-DESC') sortOption = { Client_ID: -1 };
+    if (sortBy === 'Newest') sortOption = { createdAt: -1 };
+
     const totalItems = await Client.countDocuments(query);
     const clients = await Client.find(query)
-        .sort({ createdAt: -1 })
+        .sort(sortOption)
         .skip((page - 1) * limit)
         .limit(limit);
 

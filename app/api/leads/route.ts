@@ -19,11 +19,23 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const filter: any = {};
 
     if (status !== 'All') {
       filter.Lead_Status = status;
+    }
+
+    if (startDate || endDate) {
+      filter.Inquiry_Date = {};
+      if (startDate) filter.Inquiry_Date.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.Inquiry_Date.$lte = end;
+      }
     }
 
     if (search) {
@@ -59,19 +71,59 @@ export async function GET(request: Request) {
       ];
     }
 
-    let sortOption: any = { createdAt: -1 };
-    if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
-    // Sorting by Company_Name (populated field) is tricky in basic find(). 
-    // Usually handled by aggregation or denormalization if needed.
-
     const total = await Lead.countDocuments(filter);
-    const leads = await Lead.find(filter)
-      .populate('Client_Reference')
-      .populate('Product_Reference')
-      .populate('Source_Reference')
-      .sort(sortOption)
-      .skip((page - 1) * limit)
-      .limit(limit);
+    
+    let leads;
+    if (sortBy.startsWith('Company')) {
+      const sortDirection = sortBy === 'Company-A-Z' ? 1 : -1;
+      leads = await Lead.aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: 'clients',
+            localField: 'Client_Reference',
+            foreignField: '_id',
+            as: 'Client_Reference'
+          }
+        },
+        { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'products',
+            localField: 'Product_Reference',
+            foreignField: '_id',
+            as: 'Product_Reference'
+          }
+        },
+        { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'leadsources',
+            localField: 'Source_Reference',
+            foreignField: '_id',
+            as: 'Source_Reference'
+          }
+        },
+        { $unwind: { path: '$Source_Reference', preserveNullAndEmptyArrays: true } },
+        { $sort: { 'Client_Reference.Company_Name': sortDirection } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+      ]);
+    } else {
+      let sortOption: any = { createdAt: -1 };
+      if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
+      if (sortBy === 'ID-ASC') sortOption = { Lead_ID: 1 };
+      if (sortBy === 'ID-DESC') sortOption = { Lead_ID: -1 };
+      if (sortBy === 'Newest') sortOption = { createdAt: -1 };
+
+      leads = await Lead.find(filter)
+        .populate('Client_Reference')
+        .populate('Product_Reference')
+        .populate('Source_Reference')
+        .sort(sortOption)
+        .skip((page - 1) * limit)
+        .limit(limit);
+    }
 
     // Fetch status counts for dashboard blocks
     const counts = await Lead.aggregate([

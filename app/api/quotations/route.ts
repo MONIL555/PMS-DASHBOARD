@@ -16,10 +16,14 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
+    const minComm = searchParams.get('minComm');
+    const maxComm = searchParams.get('maxComm');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const filter: any = {};
 
@@ -29,6 +33,24 @@ export async function GET(request: Request) {
             filter.Quotation_Status = { $in: ['Rejected', 'Cancelled'] };
         } else {
             filter.Quotation_Status = status;
+        }
+    }
+    
+    // Commercial Range Filter
+    if (minComm || maxComm) {
+        filter.Commercial = {};
+        if (minComm) filter.Commercial.$gte = parseFloat(minComm);
+        if (maxComm) filter.Commercial.$lte = parseFloat(maxComm);
+    }
+
+    // Date Range Filter
+    if (startDate || endDate) {
+        filter.Quotation_Date = {};
+        if (startDate) filter.Quotation_Date.$gte = new Date(startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filter.Quotation_Date.$lte = end;
         }
     }
 
@@ -51,25 +73,55 @@ export async function GET(request: Request) {
         ];
     }
 
-    // Sort Logic
+    const totalItems = await Quotation.countDocuments(filter);
+
+    let quotations;
     let sortOption: any = { createdAt: -1 };
+    
     if (sortBy === 'Oldest') sortOption = { Quotation_Date: 1 };
     if (sortBy === 'Newest') sortOption = { Quotation_Date: -1 };
     if (sortBy === 'Commercial-High') sortOption = { Commercial: -1 };
     if (sortBy === 'Commercial-Low') sortOption = { Commercial: 1 };
+    if (sortBy === 'ID-ASC') sortOption = { Quotation_ID: 1 };
+    if (sortBy === 'ID-DESC') sortOption = { Quotation_ID: -1 };
 
-    const totalItems = await Quotation.countDocuments(filter);
-    const quotations = await Quotation.find(filter)
-      .populate('Client_Reference')
-      .populate('Product_Reference')
-      .populate({ path: 'Project_Type', strictPopulate: false })
-      .sort(sortOption)
-      .skip((page - 1) * limit)
-      .limit(limit);
+    if (sortBy.startsWith('Company')) {
+        const sortDirection = sortBy === 'Company-A-Z' ? 1 : -1;
+        
+        quotations = await Quotation.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: 'clients',
+                    localField: 'Client_Reference',
+                    foreignField: '_id',
+                    as: 'Client_Reference'
+                }
+            },
+            { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'Product_Reference',
+                    foreignField: '_id',
+                    as: 'Product_Reference'
+                }
+            },
+            { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'Client_Reference.Company_Name': sortDirection } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ]);
+    } else {
+        quotations = await Quotation.find(filter)
+          .populate('Client_Reference')
+          .populate('Product_Reference')
+          .populate({ path: 'Project_Type', strictPopulate: false })
+          .sort(sortOption)
+          .skip((page - 1) * limit)
+          .limit(limit);
+    }
 
-    // SLA: Auto-migrate 'Sent' quotations older than 10 days to 'Follow-up'
-    // Note: We only check the returned list for simplicity, or we could do a global update.
-    // For consistency with original code, we'll check the fetched ones.
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     let needsRefresh = false;
     for (const q of quotations) {
@@ -80,13 +132,28 @@ export async function GET(request: Request) {
         }
     }
 
-    const finalQuotations = needsRefresh ? await Quotation.find(filter)
-      .populate('Client_Reference')
-      .populate('Product_Reference')
-      .populate({ path: 'Project_Type', strictPopulate: false })
-      .sort(sortOption)
-      .skip((page - 1) * limit)
-      .limit(limit) : quotations;
+    const finalQuotations = needsRefresh ? (
+        sortBy.startsWith('Company') ? await Quotation.aggregate([
+            { $match: filter },
+            {
+                $lookup: { from: 'clients', localField: 'Client_Reference', foreignField: '_id', as: 'Client_Reference' }
+            },
+            { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: { from: 'products', localField: 'Product_Reference', foreignField: '_id', as: 'Product_Reference' }
+            },
+            { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'Client_Reference.Company_Name': sortBy === 'Company-A-Z' ? 1 : -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ]) : await Quotation.find(filter)
+          .populate('Client_Reference')
+          .populate('Product_Reference')
+          .populate({ path: 'Project_Type', strictPopulate: false })
+          .sort(sortOption)
+          .skip((page - 1) * limit)
+          .limit(limit)
+    ) : quotations;
 
     const statusCounts = {
         Sent: await Quotation.countDocuments({ Quotation_Status: 'Sent' }),

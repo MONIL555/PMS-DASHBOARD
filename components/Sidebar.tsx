@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -7,7 +8,7 @@ import {
   LayoutDashboard, Users, User, FileText, Briefcase,
   TicketIcon, Archive, Building2, Layers, Package,
   Link as LinkIcon, Shield, LogOut, ChevronLeft, ChevronRight,
-  User as UserIcon
+  User as UserIcon, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -22,6 +23,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const { hasPermission, loading, user } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
+  const [isMastersOpen, setIsMastersOpen] = useState(true);
 
   const handleLogout = async () => {
     try {
@@ -136,24 +138,44 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
               }}></div>
             )}
             {!isCollapsed && (
-              <h2 style={{
-                color: 'var(--text-secondary)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                textAlign: 'left',
-                padding: '0 1rem',
-                marginTop: '1rem',
-                marginBottom: '0.75rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>Masters</h2>
+              <div
+                onClick={() => setIsMastersOpen(!isMastersOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 1rem',
+                  marginTop: '1.5rem',
+                  marginBottom: '0.75rem',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }}
+              >
+                <h2 style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textAlign: 'left',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  margin: 0,
+                  marginRight: '1rem'
+                }}>Masters</h2>
+                <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isMastersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+              </div>
             )}
-            {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
-            {hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) && <SidebarLink to="/project-types" icon={<Layers size={20} />} label="Project Types" isCollapsed={isCollapsed} />}
-            {hasPermission(PERMISSIONS.PRODUCTS_VIEW) && <SidebarLink to="/products" icon={<Package size={20} />} label="Services" isCollapsed={isCollapsed} />}
-            {hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) && <SidebarLink to="/lead-sources" icon={<LinkIcon size={20} />} label="Lead Sources" isCollapsed={isCollapsed} />}
-            {hasPermission(PERMISSIONS.ROLES_VIEW) && <SidebarLink to="/roles" icon={<Shield size={20} />} label="Roles" isCollapsed={isCollapsed} />}
-            {hasPermission(PERMISSIONS.USERS_VIEW) && <SidebarLink to="/users" icon={<User size={20} />} label="Users" isCollapsed={isCollapsed} />}
+            {(isMastersOpen || isCollapsed) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
+                {hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) && <SidebarLink to="/project-types" icon={<Layers size={20} />} label="Project Types" isCollapsed={isCollapsed} />}
+                {hasPermission(PERMISSIONS.PRODUCTS_VIEW) && <SidebarLink to="/products" icon={<Package size={20} />} label="Services" isCollapsed={isCollapsed} />}
+                {hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) && <SidebarLink to="/lead-sources" icon={<LinkIcon size={20} />} label="Lead Sources" isCollapsed={isCollapsed} />}
+                {hasPermission(PERMISSIONS.ROLES_VIEW) && <SidebarLink to="/roles" icon={<Shield size={20} />} label="Roles" isCollapsed={isCollapsed} />}
+                {hasPermission(PERMISSIONS.USERS_VIEW) && <SidebarLink to="/users" icon={<User size={20} />} label="Users" isCollapsed={isCollapsed} />}
+              </div>
+            )}
           </>
         )}
       </nav>

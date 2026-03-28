@@ -7,7 +7,7 @@ import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import {
   X, Loader2, Search, Clock, Target, Rocket,
-  Package, PlayCircle, ArrowRightCircle, Ban
+  Package, PlayCircle, ArrowRightCircle, Ban, Plus, Briefcase
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
@@ -41,13 +41,13 @@ const Projects = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [statusCounts, setStatusCounts] = useState<any>({
-      Active: 0,
-      'On Hold': 0,
-      Closed: 0,
-      phaseCounts: { UAT: 0, Deployment: 0, Delivery: 0, GoLive: 0 }
+    Active: 0,
+    'On Hold': 0,
+    Closed: 0,
+    phaseCounts: { UAT: 0, Deployment: 0, Delivery: 0, GoLive: 0 }
   });
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 20;
 
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [selectedDetailProject, setSelectedDetailProject] = useState<any | null>(null);
@@ -126,13 +126,13 @@ const Projects = () => {
     try {
       const [projectsResponse, productsData] = await Promise.all([
         fetchProjects({
-            page: currentPage,
-            limit: ITEMS_PER_PAGE,
-            search: debouncedSearch,
-            phase: phaseFilter,
-            pipeline: pipelineFilter,
-            person: personFilter,
-            sortBy: sortBy
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: debouncedSearch,
+          phase: phaseFilter,
+          pipeline: pipelineFilter,
+          person: personFilter,
+          sortBy: sortBy
         }),
         fetchProducts({ active: true, limit: 100 })
       ]);
@@ -216,7 +216,7 @@ const Projects = () => {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-        setDebouncedSearch(searchTerm);
+      setDebouncedSearch(searchTerm);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
@@ -226,7 +226,7 @@ const Projects = () => {
   }, [debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter]);
 
   useEffect(() => {
-      loadData();
+    loadData();
   }, [currentPage, debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter]);
 
   const handlePhaseAdvance = async (prj: any, currentPhase: string) => {
@@ -433,41 +433,89 @@ const Projects = () => {
     GoLive: 0
   };
 
+  const toggleSort = (column: string) => {
+    if (column === 'ID') {
+      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    } else if (column === 'Company') {
+      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    } else if (column === 'Name') {
+      setSortBy(sortBy === 'Name-A-Z' ? 'Newest' : 'Name-A-Z');
+    } else if (column === 'Date') {
+      setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (column === 'ID') {
+      if (sortBy === 'ID-ASC') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'ID-DESC') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Company') {
+      if (sortBy === 'Company-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'Company-Z-A') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Name') {
+      if (sortBy === 'Name-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
+    } else if (column === 'Date') {
+      if (sortBy === 'Newest') return <span className="ml-1 text-blue-500">↓</span>;
+      if (sortBy === 'Oldest') return <span className="ml-1 text-blue-500">↑</span>;
+    }
+    return <span className="ml-1 text-gray-400 opacity-50">⇅</span>;
+  };
+
   return (
-    <div className="projects-page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>Projects</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Track your active projects and transition phases.</p>
+    <div className="page-container">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Briefcase className="text-blue-500" />
+            Projects
+          </h1>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Name or Company..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
+          </div>
         </div>
         {hasPermission(PERMISSIONS.PROJECTS_CREATE) && (
-          <button className="btn btn-primary" onClick={() => {
-            setIsAddModalOpen(true);
-            loadQuotations();
-          }}>Add Project</button>
+          <button
+            onClick={() => {
+              setIsAddModalOpen(true);
+              loadQuotations();
+            }}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Plus size={18} />
+            Add Project
+          </button>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem', marginTop: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
         {[
-          { label: 'UAT Phase', key: 'UAT Phase', count: phaseCountsOutput.UAT, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <Target size={22} /> },
-          { label: 'Deployment', key: 'Deployment Phase', count: phaseCountsOutput.Deployment, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Rocket size={22} /> },
-          { label: 'Delivery', key: 'Delivery Phase', count: phaseCountsOutput.Delivery, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Package size={22} /> },
-          { label: 'Go-Live Config', key: 'Go-Live Config', count: phaseCountsOutput.GoLive, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <PlayCircle size={22} /> }
+          { label: 'UAT Phase', key: 'UAT Phase', count: phaseCountsOutput.UAT, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <Target size={20} /> },
+          { label: 'Deployment', key: 'Deployment Phase', count: phaseCountsOutput.Deployment, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Rocket size={20} /> },
+          { label: 'Delivery', key: 'Delivery Phase', count: phaseCountsOutput.Delivery, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Package size={20} /> },
+          { label: 'Go-Live Config', key: 'Go-Live Config', count: phaseCountsOutput.GoLive, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <PlayCircle size={20} /> }
         ].map((block) => (
           <div
             key={block.key}
             className="premium-card"
             style={{
-              padding: '1.25rem',
+              padding: '1rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.25rem',
+              gap: '1rem',
               cursor: 'pointer',
-              borderRadius: '16px',
+              borderRadius: '12px',
               backgroundColor: phaseFilter === block.key ? block.bgColor : '#ffffff',
               boxShadow: phaseFilter === block.key
-                ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
+                ? `inset 0 0 0 2px ${block.color}, 0 8px 12px -3px ${block.bgColor}44`
                 : `inset 0 0 0 1px var(--border-color)`,
               transition: 'all 0.3s ease',
             }}
@@ -475,8 +523,8 @@ const Projects = () => {
           >
             <div style={{
               backgroundColor: block.bgColor,
-              padding: '0.85rem',
-              borderRadius: '14px',
+              padding: '0.75rem',
+              borderRadius: '12px',
               color: block.color,
               display: 'flex',
               alignItems: 'center',
@@ -486,100 +534,80 @@ const Projects = () => {
               {block.icon}
             </div>
             <div>
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.25rem', letterSpacing: '0.025em' }}>{block.label}</p>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.15rem', letterSpacing: '0.025em' }}>{block.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="page-controls">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search projects by ID, Name or Company..."
-            className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="control-item">
-          <span className="control-label">Pipeline</span>
-          <select
-            className="premium-select"
-            value={pipelineFilter}
-            onChange={(e) => setPipelineFilter(e.target.value)}
-          >
-            <option value="All">All Pipelines</option>
-            <option value="Active">Active</option>
-            <option value="Closed">Closed</option>
-            <option value="On Hold">On Hold</option>
-          </select>
-        </div>
-
-        <div className="control-item">
-          <span className="control-label">Assigned To</span>
-          <select 
-            className="form-select" 
-            style={{ padding: '0.4rem 2rem 0.4rem 0.75rem', fontSize: '0.85rem' }} 
-            value={personFilter} 
-            onChange={(e) => setPersonFilter(e.target.value)}
-          >
-            <option value="All">All Staff</option>
-            {Array.from(new Set(assignedPersons.map(p => {
-                const trimmed = p?.trim() || 'Unassigned';
-                return trimmed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-            }))).sort().map(person => (
-              <option key={person} value={person}>{person}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="controls-right">
-          {/*<div className="control-item">
-            <span className="control-label">Phase</span>
-            <select
-              className="premium-select"
-              value={phaseFilter}
-              onChange={(e) => setPhaseFilter(e.target.value)}
-            >
-              <option value="All">All Phases</option>
-              <option value="UAT Phase">UAT Phase</option>
-              <option value="Deployment Phase">Deployment Phase</option>
-              <option value="Delivery Phase">Delivery Phase</option>
-              <option value="Go-Live Config">Go-Live Config</option>
-            </select>
-          </div>*/}
-
-          <div className="control-item">
-            <span className="control-label">Sort By</span>
-            <select
-              className="premium-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="Newest">Newest First</option>
-              <option value="Oldest">Oldest First</option>
-              <option value="Priority-High">Priority: High First</option>
-              <option value="Name-A-Z">Name: A-Z</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>Project ID</th>
-              <th>Project Name</th>
-              <th>Company Name & Person</th>
-              <th>Assigned To</th>
+              <th onClick={() => toggleSort('ID')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>ID {getSortIcon('ID')}</th>
+              <th onClick={() => toggleSort('Name')} style={{ cursor: 'pointer' }}>Project Name {getSortIcon('Name')}</th>
+              <th onClick={() => toggleSort('Company')} style={{ cursor: 'pointer' }}>Company : Client {getSortIcon('Company')}</th>
+              <th style={{ minWidth: '150px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <select
+                    className="premium-table-filter"
+                    value={personFilter}
+                    onChange={(e) => setPersonFilter(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--primary-color)',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      fontSize: '0.75rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.025em',
+                      width: '100%',
+                      padding: 0
+                    }}
+                  >
+                    <option value="All" style={{ color: '#333' }}>All Staff</option>
+                    {Array.from(new Set(assignedPersons.map(p => {
+                      const trimmed = p?.trim() || 'Unassigned';
+                      return trimmed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                    }))).sort().map(person => (
+                      <option key={person} value={person} style={{ color: '#333' }}>{person}</option>
+                    ))}
+                  </select>
+                </div>
+              </th>
               <th>Priority</th>
-              <th>Pipeline</th>
-              <th>Current Phase</th>
+              <th style={{ minWidth: '130px' }}>
+                <select
+                  className="premium-table-filter"
+                  value={pipelineFilter}
+                  onChange={(e) => setPipelineFilter(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary-color)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.025em',
+                    width: '100%',
+                    padding: 0
+                  }}
+                >
+                  <option value="All" style={{ color: '#333' }}>Pipeline</option>
+                  <option value="Active" style={{ color: '#333' }}>Active</option>
+                  <option value="Closed" style={{ color: '#333' }}>Closed</option>
+                  <option value="On Hold" style={{ color: '#333' }}>On Hold</option>
+                </select>
+              </th>
+              <th style={{ whiteSpace: 'nowrap' }}>Phase</th>
             </tr>
           </thead>
           <tbody>
@@ -602,7 +630,7 @@ const Projects = () => {
                   </td>
                   <td>
                     <span>
-                      {prj.Start_Details?.Assigned_Person 
+                      {prj.Start_Details?.Assigned_Person
                         ? prj.Start_Details.Assigned_Person.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
                         : 'Unassigned'}
                     </span>
@@ -1215,15 +1243,15 @@ const Projects = () => {
                       {linkType === 'Quotation' ? 'Linked Quotation (Optional)' : 'Linked Lead (Optional)'}
                     </label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => {
                           setLinkType('Quotation');
                           setAddProjectData({ ...addProjectData, Lead_Reference: '', Quotation_Reference: '' });
                         }}
-                        style={{ 
-                          fontSize: '0.7rem', 
-                          padding: '2px 6px', 
+                        style={{
+                          fontSize: '0.7rem',
+                          padding: '2px 6px',
                           borderRadius: '4px',
                           border: '1px solid var(--border-color)',
                           backgroundColor: linkType === 'Quotation' ? 'var(--primary-color)' : 'transparent',
@@ -1231,15 +1259,15 @@ const Projects = () => {
                           cursor: 'pointer'
                         }}
                       >Quotation</button>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => {
                           setLinkType('Lead');
                           setAddProjectData({ ...addProjectData, Lead_Reference: '', Quotation_Reference: '' });
                         }}
-                        style={{ 
-                          fontSize: '0.7rem', 
-                          padding: '2px 6px', 
+                        style={{
+                          fontSize: '0.7rem',
+                          padding: '2px 6px',
                           borderRadius: '4px',
                           border: '1px solid var(--border-color)',
                           backgroundColor: linkType === 'Lead' ? 'var(--primary-color)' : 'transparent',
@@ -1249,7 +1277,7 @@ const Projects = () => {
                       >Lead</button>
                     </div>
                   </div>
-                  
+
                   {linkType === 'Quotation' ? (
                     <select
                       className="form-select"
@@ -1278,8 +1306,8 @@ const Projects = () => {
                       }}
                     >
                       <option value="">-- No Quotation --</option>
-                       {quotations.map(q => (
-                                                 <option key={q._id} value={q._id}>{q.Quotation_ID} - {q.Product_Reference ? (q.Product_Reference.SubSubType || q.Product_Reference.SubType || q.Product_Reference.Type) : 'Unknown Product'}</option>
+                      {quotations.map(q => (
+                        <option key={q._id} value={q._id}>{q.Quotation_ID} - {q.Product_Reference ? (q.Product_Reference.SubSubType || q.Product_Reference.SubType || q.Product_Reference.Type) : 'Unknown Product'}</option>
                       ))}
                     </select>
                   ) : (
@@ -1310,8 +1338,8 @@ const Projects = () => {
                       }}
                     >
                       <option value="">-- No Lead --</option>
-                       {leads.map(l => (
-                                                 <option key={l._id} value={l._id}>{l.Lead_ID} - {l.Client_Reference?.Company_Name || 'Unknown Client'} ({l.Product_Reference ? (l.Product_Reference.SubSubType || l.Product_Reference.SubType || l.Product_Reference.Type) : 'Unknown Product'})</option>
+                      {leads.map(l => (
+                        <option key={l._id} value={l._id}>{l.Lead_ID} - {l.Client_Reference?.Company_Name || 'Unknown Client'} ({l.Product_Reference ? (l.Product_Reference.SubSubType || l.Product_Reference.SubType || l.Product_Reference.Type) : 'Unknown Product'})</option>
                       ))}
                     </select>
                   )}
@@ -1344,12 +1372,12 @@ const Projects = () => {
                   )}
                 </div>
 
-                 <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 3' }}>
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 3' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client / Company Selection *</label>
-                    <button 
-                      type="button" 
-                      className="text-primary hover:underline" 
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
                       style={{ fontSize: '0.75rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                       onClick={() => setIsAddClientModalOpen(true)}
                     >
@@ -1486,7 +1514,7 @@ const Projects = () => {
         </div>
       )}
 
-      <AddClientModal 
+      <AddClientModal
         isOpen={isAddClientModalOpen}
         onClose={() => setIsAddClientModalOpen(false)}
         onSuccess={handleClientCreated}

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const typeFilter = searchParams.get('type') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
@@ -85,13 +85,15 @@ export async function GET(request: Request) {
 
             const filter = await getFilter(type, search);
             const items = await model.find(filter)
-                .select(`_id ${idField} ${reasonField.split('.')[0]} createdAt updatedAt`)
+                .select(`_id ${idField} ${reasonField.split('.')[0]} Client_Reference createdAt updatedAt`)
+                .populate('Client_Reference', 'Company_Name')
                 .lean();
             
             results.push(...items.map((item: any) => ({
                 _id: item._id,
                 Original_Collection: type,
                 Original_ID: item[idField],
+                Company_Name: item.Client_Reference?.Company_Name || 'N/A',
                 Cancel_Reason: reasonField.split('.').reduce((o, i) => o?.[i], item) || `${type} closed`,
                 createdAt: item.updatedAt || item.createdAt
             })));
@@ -103,9 +105,14 @@ export async function GET(request: Request) {
     
     // Sort
     allItems.sort((a: any, b: any) => {
+        if (sortBy === 'Company-A-Z') return a.Company_Name.localeCompare(b.Company_Name);
+        if (sortBy === 'Company-Z-A') return b.Company_Name.localeCompare(a.Company_Name);
+        if (sortBy === 'ID-ASC') return a.Original_ID.localeCompare(b.Original_ID);
+        if (sortBy === 'ID-DESC') return b.Original_ID.localeCompare(a.Original_ID);
+        
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
-        return sortBy === 'Newest' ? dateB - dateA : dateA - dateB;
+        return sortBy === 'Oldest' ? dateA - dateB : dateB - dateA;
     });
 
     const totalItems = allItems.length;

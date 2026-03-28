@@ -15,6 +15,7 @@ export default function ClientsMaster() {
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('Newest');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
@@ -22,7 +23,7 @@ export default function ClientsMaster() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 20;
 
   const [selectedDetailClient, setSelectedDetailClient] = useState<any | null>(null);
   const [selectedDeleteClient, setSelectedDeleteClient] = useState<any | null>(null);
@@ -33,7 +34,8 @@ export default function ClientsMaster() {
       const response = await fetchClients({
           page: currentPage,
           limit: ITEMS_PER_PAGE,
-          search: debouncedSearch
+          search: debouncedSearch,
+          sortBy: sortBy
       });
       setClients(response.clients);
       setTotalItems(response.totalItems);
@@ -57,7 +59,7 @@ export default function ClientsMaster() {
 
   useEffect(() => {
     loadClients();
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortBy]);
 
   const handleOpenModal = (client?: any) => {
     setEditingClient(client || null);
@@ -95,15 +97,44 @@ export default function ClientsMaster() {
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const paginatedClients = clients;
 
+  const toggleSort = (column: string) => {
+    if (column === 'ID') {
+      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    } else if (column === 'Company') {
+      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (column === 'ID') {
+      if (sortBy === 'ID-ASC') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'ID-DESC') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Company') {
+      if (sortBy === 'Company-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'Company-Z-A') return <span className="ml-1 text-blue-500">↓</span>;
+    }
+    return <span className="ml-1 text-gray-400 opacity-50">⇅</span>;
+  };
+
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Building2 className="text-blue-500" />
             Client Master
           </h1>
-          <p className="page-description" style={{ margin: '0.25rem 0 0 0' }}>Manage centralized client and company information.</p>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Company, Contact..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
+          </div>
         </div>
         {hasPermission(PERMISSIONS.CLIENTS_CREATE) && (
           <button
@@ -117,30 +148,17 @@ export default function ClientsMaster() {
         )}
       </div>
 
-      <div className="page-controls">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search clients by ID, Company, Contact..."
-            className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
 
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Company Name</th>
+              <th onClick={() => toggleSort('ID')} style={{ cursor: 'pointer' }}>ID {getSortIcon('ID')}</th>
+              <th onClick={() => toggleSort('Company')} style={{ cursor: 'pointer' }}>Company Name {getSortIcon('Company')}</th>
               <th>Client Name</th>
               <th>Contact Info</th>
               <th>Description</th>
               <th>Status</th>
-              {/*<th>Actions</th>*/}
             </tr>
           </thead>
           <tbody>

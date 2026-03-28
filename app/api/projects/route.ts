@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const phase = searchParams.get('phase') || 'All';
     const pipeline = searchParams.get('pipeline') || 'All';
@@ -69,22 +69,58 @@ export async function GET(request: Request) {
         ];
     }
 
-    // Sort Logic
-    let sortOption: any = { createdAt: -1 };
-    if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
-    if (sortBy === 'Priority-High') sortOption = { Priority: -1, createdAt: -1 };
-    if (sortBy === 'Costing-High') sortOption = { 'Start_Details.Costing': -1 };
-
     const totalItems = await Project.countDocuments(filter);
-    const projects = await Project.find(filter)
-        .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
-        .populate('Product_Reference', 'Type SubType SubSubType')
-        .populate('Lead_Reference', 'Lead_ID')
-        .populate('Project_Type', 'Type_Name')
-        .populate('Quotation_Reference', 'Quotation_ID Commercial Requirement Project_Scope_Description')
-        .sort(sortOption)
-        .skip((page - 1) * limit)
-        .limit(limit);
+
+    let projects;
+    if (sortBy.startsWith('Company')) {
+        const sortDirection = sortBy === 'Company-A-Z' ? 1 : -1;
+        projects = await Project.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: 'clients',
+                    localField: 'Client_Reference',
+                    foreignField: '_id',
+                    as: 'Client_Reference'
+                }
+            },
+            { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'Product_Reference',
+                    foreignField: '_id',
+                    as: 'Product_Reference'
+                }
+            },
+            { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: { from: 'projecttypes', localField: 'Project_Type', foreignField: '_id', as: 'Project_Type' }
+            },
+            { $unwind: { path: '$Project_Type', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'Client_Reference.Company_Name': sortDirection } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ]);
+    } else {
+        // Sort Logic
+        let sortOption: any = { createdAt: -1 };
+        if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
+        if (sortBy === 'Priority-High') sortOption = { Priority: -1, createdAt: -1 };
+        if (sortBy === 'Costing-High') sortOption = { 'Start_Details.Costing': -1 };
+        if (sortBy === 'ID-ASC') sortOption = { Project_ID: 1 };
+        if (sortBy === 'ID-DESC') sortOption = { Project_ID: -1 };
+
+        projects = await Project.find(filter)
+            .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
+            .populate('Product_Reference', 'Type SubType SubSubType')
+            .populate('Lead_Reference', 'Lead_ID')
+            .populate('Project_Type', 'Type_Name')
+            .populate('Quotation_Reference', 'Quotation_ID Commercial Requirement Project_Scope_Description')
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(limit);
+    }
 
     // Base filter for counts (including Pipeline, Person, and Search but NO phase)
     const countFilter: any = {};

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
-import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users } from 'lucide-react';
+import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users, ArrowUpDown, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
@@ -28,10 +28,13 @@ const Leads = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [dateRange, setDateRange] = useState('All');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 20;
 
   // ... other state ...
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
@@ -106,12 +109,36 @@ const Leads = () => {
   const fetchLeadsData = async () => {
     setFetchingLeads(true);
     try {
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      const now = new Date();
+      if (dateRange === '7days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === '30days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisMonth') {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisYear') {
+        const d = new Date(now.getFullYear(), 0, 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'custom') {
+        startDate = customStartDate;
+        endDate = customEndDate;
+      }
+
       const result = await fetchLeads({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm,
         status: statusFilter,
-        sortBy: sortBy
+        sortBy: sortBy,
+        startDate,
+        endDate
       });
       setLeads(result.leads);
       setTotalItems(result.totalItems);
@@ -130,13 +157,13 @@ const Leads = () => {
 
   useEffect(() => {
     fetchLeadsData();
-  }, [currentPage, statusFilter, sortBy]);
+  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   // Debounced search effect
   useEffect(() => {
     const timer = setTimeout(() => {
-        if (currentPage !== 1) setCurrentPage(1);
-        else fetchLeadsData();
+      if (currentPage !== 1) setCurrentPage(1);
+      else fetchLeadsData();
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -144,7 +171,7 @@ const Leads = () => {
   // Reset page when filter changes (already handled by dependencies, but explicit is better)
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sortBy]);
+  }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   const handleConvert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,23 +347,38 @@ const Leads = () => {
   const paginatedLeads = leads;
 
   return (
-    <div>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1>Leads</h1>
-          <p className="text-secondary">Manage and convert your leads to quotations.</p>
+    <div className="page-container">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Users className="text-blue-500" />
+            Leads
+          </h1>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Company, Product..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
+          </div>
         </div>
         {hasPermission(PERMISSIONS.LEADS_CREATE) && (
           <button
-            className="btn btn-primary"
             onClick={() => setIsAddModalOpen(true)}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
+            <Plus size={18} />
             Add Lead
           </button>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '1.25rem' }}>
         {[
           { label: 'New Leads', key: 'New', count: statusCounts.New, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <Users size={22} /> },
           { label: 'In Progress', key: 'In Progress', count: statusCounts['In Progress'], color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Zap size={22} /> },
@@ -347,12 +389,12 @@ const Leads = () => {
             key={block.key}
             className="premium-card"
             style={{
-              padding: '1.25rem',
+              padding: '1rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.25rem',
+              gap: '1rem',
               cursor: 'pointer',
-              borderRadius: '16px',
+              borderRadius: '12px',
               backgroundColor: statusFilter === block.key ? block.bgColor : '#ffffff',
               boxShadow: statusFilter === block.key
                 ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
@@ -381,58 +423,82 @@ const Leads = () => {
         ))}
       </div>
 
-      <div className="page-controls">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search leads by ID, Company, Contact..."
-            className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="controls-right">
-          {/*<div className="control-item">
-            <span className="control-label">Status</span>
-            <select
-              className="premium-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Status</option>
-              {optionsMap?.leadStatuses?.map((status: string) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>*/}
-
-          <div className="control-item">
-            <span className="control-label">Sort By</span>
-            <select
-              className="premium-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="Newest">Newest First</option>
-              <option value="Oldest">Oldest First</option>
-              <option value="Company-A-Z">Company: A-Z</option>
-              <option value="Company-Z-A">Company: Z-A</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Company</th>
+              <th
+                onClick={() => setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC')}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  ID {sortBy === 'ID-ASC' ? <ChevronUp size={14} /> : sortBy === 'ID-DESC' ? <ChevronDown size={14} /> : <ArrowUpDown size={14} />}
+                </div>
+              </th>
+              <th
+                onClick={() => setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z')}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Company {sortBy === 'Company-A-Z' ? <ChevronUp size={14} /> : sortBy === 'Company-Z-A' ? <ChevronDown size={14} /> : <ArrowUpDown size={14} />}
+                </div>
+              </th>
               <th>Product / Service</th>
               <th>Status</th>
-              <th>Inquiry Date</th>
+              <th
+                onClick={() => dateRange === 'All' && setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest')}
+                style={{ cursor: dateRange === 'All' ? 'pointer' : 'default', userSelect: 'none', minWidth: '180px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {dateRange === 'All' && (sortBy === 'Newest' ? <ChevronDown size={14} className="mr-1" /> : sortBy === 'Oldest' ? <ChevronUp size={14} className="mr-1" /> : <ArrowUpDown size={14} className="mr-1" />)}
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+                    <select
+                      className="premium-table-filter"
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--primary-color)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.025em',
+                        width: '100%',
+                        padding: 0
+                      }}
+                    >
+                      <option value="All" style={{ color: '#333' }}>Inquiry Date</option>
+                      <option value="7days" style={{ color: '#333' }}>Last 7 Days</option>
+                      <option value="30days" style={{ color: '#333' }}>Last 30 Days</option>
+                      <option value="thisMonth" style={{ color: '#333' }}>This Month</option>
+                      <option value="thisYear" style={{ color: '#333' }}>This Year</option>
+                      <option value="custom" style={{ color: '#333' }}>Custom Range</option>
+                    </select>
+                    {dateRange === 'custom' && (
+                      <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>

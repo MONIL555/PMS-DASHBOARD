@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProjectTypes, fetchProducts } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
-import { X, ArrowRight, Loader2, MessageCircle, Search, FileText, CheckCircle, XCircle, MessageSquare, ArrowBigRightDashIcon } from 'lucide-react';
+import { X, ArrowRight, Loader2, MessageCircle, Search, FileText, CheckCircle, XCircle, CircleFadingPlus, MessageSquare, ArrowBigRightDashIcon, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
@@ -26,19 +26,23 @@ const Quotations = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [commRange, setCommRange] = useState('All');
+  const [dateRange, setDateRange] = useState('All');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState({
-      Sent: 0,
-      'Follow-up': 0,
-      Approved: 0,
-      Rejected: 0,
-      Converted: 0
+    Sent: 0,
+    'Follow-up': 0,
+    Approved: 0,
+    Rejected: 0,
+    Converted: 0
   });
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 20;
 
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
   const [selectedDetailQuotation, setSelectedDetailQuotation] = useState<any | null>(null);
@@ -113,13 +117,47 @@ const Quotations = () => {
 
   const loadData = async () => {
     try {
+      let minComm: number | undefined;
+      let maxComm: number | undefined;
+      if (commRange === '0-25k') { minComm = 0; maxComm = 25000; }
+      else if (commRange === '25k-50k') { minComm = 25000; maxComm = 50000; }
+      else if (commRange === '50k-100k') { minComm = 50000; maxComm = 100000; }
+      else if (commRange === '100k-500k') { minComm = 100000; maxComm = 500000; }
+      else if (commRange === '500k+') { minComm = 500000; }
+
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      const now = new Date();
+      if (dateRange === '7days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === '30days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisMonth') {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisYear') {
+        const d = new Date(now.getFullYear(), 0, 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'custom') {
+        startDate = customStartDate;
+        endDate = customEndDate;
+      }
+
       const [quotationsResponse, productsData] = await Promise.all([
         fetchQuotations({
-            page: currentPage,
-            limit: ITEMS_PER_PAGE,
-            search: debouncedSearch,
-            status: statusFilter,
-            sortBy: sortBy
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: debouncedSearch,
+          status: statusFilter,
+          sortBy: sortBy,
+          minComm,
+          maxComm,
+          startDate,
+          endDate
         }),
         fetchProducts({ active: true, limit: 100 })
       ]);
@@ -213,18 +251,18 @@ const Quotations = () => {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-        setDebouncedSearch(searchTerm);
+      setDebouncedSearch(searchTerm);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, sortBy]);
+  }, [debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
-      loadData();
-  }, [currentPage, debouncedSearch, statusFilter, sortBy]);
+    loadData();
+  }, [currentPage, debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (selectedQuotation) {
@@ -453,7 +491,7 @@ const Quotations = () => {
   if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  
+
   // No client-side filtering needed anymore
   const filteredQuotations = quotations;
   const paginatedQuotations = quotations;
@@ -472,51 +510,95 @@ const Quotations = () => {
     return lastOutcome === 'Pending' && diffDays > 5;
   });
 
+  const toggleSort = (column: string) => {
+    if (column === 'ID') {
+      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    } else if (column === 'Company') {
+      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    } else if (column === 'Date') {
+      setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (column === 'ID') {
+      if (sortBy === 'ID-ASC') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'ID-DESC') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Company') {
+      if (sortBy === 'Company-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'Company-Z-A') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Date') {
+      if (sortBy === 'Newest') return <span className="ml-1 text-blue-500">↓</span>;
+      if (sortBy === 'Oldest') return <span className="ml-1 text-blue-500">↑</span>;
+    }
+    return <span className="ml-1 text-gray-400 opacity-50">⇅</span>;
+  };
+
   return (
-    <div className="quotations-page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>Quotations</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Manage and convert your approved quotations to active projects.</p>
+    <div className="page-container">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <FileText className="text-blue-500" />
+            Quotations
+          </h1>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Company, or Service..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
+          </div>
         </div>
         {hasPermission(PERMISSIONS.QUOTATIONS_CREATE) && (
-          <button className="btn btn-primary" onClick={() => {
-            setIsAddModalOpen(true);
-            loadLeadsData();
-          }}>Add Quotation</button>
+          <button
+            onClick={() => {
+              setIsAddModalOpen(true);
+              loadLeadsData();
+            }}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Plus size={18} />
+            Add Quotation
+          </button>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.5rem', marginBottom: '2rem', marginTop: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
         {[
-          { label: 'Sent', key: 'Sent', count: statusCounts.Sent, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <ArrowBigRightDashIcon size={22} /> },
-          { label: 'Follow-up', key: 'Follow-up', count: statusCounts['Follow-up'], color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <MessageSquare size={22} /> },
-          { label: 'Approved', key: 'Approved', count: statusCounts.Approved, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <CheckCircle size={22} /> },
-          { label: 'Rejected', key: 'Rejected', count: statusCounts.Rejected, color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: <XCircle size={22} /> },
-          { label: 'Converted', key: 'Converted', count: statusCounts.Converted, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <FileText size={22} /> }
+          { label: 'Sent', key: 'Sent', count: statusCounts.Sent, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <ArrowBigRightDashIcon size={20} /> },
+          { label: 'Follow-up', key: 'Follow-up', count: statusCounts['Follow-up'], color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <MessageSquare size={20} /> },
+          { label: 'Approved', key: 'Approved', count: statusCounts.Approved, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <CheckCircle size={20} /> },
+          { label: 'Rejected', key: 'Rejected', count: statusCounts.Rejected, color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: <XCircle size={20} /> },
+          { label: 'Converted', key: 'Converted', count: statusCounts.Converted, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <FileText size={20} /> }
         ].map((block) => (
           <div
             key={block.key}
             className="premium-card"
             onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
             style={{
-              padding: '1.25rem',
+              padding: '1rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.25rem',
+              gap: '1rem',
               cursor: 'pointer',
-              borderRadius: '16px',
+              borderRadius: '12px',
               backgroundColor: statusFilter === block.key ? block.bgColor : '#ffffff',
               boxShadow: statusFilter === block.key
-                ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
+                ? `inset 0 0 0 2px ${block.color}, 0 8px 12px -3px ${block.bgColor}44`
                 : `inset 0 0 0 1px var(--border-color)`,
               transition: 'all 0.3s ease',
             }}
           >
             <div style={{
               backgroundColor: block.bgColor,
-              padding: '0.85rem',
-              borderRadius: '14px',
+              padding: '0.75rem',
+              borderRadius: '12px',
               color: block.color,
               display: 'flex',
               alignItems: 'center',
@@ -525,12 +607,11 @@ const Quotations = () => {
             }}>
               {block.icon}
             </div>
-
             <div>
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>
                 {block.count}
               </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.25rem', letterSpacing: '0.025em' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.15rem', letterSpacing: '0.025em' }}>
                 {block.label}
               </p>
             </div>
@@ -538,60 +619,94 @@ const Quotations = () => {
         ))}
       </div>
 
-      <div className="page-controls">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search by ID, Company, or Service..."
-            className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="controls-right">
-          {/*<div className="control-item">
-            <span className="control-label">Status</span>
-            <select
-              className="premium-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Status</option>
-              {optionsMap?.quotation?.status?.map((status: string) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>*/}
-
-          <div className="control-item">
-            <span className="control-label">Sort By</span>
-            <select
-              className="premium-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="Newest">Newest First</option>
-              <option value="Oldest">Oldest First</option>
-              <option value="Commercial-High">Price: High to Low</option>
-              <option value="Commercial-Low">Price: Low to High</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>QTN ID</th>
-              <th>Company Name</th>
+              <th onClick={() => toggleSort('ID')} style={{ cursor: 'pointer' }}>QTN ID {getSortIcon('ID')}</th>
+              <th onClick={() => toggleSort('Company')} style={{ cursor: 'pointer' }}>Company Name {getSortIcon('Company')}</th>
               <th>Product / Service</th>
-              <th>Commercial</th>
+              <th style={{ minWidth: '150px' }}>
+                <select
+                  className="premium-table-filter"
+                  value={commRange}
+                  onChange={(e) => setCommRange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary-color)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.025em',
+                    width: '100%',
+                    padding: 0
+                  }}
+                >
+                  <option value="All" style={{ color: '#333' }}>Commercial</option>
+                  <option value="0-25k" style={{ color: '#333' }}>0 - 25,000</option>
+                  <option value="25k-50k" style={{ color: '#333' }}>25k - 50k</option>
+                  <option value="50k-100k" style={{ color: '#333' }}>50k - 100k</option>
+                  <option value="100k-500k" style={{ color: '#333' }}>100k - 500k</option>
+                  <option value="500k+" style={{ color: '#333' }}>500k+</option>
+                </select>
+              </th>
               <th>Time Duration</th>
               <th>Status</th>
-              <th>Quotation Date</th>
+              <th onClick={() => dateRange === 'All' && toggleSort('Date')} style={{ cursor: dateRange === 'All' ? 'pointer' : 'default', minWidth: '160px' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {dateRange === 'All' && getSortIcon('Date')}
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+                    <select
+                      className="premium-table-filter"
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--primary-color)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.025em',
+                        width: '100%',
+                        padding: 0
+                      }}
+                    >
+                      <option value="All" style={{ color: '#333' }}>Quotation Date</option>
+                      <option value="7days" style={{ color: '#333' }}>Last 7 Days</option>
+                      <option value="30days" style={{ color: '#333' }}>Last 30 Days</option>
+                      <option value="thisMonth" style={{ color: '#333' }}>This Month</option>
+                      <option value="thisYear" style={{ color: '#333' }}>This Year</option>
+                      <option value="custom" style={{ color: '#333' }}>Custom Range</option>
+                    </select>
+                    {dateRange === 'custom' && (
+                      <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -603,7 +718,7 @@ const Quotations = () => {
               >
                 <td><span className="font-semibold text-primary">{qtn.Quotation_ID}</span></td>
                 <td>{qtn.Client_Reference?.Company_Name || qtn.Lead_ID?.Client_Reference?.Company_Name || qtn.Client_Info || 'Unknown Lead'}</td>
-                 <td>
+                <td>
                   <div style={{ fontSize: '0.85rem' }}>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
                       {[qtn.Product_Reference?.Type, qtn.Product_Reference?.SubType].filter(Boolean).join(' / ')}
@@ -624,8 +739,8 @@ const Quotations = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {formatDateDDMMYYYY(qtn.Quotation_Date)}
                     {overdueQuotations.some((oq: any) => oq._id === qtn._id) && (
-                      <span title="Overdue for follow-up" style={{ color: '#EF4444' }}>
-                        <XCircle size={14} />
+                      <span title="Overdue for follow-up" style={{ color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CircleFadingPlus size={14} />
                       </span>
                     )}
                   </div>

@@ -14,6 +14,8 @@ export const fetchLeads = async (params: any = {}) => {
   if (params.limit) query.append('limit', params.limit.toString());
   if (params.search) query.append('search', params.search);
   if (params.status) query.append('status', params.status);
+  if (params.startDate) query.append('startDate', params.startDate);
+  if (params.endDate) query.append('endDate', params.endDate);
   if (params.sortBy) query.append('sortBy', params.sortBy);
 
   const res = await fetch(`${API_URL}/leads?${query.toString()}`);
@@ -57,6 +59,10 @@ export const fetchQuotations = async (params: any = {}) => {
   if (params.limit) query.append('limit', params.limit.toString());
   if (params.search) query.append('search', params.search);
   if (params.status) query.append('status', params.status);
+  if (params.minComm) query.append('minComm', params.minComm.toString());
+  if (params.maxComm) query.append('maxComm', params.maxComm.toString());
+  if (params.startDate) query.append('startDate', params.startDate);
+  if (params.endDate) query.append('endDate', params.endDate);
   if (params.sortBy) query.append('sortBy', params.sortBy);
 
   const res = await fetch(`${API_URL}/quotations?${query.toString()}`);

@@ -79,7 +79,7 @@ export default function ProductsMaster() {
   }, [debouncedSearch, groupedProducts]);
 
   const toggleType = (type: string) => {
-    setExpandedTypes(prev => 
+    setExpandedTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
   };
@@ -406,13 +406,23 @@ export default function ProductsMaster() {
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
       `}</style>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Package className="text-blue-500" />
-            Product Classification Master
+            Product / Service Master
           </h1>
-          <p className="page-description" style={{ margin: '0.25rem 0 0 0' }}>Manage hierarchical product categories and their active status.</p>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Name or Description..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
+          </div>
         </div>
         {hasPermission(PERMISSIONS.PRODUCTS_CREATE) && (
           <button
@@ -424,19 +434,6 @@ export default function ProductsMaster() {
             Add Product/Service
           </button>
         )}
-      </div>
-
-      <div className="page-controls">
-        <div className="search-wrapper">
-          <Search className="search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search by ID, Name or Description..."
-            className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
       </div>
 
       <div className="flex flex-col gap-12 mt-10 pb-16">
@@ -465,9 +462,9 @@ export default function ProductsMaster() {
                     <div className="badge badge-gray" style={{ background: '#f8fafc', fontSize: '0.6rem', border: '1px solid #e2e8f0' }}>
                       {expandedTypes.includes(type) ? 'HIDE' : 'SHOW'}
                     </div>
-                    <ChevronDown 
-                      className={`chevron-icon ${expandedTypes.includes(type) ? 'rotated' : ''}`} 
-                      size={18} 
+                    <ChevronDown
+                      className={`chevron-icon ${expandedTypes.includes(type) ? 'rotated' : ''}`}
+                      size={18}
                     />
                   </div>
                 </div>
@@ -605,10 +602,10 @@ export default function ProductsMaster() {
                     placeholder="e.g. Web Dev"
                   />
                   <datalist id="datalist-subsubtype">
-                    {formData.Type && formData.SubType && PRODUCT_HIERARCHY[formData.Type]?.[formData.SubType] && 
+                    {formData.Type && formData.SubType && PRODUCT_HIERARCHY[formData.Type]?.[formData.SubType] &&
                       (PRODUCT_HIERARCHY[formData.Type][formData.SubType] || []).map(subSub => (
                         <option key={subSub} value={subSub} />
-                    ))}
+                      ))}
                   </datalist>
                 </div>
               </div>

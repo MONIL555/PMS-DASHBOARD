@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '9');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
@@ -36,23 +36,46 @@ export async function GET(request: Request) {
         ];
     }
 
-    // Sort Logic
-    let sortOption: any = { createdAt: -1 };
-    if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
-    if (sortBy === 'Priority-High') {
-        sortOption = { Priority: -1, createdAt: -1 };
-    }
-    if (sortBy === 'Status-Open') {
-        sortOption = { Status: 1, createdAt: -1 };
-    }
-
     const totalItems = await Ticket.countDocuments(filter);
-    const tickets = await Ticket.find(filter)
-      .populate('Project_ID', 'Project_Name Project_ID')
-      .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
-      .sort(sortOption)
-      .skip((page - 1) * limit)
-      .limit(limit);
+
+    let tickets;
+    if (sortBy.startsWith('Company')) {
+        const sortDirection = sortBy === 'Company-A-Z' ? 1 : -1;
+        tickets = await Ticket.aggregate([
+            { $match: filter },
+            {
+                $lookup: {
+                    from: 'clients',
+                    localField: 'Client_Reference',
+                    foreignField: '_id',
+                    as: 'Client_Reference'
+                }
+            },
+            { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: { from: 'projects', localField: 'Project_ID', foreignField: '_id', as: 'Project_ID' }
+            },
+            { $unwind: { path: '$Project_ID', preserveNullAndEmptyArrays: true } },
+            { $sort: { 'Client_Reference.Company_Name': sortDirection } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ]);
+    } else {
+        // Sort Logic
+        let sortOption: any = { createdAt: -1 };
+        if (sortBy === 'Oldest') sortOption = { createdAt: 1 };
+        if (sortBy === 'Priority-High') sortOption = { Priority: -1, createdAt: -1 };
+        if (sortBy === 'Status-Open') sortOption = { Status: 1, createdAt: -1 };
+        if (sortBy === 'ID-ASC') sortOption = { Ticket_Number: 1 };
+        if (sortBy === 'ID-DESC') sortOption = { Ticket_Number: -1 };
+
+        tickets = await Ticket.find(filter)
+          .populate('Project_ID', 'Project_Name Project_ID')
+          .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
+          .sort(sortOption)
+          .skip((page - 1) * limit)
+          .limit(limit);
+    }
 
     const statusCounts = {
         In_Progress: await Ticket.countDocuments({ Status: 'In_Progress' }),

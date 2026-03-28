@@ -25,7 +25,7 @@ const CancelledItems = () => {
       Project: 0,
       Ticket: 0
   });
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = 20;
   const [loadingInitial, setLoadingInitial] = useState(true);
 
   const loadData = async () => {
@@ -67,97 +67,102 @@ const CancelledItems = () => {
   const filteredItems = items;
   const paginatedItems = items;
 
+  const toggleSort = (column: string) => {
+    if (column === 'ID') {
+      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    } else if (column === 'Company') {
+      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    } else if (column === 'Date') {
+      setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+    }
+  };
+
+  const getSortIcon = (column: string) => {
+    if (column === 'ID') {
+      if (sortBy === 'ID-ASC') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'ID-DESC') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Company') {
+      if (sortBy === 'Company-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
+      if (sortBy === 'Company-Z-A') return <span className="ml-1 text-blue-500">↓</span>;
+    } else if (column === 'Date') {
+      if (sortBy === 'Newest') return <span className="ml-1 text-blue-500">↓</span>;
+      if (sortBy === 'Oldest') return <span className="ml-1 text-blue-500">↑</span>;
+    }
+    return <span className="ml-1 text-gray-400 opacity-50">⇅</span>;
+  };
+
   if (loading) return <div className="p-8 text-center text-secondary">Loading archives...</div>;
   if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500 m-8">Error: {error}</div>;
 
   return (
-    <div className="p-8">
-      <div className="page-header" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Archive size={32} className="text-primary" />
-          <div>
-            <h1>Archives (Cancelled Items)</h1>
-            <p className="text-secondary">View the history of cancelled leads, quotations, projects, and tickets.</p>
+    <div className="page-container">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Archive className="text-blue-500" />
+            Cancelled Items (Archives)
+          </h1>
+          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              placeholder="Search by ID, Reason, or Company..."
+              className="premium-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
+            />
           </div>
         </div>
       </div>
 
       {/* Summary Blocks */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
         {[
-          { label: 'Leads', type: 'Lead', count: statusCounts.Lead, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Users size={22} /> },
-          { label: 'Quotations', type: 'Quotation', count: statusCounts.Quotation, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <FileText size={22} /> },
-          { label: 'Projects', type: 'Project', count: statusCounts.Project, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Briefcase size={22} /> },
-          { label: 'Tickets', type: 'Ticket', count: statusCounts.Ticket, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <Ticket size={22} /> }
+          { label: 'Leads', type: 'Lead', count: statusCounts.Lead, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Users size={20} /> },
+          { label: 'Quotations', type: 'Quotation', count: statusCounts.Quotation, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <FileText size={20} /> },
+          { label: 'Projects', type: 'Project', count: statusCounts.Project, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Briefcase size={20} /> },
+          { label: 'Tickets', type: 'Ticket', count: statusCounts.Ticket, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <Ticket size={20} /> }
         ].map((block: any) => (
           <div
             key={block.type}
             className="premium-card"
             style={{
-              padding: '1.25rem',
+              padding: '1rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '1.25rem',
+              gap: '1rem',
               cursor: 'pointer',
-              borderRadius: '16px',
+              borderRadius: '12px',
               backgroundColor: typeFilter === block.type ? block.bgColor : '#ffffff',
               boxShadow: typeFilter === block.type
-                ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
+                ? `inset 0 0 0 2px ${block.color}, 0 8px 12px -3px ${block.bgColor}44`
                 : `inset 0 0 0 1px var(--border-color)`,
               transition: 'all 0.3s ease',
             }}
             onClick={() => setTypeFilter(typeFilter === block.type ? 'All' : block.type)}
           >
-            <div style={{ backgroundColor: block.bgColor, padding: '0.85rem', borderRadius: '14px', color: block.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ backgroundColor: block.bgColor, padding: '0.75rem', borderRadius: '12px', color: block.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {block.icon}
             </div>
             <div>
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.25rem' }}>{block.label}</p>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.15rem' }}>{block.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="page-controls" style={{ display: 'flex', justifyContent: 'space-between', gap: '2rem', marginBottom: '1.5rem' }}>
-        <div className="search-wrapper" style={{ flex: 1, position: 'relative' }}>
-          <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} size={18} />
-          <input
-            type="text"
-            placeholder="Search archives by ID, Reason, or Name..."
-            className="premium-search-input"
-            style={{ width: '100%', paddingLeft: '3rem' }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          {/*<select className="premium-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Lead">Leads</option>
-            <option value="Quotation">Quotations</option>
-            <option value="Project">Projects</option>
-            <option value="Ticket">Tickets</option>
-          </select>*/}
-
-          <select className="premium-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="Newest">Newest First</option>
-            <option value="Oldest">Oldest First</option>
-          </select>
-        </div>
-      </div>
 
       <div className="table-container">
         <table>
           <thead>
             <tr>
               <th>Type</th>
-              <th>Original ID</th>
-              <th>Title/ Service</th>
+              <th onClick={() => toggleSort('ID')} style={{ cursor: 'pointer' }}>Original ID {getSortIcon('ID')}</th>
+              <th onClick={() => toggleSort('Company')} style={{ cursor: 'pointer' }}>Company Name {getSortIcon('Company')}</th>
               <th>Cancel Reason</th>
-              <th>Cancelled On</th>
+              <th onClick={() => toggleSort('Date')} style={{ cursor: 'pointer' }}>Cancelled On {getSortIcon('Date')}</th>
             </tr>
           </thead>
           <tbody>
@@ -183,8 +188,7 @@ const CancelledItems = () => {
                     </span>
                   </td>
                   <td><span className="font-semibold text-primary">{item.Original_ID}</span></td>
-                  <td className="font-medium">
-                    {item.Original_Collection === 'Project' ? identifierName + " - " + identifierName2 : identifierName}</td>
+                  <td className="font-medium">{item.Company_Name}</td>
                   <td className="text-secondary">{item.Cancel_Reason}</td>
                   <td>{formatDateTimeDDMMYYYY(item.createdAt || item.Cancelled_At)}</td>
                 </tr>

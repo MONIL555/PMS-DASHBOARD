@@ -131,6 +131,8 @@ export const fetchProjects = async (params: any = {}) => {
   if (params.phase) query.append('phase', params.phase);
   if (params.pipeline) query.append('pipeline', params.pipeline);
   if (params.person) query.append('person', params.person);
+  if (params.startDate) query.append('startDate', params.startDate);
+  if (params.endDate) query.append('endDate', params.endDate);
   if (params.sortBy) query.append('sortBy', params.sortBy);
 
   const res = await fetch(`${API_URL}/projects?${query.toString()}`);
@@ -183,7 +185,10 @@ export const fetchTickets = async (params: any = {}) => {
   if (params.limit) query.append('limit', params.limit.toString());
   if (params.search) query.append('search', params.search);
   if (params.status) query.append('status', params.status);
+  if (params.startDate) query.append('startDate', params.startDate);
+  if (params.endDate) query.append('endDate', params.endDate);
   if (params.sortBy) query.append('sortBy', params.sortBy);
+  if (params.priority) query.append('priority', params.priority);
 
   const res = await fetch(`${API_URL}/tickets?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch tickets');

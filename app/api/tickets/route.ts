@@ -18,12 +18,31 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
+    const priority = searchParams.get('priority') || 'All';
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const filter: any = {};
 
     // Status Filter
     if (status !== 'All') {
         filter.Status = status;
+    }
+
+    // Priority Filter
+    if (priority !== 'All') {
+        filter.Priority = priority;
+    }
+
+    // Date Filter
+    if (startDate || endDate) {
+        filter.Raised_Date_Time = {};
+        if (startDate) filter.Raised_Date_Time.$gte = new Date(startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filter.Raised_Date_Time.$lte = end;
+        }
     }
 
     // Search Logic
@@ -77,10 +96,13 @@ export async function GET(request: Request) {
           .limit(limit);
     }
 
+    const statusBaseFilter = { ...filter };
+    delete statusBaseFilter.Status;
+
     const statusCounts = {
-        In_Progress: await Ticket.countDocuments({ Status: 'In_Progress' }),
-        Open: await Ticket.countDocuments({ Status: 'Open' }),
-        Closed: await Ticket.countDocuments({ Status: 'Closed' })
+        In_Progress: await Ticket.countDocuments({ ...statusBaseFilter, Status: 'In_Progress' }),
+        Open: await Ticket.countDocuments({ ...statusBaseFilter, Status: 'Open' }),
+        Closed: await Ticket.countDocuments({ ...statusBaseFilter, Status: 'Closed' })
     };
 
     return NextResponse.json({

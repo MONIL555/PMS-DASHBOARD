@@ -11,10 +11,12 @@ import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import AddClientModal from '@/components/AddClientModal';
+import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const Leads = () => {
+  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ New: 0, 'In Progress': 0, Converted: 0, Cancelled: 0 });
@@ -28,9 +30,13 @@ const Leads = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [dateRange, setDateRange] = useState('All');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
+  
+  // Initialize from search params
+  const initialStartDate = searchParams.get('startDate') || '';
+  const initialEndDate = searchParams.get('endDate') || '';
+  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
+  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
+  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
   const [sortBy, setSortBy] = useState('Newest');
 
   const [currentPage, setCurrentPage] = useState(1);

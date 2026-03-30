@@ -13,9 +13,19 @@
   --danger-color: #ef4444;
   --warning-color: #f59e0b;
 
-  --sidebar-width: 22rem;
-  font-size: 54%;
-  /* Scaled from 60% (x0.9) to emulate 90% zoom sharpness */
+  --sidebar-width: 220px;
+  --sidebar-width-collapsed: 80px;
+  --transition-speed: 0.3s;
+  font-size: 51%;
+  /* Scaled down to emulate the high-density '90% zoom' feel at 100% browser zoom */
+}
+
+/* Mobile Breakpoint Styles */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 100vw;
+    --sidebar-width-collapsed: 0px;
+  }
 }
 
 /* Fix for large/high-res screens where 60% looks too small */
@@ -135,7 +145,7 @@ table {
 
 th,
 td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 1.15rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
@@ -316,7 +326,7 @@ tr:hover td {
 .premium-search-input {
   box-sizing: border-box;
   width: 100%;
-  padding: 1.2rem 1rem 1.2rem 3.2rem;
+  padding: 0.8rem 1rem 0.8rem 3.2rem;
   border-radius: 10px;
   border: 1.5px solid var(--border-color);
   font-size: 1rem;

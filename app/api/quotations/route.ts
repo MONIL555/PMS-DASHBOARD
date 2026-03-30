@@ -155,12 +155,15 @@ export async function GET(request: Request) {
           .limit(limit)
     ) : quotations;
 
+    const statusBaseFilter = { ...filter };
+    delete statusBaseFilter.Quotation_Status;
+
     const statusCounts = {
-        Sent: await Quotation.countDocuments({ Quotation_Status: 'Sent' }),
-        'Follow-up': await Quotation.countDocuments({ Quotation_Status: 'Follow-up' }),
-        Approved: await Quotation.countDocuments({ Quotation_Status: 'Approved' }),
-        Rejected: await Quotation.countDocuments({ Quotation_Status: { $in: ['Rejected', 'Cancelled'] } }),
-        Converted: await Quotation.countDocuments({ Quotation_Status: 'Converted' }),
+        Sent: await Quotation.countDocuments({ ...statusBaseFilter, Quotation_Status: 'Sent' }),
+        'Follow-up': await Quotation.countDocuments({ ...statusBaseFilter, Quotation_Status: 'Follow-up' }),
+        Approved: await Quotation.countDocuments({ ...statusBaseFilter, Quotation_Status: 'Approved' }),
+        Rejected: await Quotation.countDocuments({ ...statusBaseFilter, Quotation_Status: { $in: ['Rejected', 'Cancelled'] } }),
+        Converted: await Quotation.countDocuments({ ...statusBaseFilter, Quotation_Status: 'Converted' }),
     };
 
     return NextResponse.json({

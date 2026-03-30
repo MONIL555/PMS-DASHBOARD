@@ -22,6 +22,8 @@ export async function GET(request: Request) {
     const pipeline = searchParams.get('pipeline') || 'All';
     const person = searchParams.get('person') || 'All';
     const sortBy = searchParams.get('sortBy') || 'Newest';
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
     const filter: any = {};
 
@@ -33,6 +35,17 @@ export async function GET(request: Request) {
     // Person Filter
     if (person !== 'All') {
         filter['Start_Details.Assigned_Person'] = { $regex: new RegExp(`^\\s*${person.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*$`, 'i') };
+    }
+
+    // Date Filter
+    if (startDate || endDate) {
+        filter['Start_Details.Start_Date'] = {};
+        if (startDate) filter['Start_Details.Start_Date'].$gte = new Date(startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filter['Start_Details.Start_Date'].$lte = end;
+        }
     }
 
     // Phase Filter (Computed)
@@ -127,6 +140,7 @@ export async function GET(request: Request) {
     if (pipeline !== 'All') countFilter.Pipeline_Status = pipeline;
     if (person !== 'All') countFilter['Start_Details.Assigned_Person'] = filter['Start_Details.Assigned_Person'];
     if (search) countFilter.$or = filter.$or;
+    if (filter['Start_Details.Start_Date']) countFilter['Start_Details.Start_Date'] = filter['Start_Details.Start_Date'];
 
     // Status Counts (respecting search and person filters)
     const statusBaseFilter = { ...countFilter };

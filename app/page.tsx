@@ -12,7 +12,8 @@ import {
 	Calendar,
 	ArrowUpRight,
 	ArrowDownRight,
-	BarChart3
+	BarChart3,
+	Building2
 } from 'lucide-react';
 import {
 	BarChart,
@@ -39,7 +40,7 @@ import { useRouter } from 'next/navigation';
 const Dashboard = () => {
 	const [data, setData] = useState<any>(null);
 	const [loading, setLoading] = useState(true);
-	const [selectedFY, setSelectedFY] = useState('all');
+	const [selectedFY, setSelectedFY] = useState('2025-2026');
 	const router = useRouter();
 
 	useEffect(() => {
@@ -90,11 +91,52 @@ const Dashboard = () => {
 	};
 
 	const statsCards = [
-		{ title: 'Total Leads', value: data.stats.totalLeads, icon: Users, color: '#3b82f6', rate: data.conversionRates.leadToQuote + '%', label: 'Conv. Rate', path: '/leads' },
-		{ title: 'Quotations', value: data.stats.totalQuotations, icon: FileText, color: '#f59e0b', rate: 'Sent', label: 'Inquiry Status', path: '/quotations' },
-		{ title: 'Active Projects', value: data.stats.totalActiveProjects, icon: Briefcase, color: '#10b981', rate: data.conversionRates.quoteToProject + '%', label: 'Conv. Rate', path: '/projects' },
-		{ title: 'Open Tickets', value: data.stats.totalOpenTickets, icon: TicketIcon, color: '#ef4444', rate: 'Support', label: 'Workload', path: '/tickets' },
+		{
+			title: 'Total Leads',
+			value: data.stats.totalLeads,
+			icon: Users,
+			color: '#3b82f6',
+			rate: data.stats.leadGrowth || data.conversionRates.leadToQuote + '%',
+			label: data.stats.leadGrowth ? 'vs prev. FY' : 'Conv. Rate',
+			path: '/leads'
+		},
+		{
+			title: 'Quotations',
+			value: data.stats.totalQuotations,
+			icon: FileText,
+			color: '#f59e0b',
+			rate: data.stats.quoteGrowth || 'Sent',
+			label: data.stats.quoteGrowth ? 'vs prev. FY' : 'Inquiry Status',
+			path: '/quotations'
+		},
+		{
+			title: 'Total Projects',
+			value: data.stats.totalActiveProjects,
+			icon: Briefcase,
+			color: '#10b981',
+			rate: data.stats.activeProjectsGrowth || data.conversionRates.quoteToProject + '%',
+			label: data.stats.activeProjectsGrowth ? 'vs prev. FY' : 'Conv. Rate',
+			path: '/projects'
+		},
+		{
+			title: 'Open Tickets',
+			value: data.stats.totalOpenTickets,
+			icon: TicketIcon,
+			color: '#ef4444',
+			rate: 'Support',
+			label: 'Workload',
+			path: '/tickets'
+		},
 	];
+
+	const getFYDates = (fy: string) => {
+		if (fy === 'all') return { startDate: '', endDate: '' };
+		const [startYear, endYear] = fy.split('-').map(Number);
+		return {
+			startDate: `${startYear}-04-01`,
+			endDate: `${endYear}-03-31`
+		};
+	};
 
 	return (
 		<div className="dashboard-container" style={{ padding: '0 1rem 2rem 1rem', maxWidth: '160rem', margin: '0 auto' }}>
@@ -140,7 +182,14 @@ const Dashboard = () => {
 						position: 'relative',
 						overflow: 'hidden',
 						cursor: 'pointer',
-					}} onClick={() => router.push(stat.path)}>
+					}} onClick={() => {
+						const { startDate, endDate } = getFYDates(selectedFY);
+						const params = new URLSearchParams();
+						if (startDate) params.append('startDate', startDate);
+						if (endDate) params.append('endDate', endDate);
+						const query = params.toString();
+						router.push(`${stat.path}${query ? `?${query}` : ''}`);
+					}}>
 						<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
 							<div>
 								<h3 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>{stat.title}</h3>
@@ -159,11 +208,13 @@ const Dashboard = () => {
 							<span style={{
 								fontSize: '0.875rem',
 								fontWeight: 700,
-								color: stat.color,
+								color: (stat.rate && stat.rate.startsWith('-')) ? '#ef4444' : stat.color,
 								display: 'flex',
 								alignItems: 'center'
 							}}>
-								{stat.rate.includes('%') ? <TrendingUp size={14} style={{ marginRight: '4px' }} /> : null}
+								{stat.rate && (stat.rate.includes('%') || stat.rate.startsWith('+') || stat.rate.startsWith('-')) ? (
+									stat.rate.startsWith('-') ? <ArrowDownRight size={14} style={{ marginRight: '4px' }} /> : <ArrowUpRight size={14} style={{ marginRight: '4px' }} />
+								) : null}
 								{stat.rate}
 							</span>
 							<span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
@@ -233,29 +284,145 @@ const Dashboard = () => {
 						<div style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.1 }}>
 							<TrendingUp size={80} strokeWidth={1} />
 						</div>
-						<p style={{ opacity: 0.7, fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>ACTIVE PROJECTS VALUE</p>
+						<p style={{ opacity: 0.7, fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>TOTAL PROJECTS VALUE</p>
 						<h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>₹{data.commercialValue.activeProjects.toLocaleString()}</h2>
 						{selectedFY !== 'all' && (
 							<div style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: '0.5rem',
-								color: data.commercialValue.activeProjectsRate.startsWith('-') ? '#ef4444' : '#10b981',
-								fontSize: '0.9rem',
-								fontWeight: 600
+								gap: '1rem',
+								marginTop: '0.5rem'
 							}}>
-								{data.commercialValue.activeProjectsRate.startsWith('-') ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-								<span>{data.commercialValue.activeProjectsRate} vs prev. FY</span>
+								<div style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: '0.5rem',
+									color: data.commercialValue.activeProjectsRate?.startsWith('-') ? '#f87171' : '#34d399',
+									fontSize: '0.9rem',
+									fontWeight: 700
+								}}>
+									{data.commercialValue.activeProjectsRate?.startsWith('-') ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+									<span>{data.commercialValue.activeProjectsRate} vs prev. FY</span>
+								</div>
+								<div style={{ height: '12px', width: '1px', background: 'rgba(255,255,255,0.2)' }}></div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.8, fontSize: '0.85rem' }}>
+									<PieChartIcon size={14} />
+									<span>Avg. Project: ₹{Math.round(data.commercialValue.avgProjectValue).toLocaleString()}</span>
+								</div>
 							</div>
 						)}
 					</div>
 					<div className="premium-card" style={{ padding: '1.5rem', background: 'white' }}>
-						<p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>TOTAL CONVERTED QUOTES</p>
+						<p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.05em', marginBottom: '0.5rem' }}>TOTAL QUOTATIONS VALUE</p>
 						<h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>₹{data.commercialValue.totalConvertedQuotes.toLocaleString()}</h2>
-						<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-							<Clock size={16} />
-							<span>Quotation tracking</span>
+						{selectedFY !== 'all' && (
+							<div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+								<div style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: '0.5rem',
+									color: data.commercialValue.totalConvertedQuotesRate?.startsWith('-') ? '#ef4444' : '#10b981',
+									fontSize: '0.9rem',
+									fontWeight: 700
+								}}>
+									{data.commercialValue.totalConvertedQuotesRate?.startsWith('-') ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+									<span>{data.commercialValue.totalConvertedQuotesRate} vs prev. FY</span>
+								</div>
+								<div style={{ height: '12px', width: '1px', background: '#e2e8f0' }}></div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+									<TrendingUp size={14} />
+									<span>Avg. Quote: ₹{Math.round(data.commercialValue.avgQuoteValue).toLocaleString()}</span>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			</div>
+
+			{/* Conversion & Efficiency Grid */}
+			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+				{[
+					{ label: 'Lead → Quote', value: `${data.conversionRates.leadToQuote}%`, icon: <Users size={16} />, color: '#3b82f6' },
+					{ label: 'Quote → Project', value: `${data.conversionRates.quoteToProject}%`, icon: <FileText size={16} />, color: '#f59e0b' },
+					{ label: 'Avg. Completion', value: `${data.conversionRates.avgCompletionTime} Days`, icon: <Clock size={16} />, color: '#10b981' },
+					{ label: 'Support Load', value: data.stats.totalOpenTickets, icon: <TicketIcon size={16} />, color: '#ef4444' }
+				].map((item, idx) => (
+					<div key={idx} className="premium-card" style={{ padding: '0.75rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+						<div style={{ width: '28px', height: '28px', borderRadius: '7px', backgroundColor: `${item.color}15`, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+							{item.icon}
 						</div>
+						<div>
+							<p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', margin: 0 }}>{item.label}</p>
+							<p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{item.value}</p>
+						</div>
+					</div>
+				))}
+			</div>
+
+			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+				{/* Revenue & Forecast Trend */}
+				<div className="premium-card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+						<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+							<TrendingUp size={18} className="text-secondary" />
+							<h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Project Amounts vs Quote Amounts</h2>
+						</div>
+						<div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.7rem', fontWeight: 600 }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+								<div style={{ width: '7px', height: '7px', borderRadius: '2px', backgroundColor: '#3b82f6' }}></div>
+								<span>Project Amounts</span>
+							</div>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+								<div style={{ width: '7px', height: '7px', borderRadius: '2px', backgroundColor: '#10b981' }}></div>
+								<span>Quote Amounts</span>
+							</div>
+						</div>
+					</div>
+					<div style={{ flex: 1, minHeight: '240px' }}>
+						<ResponsiveContainer width="100%" height="100%">
+							<AreaChart data={data.trends} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+								<defs>
+									<linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+										<stop offset="95%" stopColor="#3b82f6" stopOpacity={0.01} />
+									</linearGradient>
+									<linearGradient id="colorFore" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+										<stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
+									</linearGradient>
+								</defs>
+								<CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+								<XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} />
+								<YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={(val) => `₹${val / 1000}k`} />
+								<Tooltip
+									contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 12px -3px rgba(0,0,0,0.1)', fontSize: '0.75rem' }}
+									formatter={(val: any) => [`₹${val.toLocaleString()}`, '']}
+								/>
+								<Area type="monotone" dataKey="Revenue" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRev)" />
+								<Area type="monotone" dataKey="Forecast" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorFore)" />
+							</AreaChart>
+						</ResponsiveContainer>
+					</div>
+				</div>
+
+				{/* Top Clients by Value */}
+				<div className="premium-card" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column' }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+						<Building2 size={18} className="text-secondary" />
+						<h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Top Clients Portfolio</h2>
+					</div>
+					<div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', paddingBottom: '0.25rem' }}>
+						{data.strategic.topClients.map((client: any, idx: number) => (
+							<div key={idx} style={{ position: 'relative' }}>
+								<div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.8rem' }}>
+									<span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>{client.name}</span>
+									<span style={{ fontWeight: 700, color: 'var(--primary-color)' }}>₹{client.value.toLocaleString()}</span>
+								</div>
+								<div style={{ height: '5px', backgroundColor: '#f1f5f9', borderRadius: '2.5px', overflow: 'hidden' }}>
+									<div style={{ width: `${(client.value / data.strategic.topClients[0].value) * 100}%`, height: '100%', backgroundColor: '#3b82f6', borderRadius: '2.5px' }}></div>
+								</div>
+							</div>
+						))}
 					</div>
 				</div>
 			</div>

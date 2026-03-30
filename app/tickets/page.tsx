@@ -7,6 +7,7 @@ import { useOptions } from '@/context/OptionsContext';
 import { Loader2, X, Search, Ticket, Clock, CheckCircle, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
+import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -21,6 +22,7 @@ const Tickets = () => {
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
+  const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<any[]>([]);
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const { optionsMap } = useOptions();
@@ -30,7 +32,15 @@ const Tickets = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
+
+  // Initialize from search params
+  const initialStartDate = searchParams.get('startDate') || '';
+  const initialEndDate = searchParams.get('endDate') || '';
+  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
+  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
+  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -78,12 +88,37 @@ const Tickets = () => {
 
   const loadData = async () => {
     try {
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      const now = new Date();
+      if (dateRange === '7days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === '30days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisMonth') {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisYear') {
+        const d = new Date(now.getFullYear(), 0, 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'custom') {
+        startDate = customStartDate;
+        endDate = customEndDate;
+      }
+
       const response = await fetchTickets({
           page: currentPage,
           limit: ITEMS_PER_PAGE,
           search: debouncedSearch,
           status: statusFilter,
-          sortBy: sortBy
+          priority: priorityFilter,
+          sortBy: sortBy,
+          startDate,
+          endDate
       });
       setTickets(response.tickets);
       setTotalItems(response.totalItems);
@@ -113,11 +148,11 @@ const Tickets = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, sortBy]);
+  }, [debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
       loadData();
-  }, [currentPage, debouncedSearch, statusFilter, sortBy]);
+  }, [currentPage, debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   const handleCancelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,7 +379,31 @@ const Tickets = () => {
               <th onClick={() => toggleSort('ID')} style={{ cursor: 'pointer' }}>Ticket # {getSortIcon('ID')}</th>
               <th>Ticket Title</th>
               <th onClick={() => toggleSort('Company')} style={{ cursor: 'pointer' }}>Company {getSortIcon('Company')}</th>
-              <th>Priority</th>
+              <th>
+                <select
+                  className="premium-table-filter"
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary-color)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.025em',
+                    width: '100%',
+                    padding: 0
+                  }}
+                >
+                  <option value="All" style={{ color: '#333' }}>Priority</option>
+                  {optionsMap?.ticket?.priority?.map((p: string) => (
+                    <option key={p} value={p} style={{ color: '#333' }}>{p}</option>
+                  ))}
+                </select>
+              </th>
               <th>Status</th>
               <th>Raised By</th>
               <th onClick={() => toggleSort('Date')} style={{ cursor: 'pointer' }}>Date {getSortIcon('Date')}</th>

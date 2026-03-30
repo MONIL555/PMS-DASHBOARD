@@ -126,7 +126,11 @@ export async function GET(request: Request) {
     }
 
     // Fetch status counts for dashboard blocks
+    const statusBaseFilter = { ...filter };
+    delete statusBaseFilter.Lead_Status;
+
     const counts = await Lead.aggregate([
+      { $match: statusBaseFilter },
       {
         $group: {
           _id: '$Lead_Status',

@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchProjects, updateProjectPhase, createProject, fetchQuotations, fetchProjectTypes, fetchProducts, fetchLeads } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import {
   X, Loader2, Search, Clock, Target, Rocket,
-  Package, PlayCircle, ArrowRightCircle, Ban, Plus, Briefcase
+  Package, PlayCircle, ArrowRightCircle, Ban, Plus, Briefcase, ChevronDown, ChevronUp, ArrowUpDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
@@ -19,6 +19,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const Projects = () => {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [projects, setProjects] = useState<any[]>([]);
   const [quotations, setQuotations] = useState<any[]>([]);
@@ -36,6 +37,14 @@ const Projects = () => {
   const [pipelineFilter, setPipelineFilter] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
   const [personFilter, setPersonFilter] = useState('All');
+
+  // Initialize from search params
+  const initialStartDate = searchParams.get('startDate') || '';
+  const initialEndDate = searchParams.get('endDate') || '';
+  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
+  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
+  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
+
   const [assignedPersons, setAssignedPersons] = useState<string[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -124,6 +133,28 @@ const Projects = () => {
 
   const loadData = async () => {
     try {
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      const now = new Date();
+      if (dateRange === '7days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === '30days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisMonth') {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'thisYear') {
+        const d = new Date(now.getFullYear(), 0, 1);
+        startDate = d.toISOString().split('T')[0];
+      } else if (dateRange === 'custom') {
+        startDate = customStartDate;
+        endDate = customEndDate;
+      }
+
       const [projectsResponse, productsData] = await Promise.all([
         fetchProjects({
           page: currentPage,
@@ -132,7 +163,9 @@ const Projects = () => {
           phase: phaseFilter,
           pipeline: pipelineFilter,
           person: personFilter,
-          sortBy: sortBy
+          sortBy: sortBy,
+          startDate,
+          endDate
         }),
         fetchProducts({ active: true, limit: 100 })
       ]);
@@ -223,11 +256,11 @@ const Projects = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter]);
+  }, [debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     loadData();
-  }, [currentPage, debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter]);
+  }, [currentPage, debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter, dateRange, customStartDate, customEndDate]);
 
   const handlePhaseAdvance = async (prj: any, currentPhase: string) => {
     setUpdating(true);
@@ -608,6 +641,59 @@ const Projects = () => {
                 </select>
               </th>
               <th style={{ whiteSpace: 'nowrap' }}>Phase</th>
+              <th
+                onClick={() => dateRange === 'All' && setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest')}
+                style={{ cursor: dateRange === 'All' ? 'pointer' : 'default', userSelect: 'none', minWidth: '180px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {dateRange === 'All' && (sortBy === 'Newest' ? <ChevronDown size={14} className="mr-1" /> : sortBy === 'Oldest' ? <ChevronUp size={14} className="mr-1" /> : <ArrowUpDown size={14} className="mr-1" />)}
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+                    <select
+                      className="premium-table-filter"
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--primary-color)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.025em',
+                        width: '100%',
+                        padding: 0
+                      }}
+                    >
+                      <option value="All" style={{ color: '#333' }}>Start Date</option>
+                      <option value="7days" style={{ color: '#333' }}>Last 7 Days</option>
+                      <option value="30days" style={{ color: '#333' }}>Last 30 Days</option>
+                      <option value="thisMonth" style={{ color: '#333' }}>This Month</option>
+                      <option value="thisYear" style={{ color: '#333' }}>This Year</option>
+                      <option value="custom" style={{ color: '#333' }}>Custom Range</option>
+                    </select>
+                    {dateRange === 'custom' && (
+                      <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -638,11 +724,12 @@ const Projects = () => {
                   <td><span className={`badge ${prj.Priority === 'High' ? 'badge-yellow' : 'badge-gray'}`}>{prj.Priority}</span></td>
                   <td><span className={`badge ${prj.Pipeline_Status === 'Active' ? 'badge-green' : prj.Pipeline_Status === 'Closed' ? 'badge-red' : 'badge-yellow'}`}>{prj.Pipeline_Status || 'Active'}</span></td>
                   <td><span className={`badge ${badgeColor}`}>{currentPhase}</span></td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{formatDateDDMMYYYY(prj.Start_Details?.Start_Date)}</td>
                 </tr>
               );
             })}
             {filteredProjects.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No projects found matching your search.</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No projects found matching your search.</td></tr>
             )}
           </tbody>
         </table>

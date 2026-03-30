@@ -23,7 +23,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const { hasPermission, loading, user } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
-  const [isMastersOpen, setIsMastersOpen] = useState(true);
+  const [isMastersOpen, setIsMastersOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -166,7 +166,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                 </div>
               </div>
             )}
-            {(isMastersOpen || isCollapsed) && (
+            {(isMastersOpen && !isCollapsed) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
                 {hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) && <SidebarLink to="/project-types" icon={<Layers size={20} />} label="Project Types" isCollapsed={isCollapsed} />}

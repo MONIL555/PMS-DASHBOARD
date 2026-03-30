@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import AddClientModal from '@/components/AddClientModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -553,7 +553,7 @@ const Leads = () => {
       {/* Details Modal */}
       {selectedDetailLead && (
         <div className="modal-overlay" onClick={() => setSelectedDetailLead(null)}>
-          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{selectedDetailLead.Client_Reference?.Company_Name || 'Unknown Company'}</h2>
@@ -580,10 +580,9 @@ const Leads = () => {
                   <div>
                     <strong className="text-secondary">Service Required:</strong>
                     <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
-                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {[selectedDetailLead.Product_Reference?.Type, selectedDetailLead.Product_Reference?.SubType].filter(Boolean).join(' / ')}
+                      <span style={{ fontSize: '0.65rem', color: '#43474dff', textTransform: 'uppercase', fontWeight: 500 }}>
+                        {[selectedDetailLead.Product_Reference?.Type, selectedDetailLead.Product_Reference?.SubType, selectedDetailLead.Product_Reference?.SubSubType].filter(Boolean).join(' / ')}
                       </span>
-                      <span className="font-bold text-blue-700">{selectedDetailLead.Product_Reference?.SubSubType || selectedDetailLead.Product_Reference?.SubType || selectedDetailLead.Product_Reference?.Type || '-'}</span>
                     </div>
                   </div>
                   <div><strong className="text-secondary">Source:</strong> {selectedDetailLead.Source_Reference?.Source_Name || '-'}</div>
@@ -687,11 +686,10 @@ const Leads = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service Name *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={convertData.Product_Reference}
                     onSelect={handleConvertProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                 </div>
 
@@ -843,11 +841,10 @@ const Leads = () => {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product / Service *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={addLeadData.Product_Reference}
                     onSelect={handleProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                   {addLeadData.Product_Reference && !productSearchName.includes("Selected") && (
                     <div className="text-xs text-green-600 mt-1">✓ Service Linked</div>

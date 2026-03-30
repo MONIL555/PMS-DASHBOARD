@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import AddClientModal from '@/components/AddClientModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -1359,11 +1359,10 @@ const Projects = () => {
                 </div>
                 <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={addProjectData.Product_Reference}
                     onSelect={handleProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                   {addProjectData.Product_Reference && (
                     <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem', fontWeight: 500 }}>

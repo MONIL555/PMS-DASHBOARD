@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
-import ProductAutocomplete from '@/components/ProductAutocomplete';
+import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import AddClientModal from '@/components/AddClientModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -983,11 +983,10 @@ const Quotations = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={convertData.Product_Reference}
                     onSelect={handleConvertProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                 </div>
 
@@ -1181,11 +1180,10 @@ const Quotations = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service Name *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={editQuotationData.Product_Reference}
                     onSelect={handleProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                 </div>
 
@@ -1342,11 +1340,10 @@ const Quotations = () => {
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Product/Service Name *</label>
-                  <ProductAutocomplete
-                    value={productSearchName}
-                    onChange={(val) => setProductSearchName(val)}
+                  <HierarchicalProductSelector
+                    value={addQuotationData.Product_Reference}
                     onSelect={handleProductSelect}
-                    placeholder="Search product..."
+                    placeholder="Choose category..."
                   />
                 </div>
 

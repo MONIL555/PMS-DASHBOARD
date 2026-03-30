@@ -344,7 +344,7 @@ const Dashboard = () => {
 				{[
 					{ label: 'Lead → Quote', value: `${data.conversionRates.leadToQuote}%`, icon: <Users size={16} />, color: '#3b82f6' },
 					{ label: 'Quote → Project', value: `${data.conversionRates.quoteToProject}%`, icon: <FileText size={16} />, color: '#f59e0b' },
-					{ label: 'Avg. Completion', value: `${data.conversionRates.avgCompletionTime} Days`, icon: <Clock size={16} />, color: '#10b981' },
+					{ label: 'Avg. Project Completion Time', value: `${data.conversionRates.avgCompletionTime} Days`, icon: <Clock size={16} />, color: '#10b981' },
 					{ label: 'Support Load', value: data.stats.totalOpenTickets, icon: <TicketIcon size={16} />, color: '#ef4444' }
 				].map((item, idx) => (
 					<div key={idx} className="premium-card" style={{ padding: '0.75rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -361,11 +361,11 @@ const Dashboard = () => {
 
 			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
 				{/* Revenue & Forecast Trend */}
-				<div className="premium-card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-						<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-							<TrendingUp size={18} className="text-secondary" />
-							<h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Project Amounts vs Quote Amounts</h2>
+				<div className="premium-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+						<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+							<TrendingUp size={20} className="text-secondary" />
+							<h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Project Amounts vs Quote Amounts</h2>
 						</div>
 						<div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.7rem', fontWeight: 600 }}>
 							<div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -406,10 +406,10 @@ const Dashboard = () => {
 				</div>
 
 				{/* Top Clients by Value */}
-				<div className="premium-card" style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column' }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-						<Building2 size={18} className="text-secondary" />
-						<h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Top Clients Portfolio</h2>
+				<div className="premium-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+						<Building2 size={20} className="text-secondary" />
+						<h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Top Clients Portfolio</h2>
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', paddingBottom: '0.25rem' }}>
 						{data.strategic.topClients.map((client: any, idx: number) => (

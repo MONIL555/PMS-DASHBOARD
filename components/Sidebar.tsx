@@ -203,7 +203,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                   </div>
                 </div>
               )}
-              {(isMastersOpen && !isCollapsed) && (
+              {(isMastersOpen || isCollapsed) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) && <SidebarLink to="/project-types" icon={<Layers size={20} />} label="Project Types" isCollapsed={isCollapsed} />}

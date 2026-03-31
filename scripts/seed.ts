@@ -179,10 +179,6 @@ async function seed() {
             Client_Reference: client._id,
             Source_Reference: source._id,
             Product_Reference: product._id,
-            Product_Wise_Specific_Fields: {
-                Legacy_System: randomItem(['Oracle', 'SAP', 'Excel', 'None']),
-                Estimated_Users: randomInt(10, 500)
-            },
             Lead_Status: status,
             Inquiry_Date: date,
             Lead_Status_Date_Time: date,

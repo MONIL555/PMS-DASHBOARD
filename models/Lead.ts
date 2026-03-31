@@ -5,7 +5,6 @@ export interface ILead extends Document {
   Lead_ID: string;
   Source_Reference: mongoose.Types.ObjectId;
   Product_Reference: mongoose.Types.ObjectId;
-  Product_Wise_Specific_Fields: any;
   Client_Reference: mongoose.Types.ObjectId;
   Inquiry_Date: Date;
   Notes: string;
@@ -34,9 +33,6 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
     type: Schema.Types.ObjectId,
     ref: 'Product',
     required: true
-  },
-  Product_Wise_Specific_Fields: {
-    type: Schema.Types.Mixed // For custom fields per product
   },
   Client_Reference: {
     type: Schema.Types.ObjectId,

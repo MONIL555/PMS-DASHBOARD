@@ -19,13 +19,13 @@ export async function GET(
 
         const project = await Project.findOne(query)
             .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
-            .populate('Product_Reference', 'Product_Name')
+            .populate('Product_Reference', 'Type SubType SubSubType')
             .populate('Lead_Reference', 'Lead_ID Company_Name Client_Name Contact_Number')
             .populate('Project_Type', 'Type_Name')
             .populate({
                 path: 'Quotation_Reference',
                 select: 'Quotation_ID Commercial Product_Name_Service Requirement Project_Scope_Description',
-                populate: { path: 'Product_Reference', select: 'Product_Name' }
+                populate: { path: 'Product_Reference', select: 'Type SubType SubSubType' }
             });
         if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
         return NextResponse.json(project);

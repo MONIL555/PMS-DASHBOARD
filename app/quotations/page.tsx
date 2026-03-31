@@ -10,7 +10,7 @@ import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
-import AddClientModal from '@/components/AddClientModal';
+import ClientFields from '@/components/ClientFields';
 import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -119,7 +119,17 @@ const Quotations = () => {
 
   const [clientSearchName, setClientSearchName] = useState('');
   const [productSearchName, setProductSearchName] = useState('');
-  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    Company_Name: '',
+    Company_No: '',
+    Client_Name: '',
+    Contact_Number: '',
+    Email: '',
+    Location: '',
+    Description: ''
+  });
 
   const loadData = async () => {
     try {
@@ -178,16 +188,6 @@ const Quotations = () => {
     }
   };
 
-  const handleClientCreated = (newClient: any) => {
-    if (isAddModalOpen) {
-      setAddQuotationData({
-        ...addQuotationData,
-        Client_Reference: newClient._id
-      });
-      setClientSearchName(`${newClient.Company_Name} (Newly Added)`);
-    }
-    toast.success(`Client "${newClient.Company_Name}" created and selected!`);
-  };
 
   const handleClientSelect = (client: any) => {
     // ... handles both add and edit
@@ -461,10 +461,30 @@ const Quotations = () => {
       Followup_Notification: true
     });
     setClientSearchName('');
+    setIsNewClient(false);
+    setNewClientData({
+      Company_Name: '',
+      Company_No: '',
+      Client_Name: '',
+      Contact_Number: '',
+      Email: '',
+      Location: '',
+      Description: ''
+    });
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isNewClient && !addQuotationData.Client_Reference && !addQuotationData.Lead_ID) {
+      toast.error('Please select a Client or Lead.');
+      return;
+    }
+
+    if (isNewClient && !newClientData.Company_Name) {
+      toast.error('Company Name is required for New Client.');
+      return;
+    }
 
     if (!addQuotationData.Product_Reference) {
       toast.error('Please select a Product/Service.');
@@ -477,7 +497,12 @@ const Quotations = () => {
 
     setAddingQuotation(true);
     try {
-      await createQuotation(addQuotationData);
+      const dataToSubmit: any = { ...addQuotationData };
+      if (isNewClient) {
+        dataToSubmit.newClientData = newClientData;
+        delete dataToSubmit.Client_Reference;
+      }
+      await createQuotation(dataToSubmit);
       toast.success('Quotation added successfully!');
       handleAddModalClose();
       loadData();
@@ -1356,26 +1381,39 @@ const Quotations = () => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Commercial Amount *</label>
                   <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={addQuotationData.Commercial} onChange={e => setAddQuotationData({ ...addQuotationData, Commercial: e.target.value })} placeholder="e.g. 5000" />
-                </div>                <div className="form-group" style={{ marginBottom: 0 }}>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client *</label>
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      style={{ fontSize: '0.75rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      onClick={() => setIsAddClientModalOpen(true)}
-                    >
-                      + Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isNewClient} 
+                          onChange={(e) => setIsNewClient(e.target.checked)} 
+                          style={{ width: '14px', height: '14px' }}
+                        />
+                        New Client?
+                      </label>
+                    </div>
                   </div>
-                  <ClientAutocomplete
-                    value={clientSearchName}
-                    onChange={(val) => setClientSearchName(val)}
-                    onSelect={handleClientSelect}
-                    placeholder="Search client..."
-                  />
-                  {addQuotationData.Client_Reference && !clientSearchName.includes("Selected") && (
-                    <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                  {!isNewClient ? (
+                    <>
+                      <ClientAutocomplete
+                        value={clientSearchName}
+                        onChange={(val) => setClientSearchName(val)}
+                        onSelect={handleClientSelect}
+                        placeholder="Search client..."
+                      />
+                      {addQuotationData.Client_Reference && !clientSearchName.includes("Selected") && (
+                        <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                      )}
+                    </>
+                  ) : (
+                    <ClientFields 
+                      values={newClientData} 
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    />
                   )}
                 </div>
 
@@ -1441,13 +1479,6 @@ const Quotations = () => {
           </div>
         </div>
       )}
-
-      <AddClientModal
-        isOpen={isAddClientModalOpen}
-        onClose={() => setIsAddClientModalOpen(false)}
-        onSuccess={handleClientCreated}
-        isStacked={true}
-      />
     </div>
   );
 };

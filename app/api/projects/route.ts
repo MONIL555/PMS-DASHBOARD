@@ -177,15 +177,34 @@ export async function POST(request: Request) {
     const auth = await verifyPermission(PERMISSIONS.PROJECTS_CREATE);
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
-    const data = await request.json();
-    if (!data.Lead_Reference) delete data.Lead_Reference;
-    if (!data.Quotation_Reference) delete data.Quotation_Reference;
+    const body = await request.json();
+    const { newClientData, ...projectData } = body;
 
-    const newProject = new Project(data);
+    let clientReference = projectData.Client_Reference;
+
+    // Handle nested client creation
+    if (newClientData) {
+      const newClient = new Client(newClientData);
+      await newClient.save();
+      clientReference = newClient._id;
+    }
+
+    if (!clientReference && !projectData.Quotation_Reference && !projectData.Lead_Reference) {
+      return NextResponse.json({ error: 'Client Reference is required' }, { status: 400 });
+    }
+
+    if (!projectData.Lead_Reference) delete projectData.Lead_Reference;
+    if (!projectData.Quotation_Reference) delete projectData.Quotation_Reference;
+
+    const newProject = new Project({
+      ...projectData,
+      Client_Reference: clientReference
+    });
+
     await newProject.save();
 
-    if (data.Quotation_Reference) {
-        const quote = await Quotation.findById(data.Quotation_Reference);
+    if (projectData.Quotation_Reference) {
+        const quote = await Quotation.findById(projectData.Quotation_Reference);
         if (quote) {
             quote.Quotation_Status = 'Converted';
             await quote.save();
@@ -207,6 +226,7 @@ export async function POST(request: Request) {
     ]);
     return NextResponse.json(newProject, { status: 201 });
   } catch (error: any) {
+    console.error('Error creating project:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

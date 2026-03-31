@@ -10,7 +10,7 @@ import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
-import AddClientModal from '@/components/AddClientModal';
+import ClientFields from '@/components/ClientFields';
 import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -54,10 +54,20 @@ const Leads = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editLeadId, setEditLeadId] = useState<string | null>(null);
   const [addingLead, setAddingLead] = useState(false);
-  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
 
   const [clientSearchName, setClientSearchName] = useState('');
   const [productSearchName, setProductSearchName] = useState('');
+
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    Company_Name: '',
+    Company_No: '',
+    Client_Name: '',
+    Contact_Number: '',
+    Email: '',
+    Location: '',
+    Description: ''
+  });
 
   const [addLeadData, setAddLeadData] = useState({
     Client_Reference: '',
@@ -239,16 +249,19 @@ const Leads = () => {
       Inquiry_Date: new Date().toISOString().split('T')[0],
       Notes: ''
     });
+    setIsNewClient(false);
+    setNewClientData({
+      Company_Name: '',
+      Company_No: '',
+      Client_Name: '',
+      Contact_Number: '',
+      Email: '',
+      Location: '',
+      Description: ''
+    });
   };
 
-  const handleClientCreated = (newClient: any) => {
-    setAddLeadData({
-      ...addLeadData,
-      Client_Reference: newClient._id
-    });
-    setClientSearchName(`${newClient.Company_Name} (Newly Added)`);
-    toast.success(`Client "${newClient.Company_Name}" created and selected!`);
-  };
+
 
   const handleClientSelect = (client: any) => {
     setAddLeadData({
@@ -280,8 +293,12 @@ const Leads = () => {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!addLeadData.Client_Reference) {
+    if (!isNewClient && !addLeadData.Client_Reference) {
       toast.error('Please select a valid Client.');
+      return;
+    }
+    if (isNewClient && !newClientData.Company_Name) {
+      toast.error('Company Name is required for New Client.');
       return;
     }
     if (!addLeadData.Product_Reference) {
@@ -298,7 +315,12 @@ const Leads = () => {
     let statusChangedToCancel = false;
     let statusChangedToConvert = false;
     let originalLead = null;
-    let dataToSubmit = { ...addLeadData };
+    let dataToSubmit: any = { ...addLeadData };
+
+    if (isNewClient) {
+      dataToSubmit.newClientData = newClientData;
+      delete dataToSubmit.Client_Reference;
+    }
 
     if (editLeadId) {
       originalLead = leads.find((l: any) => l._id === editLeadId);
@@ -825,23 +847,37 @@ const Leads = () => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client *</label>
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      style={{ fontSize: '0.75rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      onClick={() => setIsAddClientModalOpen(true)}
-                    >
-                      + Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      {!editLeadId && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isNewClient} 
+                            onChange={(e) => setIsNewClient(e.target.checked)} 
+                            style={{ width: '14px', height: '14px' }}
+                          />
+                          New Client?
+                        </label>
+                      )}
+                    </div>
                   </div>
-                  <ClientAutocomplete
-                    value={clientSearchName}
-                    onChange={(val) => setClientSearchName(val)}
-                    onSelect={handleClientSelect}
-                    placeholder="Search client by name or ID..."
-                  />
-                  {addLeadData.Client_Reference && !clientSearchName.includes("Selected") && (
-                    <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                  {!isNewClient ? (
+                    <>
+                      <ClientAutocomplete
+                        value={clientSearchName}
+                        onChange={(val) => setClientSearchName(val)}
+                        onSelect={handleClientSelect}
+                        placeholder="Search client by name or ID..."
+                      />
+                      {addLeadData.Client_Reference && !clientSearchName.includes("Selected") && (
+                        <div className="text-xs text-green-600 mt-1">✓ Client Linked</div>
+                      )}
+                    </>
+                  ) : (
+                    <ClientFields 
+                      values={newClientData} 
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    />
                   )}
                 </div>
 
@@ -947,13 +983,6 @@ const Leads = () => {
           </div>
         </div>
       )}
-
-      <AddClientModal
-        isOpen={isAddClientModalOpen}
-        onClose={() => setIsAddClientModalOpen(false)}
-        onSuccess={handleClientCreated}
-        isStacked={true}
-      />
     </div>
   );
 };

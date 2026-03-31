@@ -263,10 +263,11 @@ export const cancelItem = async (type: string, id: string, reason: string = 'Can
 
 export const fetchClients = async (params: any = {}) => {
   const query = new URLSearchParams();
-  if (params.active) query.append('active', 'true');
   if (params.page) query.append('page', params.page.toString());
   if (params.limit) query.append('limit', params.limit.toString());
   if (params.search) query.append('search', params.search);
+  if (params.status) query.append('status', params.status);
+  if (params.sortBy) query.append('sortBy', params.sortBy);
 
   const res = await fetch(`${API_URL}/clients?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch clients');

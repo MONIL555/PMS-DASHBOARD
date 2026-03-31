@@ -173,11 +173,31 @@ export async function POST(request: Request) {
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
     const body = await request.json();
-    const newLead = new Lead(body);
+    const { newClientData, ...leadData } = body;
+
+    let clientReference = leadData.Client_Reference;
+
+    // Handle nested client creation
+    if (newClientData) {
+      const newClient = new Client(newClientData);
+      await newClient.save();
+      clientReference = newClient._id;
+    }
+
+    if (!clientReference) {
+      return NextResponse.json({ error: 'Client Reference is required' }, { status: 400 });
+    }
+
+    const newLead = new Lead({
+      ...leadData,
+      Client_Reference: clientReference
+    });
+
     await newLead.save();
     await newLead.populate(['Client_Reference', 'Product_Reference', 'Source_Reference']);
     return NextResponse.json(newLead, { status: 201 });
   } catch (error: any) {
+    console.error('Error creating lead:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

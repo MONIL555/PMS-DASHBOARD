@@ -16,10 +16,13 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
-    const activeOnly = searchParams.get('active') === 'true';
-    const sortBy = searchParams.get('sortBy') || 'Company-A-Z';
+    const status = searchParams.get('status') || 'All';
+    const sortBy = searchParams.get('sortBy') || 'Newest';
     
-    const query: any = activeOnly ? { IsActive: true } : {};
+    const query: any = {};
+    if (status === 'Active') query.IsActive = true;
+    if (status === 'Inactive') query.IsActive = false;
+    
     if (search) {
         query.$or = [
             { Company_Name: { $regex: search, $options: 'i' } },
@@ -30,7 +33,7 @@ export async function GET(request: Request) {
         ];
     }
 
-    let sortOption: any = { Company_Name: 1 };
+    let sortOption: any = { createdAt: -1 };
     if (sortBy === 'Company-A-Z') sortOption = { Company_Name: 1 };
     if (sortBy === 'Company-Z-A') sortOption = { Company_Name: -1 };
     if (sortBy === 'ID-ASC') sortOption = { Client_ID: 1 };

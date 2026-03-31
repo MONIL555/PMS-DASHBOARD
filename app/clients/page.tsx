@@ -15,14 +15,15 @@ export default function ClientsMaster() {
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const ITEMS_PER_PAGE = 20;
 
   const [selectedDetailClient, setSelectedDetailClient] = useState<any | null>(null);
@@ -32,10 +33,11 @@ export default function ClientsMaster() {
   const loadClients = async () => {
     try {
       const response = await fetchClients({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: debouncedSearch,
-          sortBy: sortBy
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch,
+        status: statusFilter,
+        sortBy: sortBy
       });
       setClients(response.clients);
       setTotalItems(response.totalItems);
@@ -54,12 +56,12 @@ export default function ClientsMaster() {
   }, [searchTerm]);
 
   useEffect(() => {
-      setCurrentPage(1);
-  }, [debouncedSearch]);
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter]);
 
   useEffect(() => {
     loadClients();
-  }, [currentPage, debouncedSearch, sortBy]);
+  }, [currentPage, debouncedSearch, sortBy, statusFilter]);
 
   const handleOpenModal = (client?: any) => {
     setEditingClient(client || null);
@@ -84,9 +86,6 @@ export default function ClientsMaster() {
 
   const filteredClients = clients;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
 
   if (loading) return (
     <div style={{ display: 'flex', height: '80vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
@@ -113,7 +112,7 @@ export default function ClientsMaster() {
       if (sortBy === 'Company-A-Z') return <span className="ml-1 text-blue-500">↑</span>;
       if (sortBy === 'Company-Z-A') return <span className="ml-1 text-blue-500">↓</span>;
     }
-    return <span className="ml-1 text-gray-400 opacity-50">⇅</span>;
+    return <span className="ml-1 text-gray-400 opacity-50" style={{ fontSize: '0.7rem' }}>⇅</span>;
   };
 
   return (
@@ -158,7 +157,33 @@ export default function ClientsMaster() {
               <th>Client Name</th>
               <th>Contact Info</th>
               <th>Description</th>
-              <th>Status</th>
+              <th style={{ minWidth: '130px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Status</span>
+                  <select
+                    className="form-select"
+                    style={{
+                      padding: '2px 4px',
+                      fontSize: '0.7rem',
+                      width: 'auto',
+                      height: 'auto',
+                      marginLeft: '0.5rem',
+                      borderRadius: '4px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      color: 'var(--primary-color)',
+                      fontWeight: 600
+                    }}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="All">All</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>

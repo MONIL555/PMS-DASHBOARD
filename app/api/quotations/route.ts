@@ -183,16 +183,34 @@ export async function POST(request: Request) {
     const auth = await verifyPermission(PERMISSIONS.QUOTATIONS_CREATE);
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
-    const data = await request.json();
+    const body = await request.json();
+    const { newClientData, ...quotationData } = body;
 
     // If it's a conversion from lead, check for LEADS_CONVERT permission
-    if (data.Lead_ID) {
+    if (quotationData.Lead_ID) {
       const convertAuth = await verifyPermission(PERMISSIONS.LEADS_CONVERT);
       if (!convertAuth.authorized) return NextResponse.json({ error: convertAuth.message }, { status: convertAuth.status });
     }
-    if (!data.Lead_ID) delete data.Lead_ID;
+    if (!quotationData.Lead_ID) delete quotationData.Lead_ID;
 
-    const newQuote = new Quotation(data);
+    let clientReference = quotationData.Client_Reference;
+
+    // Handle nested client creation
+    if (newClientData) {
+      const newClient = new Client(newClientData);
+      await newClient.save();
+      clientReference = newClient._id;
+    }
+
+    if (!clientReference && !quotationData.Lead_ID) {
+      return NextResponse.json({ error: 'Client Reference is required' }, { status: 400 });
+    }
+
+    const newQuote = new Quotation({
+      ...quotationData,
+      Client_Reference: clientReference
+    });
+
     await newQuote.save();
     await newQuote.populate([
         { path: 'Client_Reference' },
@@ -200,14 +218,17 @@ export async function POST(request: Request) {
         { path: 'Project_Type', strictPopulate: false }
     ]);
 
-    if (data.Lead_ID) {
-        await Lead.findByIdAndUpdate(data.Lead_ID, {
-            Lead_Status: 'Converted',
-            Lead_Status_Date_Time: new Date()
-        });
+    if (quotationData.Lead_ID) {
+        const lead = await Lead.findById(quotationData.Lead_ID);
+        if (lead) {
+            lead.Lead_Status = 'Converted';
+            lead.Lead_Status_Date_Time = new Date();
+            await lead.save();
+        }
     }
     return NextResponse.json(newQuote, { status: 201 });
   } catch (error: any) {
+    console.error('Error creating quotation:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

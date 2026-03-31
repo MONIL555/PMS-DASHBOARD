@@ -14,7 +14,7 @@ import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
-import AddClientModal from '@/components/AddClientModal';
+import ClientFields from '@/components/ClientFields';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -129,7 +129,17 @@ const Projects = () => {
 
   const [clientSearchName, setClientSearchName] = useState('');
   const [productSearchName, setProductSearchName] = useState('');
-  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+
+  const [isNewClient, setIsNewClient] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    Company_Name: '',
+    Company_No: '',
+    Client_Name: '',
+    Contact_Number: '',
+    Email: '',
+    Location: '',
+    Description: ''
+  });
 
   const loadData = async () => {
     try {
@@ -181,16 +191,7 @@ const Projects = () => {
     }
   };
 
-  const handleClientCreated = (newClient: any) => {
-    if (isAddModalOpen) {
-      setAddProjectData({
-        ...addProjectData,
-        Client_Reference: newClient._id
-      });
-      setClientSearchName(`${newClient.Company_Name} (Newly Added)`);
-    }
-    toast.success(`Client "${newClient.Company_Name}" created and selected!`);
-  };
+
 
   const handleClientSelect = (client: any) => {
     if (isAddModalOpen) {
@@ -403,9 +404,20 @@ const Projects = () => {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isNewClient && !addProjectData.Client_Reference && !addProjectData.Quotation_Reference && !addProjectData.Lead_Reference) {
+      toast.error('Please select a Client, Quotation or Lead.');
+      return;
+    }
+
+    if (isNewClient && !newClientData.Company_Name) {
+      toast.error('Company Name is required for New Client.');
+      return;
+    }
+
     setAdding(true);
     try {
-      const payload = {
+      const dataToSubmit: any = {
         Project_Name: addProjectData.Project_Name || undefined,
         Project_Type: addProjectData.Project_Type || undefined,
         Quotation_Reference: addProjectData.Quotation_Reference || undefined,
@@ -425,9 +437,24 @@ const Projects = () => {
         }
       };
 
-      await createProject(payload);
+      if (isNewClient) {
+        dataToSubmit.newClientData = newClientData;
+        delete dataToSubmit.Client_Reference;
+      }
+
+      await createProject(dataToSubmit);
       toast.success('Project created successfully!');
       setIsAddModalOpen(false);
+      setIsNewClient(false);
+      setNewClientData({
+        Company_Name: '',
+        Company_No: '',
+        Client_Name: '',
+        Contact_Number: '',
+        Email: '',
+        Location: '',
+        Description: ''
+      });
       loadData();
     } catch (err: any) {
       toast.error('Error creating project: ' + err.message);
@@ -1461,25 +1488,37 @@ const Projects = () => {
                 <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 3' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client / Company Selection *</label>
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      style={{ fontSize: '0.75rem', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      onClick={() => setIsAddClientModalOpen(true)}
-                    >
-                      + Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isNewClient} 
+                          onChange={(e) => setIsNewClient(e.target.checked)} 
+                          style={{ width: '14px', height: '14px' }}
+                        />
+                        New Client?
+                      </label>
+                    </div>
                   </div>
-                  <ClientAutocomplete
-                    value={clientSearchName}
-                    onChange={setClientSearchName}
-                    onSelect={handleClientSelect}
-                    placeholder="Search client or company..."
-                  />
-                  {addProjectData.Client_Reference && (
-                    <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem', fontWeight: 500 }}>
-                      ✓ Client linked successfully.
-                    </p>
+                  {!isNewClient ? (
+                    <>
+                      <ClientAutocomplete
+                        value={clientSearchName}
+                        onChange={setClientSearchName}
+                        onSelect={handleClientSelect}
+                        placeholder="Search client or company..."
+                      />
+                      {addProjectData.Client_Reference && (
+                        <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem', fontWeight: 500 }}>
+                          ✓ Client linked successfully.
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <ClientFields 
+                      values={newClientData} 
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    />
                   )}
                 </div>
 
@@ -1599,13 +1638,6 @@ const Projects = () => {
           </div>
         </div>
       )}
-
-      <AddClientModal
-        isOpen={isAddClientModalOpen}
-        onClose={() => setIsAddClientModalOpen(false)}
-        onSuccess={handleClientCreated}
-        isStacked={true}
-      />
     </div>
   );
 };

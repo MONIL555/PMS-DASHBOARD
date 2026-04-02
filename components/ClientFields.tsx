@@ -26,9 +26,14 @@ const ClientFields: React.FC<ClientFieldsProps> = ({ values, onChange, showStatu
   // Initial validation sync
   useEffect(() => {
     if (values.Contact_Number) {
-      setIsValid(isValidPhoneNumber(values.Contact_Number));
+      try {
+        setIsValid(isValidPhoneNumber(values.Contact_Number));
+      } catch {
+        setIsValid(false);
+      }
     }
-  }, []);
+  }, [values.Contact_Number]);
+
   return (
     <div style={{
       display: 'grid',

@@ -36,16 +36,41 @@ const PhoneInput: React.FC<PhoneInputProps> = ({ value, onChange, error, placeho
   useEffect(() => {
     if (value) {
       try {
-        const parsed = parsePhoneNumber(value);
-        if (parsed) {
+        // Try to parse assuming international format first
+        let parsed = null;
+        try {
+          // If it starts with + we can easily parse
+          if (value.startsWith('+')) {
+            parsed = parsePhoneNumber(value);
+          } else {
+            // Try parsing by assuming it might be a valid number with missing +
+            parsed = parsePhoneNumber(`+${value}`);
+          }
+        } catch {
+          // If that fails, try parsing with current default (last resort)
+          try {
+            parsed = parsePhoneNumber(value, { defaultCountry: selectedCountry || 'IN' });
+          } catch {
+            parsed = null;
+          }
+        }
+
+        if (parsed && parsed.country) {
           setSelectedCountry(parsed.country as CountryCode);
           setPhoneNumber(parsed.nationalNumber as string);
+        } else {
+          // If parsing fails but it looks like digits, just set it and keep default
+          setPhoneNumber(value.replace(/[^\d]/g, ''));
         }
-      } catch {
+      } catch (err) {
         setPhoneNumber(value);
       }
+    } else {
+      setPhoneNumber('');
+      // Don't reset country here to avoid flicker, let it keep the default
     }
-  }, []);
+  }, [value]);
+
 
   // Handle outside click to close dropdown
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createClient, updateClient } from '@/utils/api';
@@ -23,15 +23,41 @@ const AddClientModal: React.FC<AddClientModalProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    Company_Name: editingClient?.Company_Name || '',
-    Company_No: editingClient?.Company_No || '',
-    Client_Name: editingClient?.Client_Name || '',
-    Contact_Number: editingClient?.Contact_Number || '',
-    Email: editingClient?.Email || '',
-    Location: editingClient?.Location || '',
-    Description: editingClient?.Description || '',
-    IsActive: editingClient?.IsActive !== undefined ? editingClient?.IsActive : true
+    Company_Name: '',
+    Company_No: '',
+    Client_Name: '',
+    Contact_Number: '',
+    Email: '',
+    Location: '',
+    Description: '',
+    IsActive: true
   });
+
+  useEffect(() => {
+    if (editingClient) {
+      setFormData({
+        Company_Name: editingClient.Company_Name || '',
+        Company_No: editingClient.Company_No || '',
+        Client_Name: editingClient.Client_Name || '',
+        Contact_Number: editingClient.Contact_Number || '',
+        Email: editingClient.Email || '',
+        Location: editingClient.Location || '',
+        Description: editingClient.Description || '',
+        IsActive: editingClient.IsActive !== undefined ? editingClient.IsActive : true
+      });
+    } else {
+      setFormData({
+        Company_Name: '',
+        Company_No: '',
+        Client_Name: '',
+        Contact_Number: '',
+        Email: '',
+        Location: '',
+        Description: '',
+        IsActive: true
+      });
+    }
+  }, [editingClient, isOpen]);
 
   if (!isOpen) return null;
 

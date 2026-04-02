@@ -51,7 +51,7 @@ export default function ClientsMaster() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-        setDebouncedSearch(searchTerm);
+      setDebouncedSearch(searchTerm);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -218,16 +218,6 @@ export default function ClientsMaster() {
                     <button type="button" onClick={() => setSelectedDetailClient(client)} style={{ padding: '0.25rem', color: '#10b981', background: 'transparent', border: 'none', cursor: 'pointer' }} title="View details"><Eye size={16} /></button>
                     <button type="button" onClick={() => {
                       setEditingClient(client);
-                      setFormData({
-                        Company_Name: client.Company_Name || '',
-                        Company_No: client.Company_No || '',
-                        Client_Name: client.Client_Name || '',
-                        Contact_Number: client.Contact_Number || '',
-                        Email: client.Email || '',
-                        Location: client.Location || '',
-                        Description: client.Description || '',
-                        IsActive: client.IsActive !== undefined ? client.IsActive : true
-                      });
                       setIsModalOpen(true);
                     }} style={{ padding: '0.25rem', color: '#64748b', background: 'transparent', border: 'none', cursor: 'pointer' }} title="Edit"><Edit2 size={16} /></button>
                     <button type="button" onClick={() => setSelectedDeleteClient(client)} style={{ padding: '0.25rem', color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }} title="Delete"><Trash2 size={16} /></button>

@@ -10,9 +10,10 @@ import { PERMISSIONS } from '@/lib/permissions';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 
 import { PRODUCT_HIERARCHY } from '@/lib/constants/productCategories';
-import { fetchProducts, createProduct, updateProduct, deleteProduct } from '@/utils/api';
+import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchUsers } from '@/utils/api';
 
 export default function ProductsMaster() {
+  const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,8 @@ export default function ProductsMaster() {
     SubType: '',
     SubSubType: '',
     Description: '',
-    IsActive: true
+    IsActive: true,
+    Assigned_User: ''
   });
 
   const loadProducts = async () => {
@@ -60,6 +62,19 @@ export default function ProductsMaster() {
       setLoading(false);
     }
   };
+
+  const loadUsers = async () => {
+    try {
+      const response = await fetchUsers({ active: true, limit: 100 });
+      setUsers(response.users);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -92,7 +107,8 @@ export default function ProductsMaster() {
         SubType: product.SubType || '',
         SubSubType: product.SubSubType || '',
         Description: product.Description || '',
-        IsActive: product.IsActive !== undefined ? product.IsActive : true
+        IsActive: product.IsActive !== undefined ? product.IsActive : true,
+        Assigned_User: product.Assigned_User?._id || ''
       });
     } else {
       setEditingProduct(null);
@@ -101,7 +117,8 @@ export default function ProductsMaster() {
         SubType: '',
         SubSubType: '',
         Description: '',
-        IsActive: true
+        IsActive: true,
+        Assigned_User: ''
       });
     }
     setIsModalOpen(true);
@@ -500,6 +517,9 @@ export default function ProductsMaster() {
                               </div>
 
                               <div className="row-actions">
+                                <span className="badge badge-gray" style={{ fontSize: '0.65rem' }}>
+                                  Assigned To: {product.Assigned_User?.Name || 'Unassigned'}
+                                </span>
                                 <span className={`badge ${product.IsActive ? 'badge-green' : 'badge-red'}`} style={{ fontSize: '0.65rem' }}>
                                   {product.IsActive ? 'Active' : 'Inactive'}
                                 </span>
@@ -610,16 +630,32 @@ export default function ProductsMaster() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Classification Documentation</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ width: '100%' }}
-                  value={formData.Description}
-                  onChange={(e) => setFormData({ ...formData, Description: e.target.value })}
-                  placeholder="Optional technical notes or architectural details..."
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Classification Documentation</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ width: '100%' }}
+                    value={formData.Description}
+                    onChange={(e) => setFormData({ ...formData, Description: e.target.value })}
+                    placeholder="Optional technical notes or architectural details..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Assigned To</label>
+                  <select
+                    className="form-input"
+                    value={formData.Assigned_User}
+                    onChange={(e) => setFormData({ ...formData, Assigned_User: e.target.value })}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(u => (
+                      <option key={u._id} value={u._id}>{u.Name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem', padding: '0.25rem 0' }}>
@@ -668,6 +704,9 @@ export default function ProductsMaster() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.875rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Calendar size={16} className="text-secondary" /> <strong>Created On:</strong> {formatDateDDMMYYYY(selectedDetail.createdAt)}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Clock size={16} className="text-secondary" /> <strong>Last Updated:</strong> {formatDateTimeDDMMYYYY(selectedDetail.updatedAt)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Monitor size={16} className="text-secondary" /> <strong>Assigned To:</strong> {selectedDetail.Assigned_User ? selectedDetail.Assigned_User.Name : <span className="text-secondary italic">Unassigned</span>}
+                  </div>
                   <div>
                     <strong>Status:</strong>{' '}
                     <span className={`badge ${selectedDetail.IsActive ? 'badge-green' : 'badge-red'}`} style={{ fontSize: '0.7rem' }}>

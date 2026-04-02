@@ -30,7 +30,9 @@ export async function GET(request: Request) {
     }
 
     const totalItems = await Product.countDocuments(query);
-    let productsQuery = Product.find(query).sort({ Type: 1, SubType: 1, SubSubType: 1 });
+    let productsQuery = Product.find(query)
+      .populate('Assigned_User', 'User_ID Name Email')
+      .sort({ Type: 1, SubType: 1, SubSubType: 1 });
 
     if (limit > 0) {
         productsQuery = productsQuery.skip((page - 1) * limit).limit(limit);
@@ -80,6 +82,8 @@ export async function POST(request: Request) {
       SubSubType: data.SubSubType
     });
     await newProduct.save();
+    await newProduct.populate('Assigned_User', 'User_ID Name Email');
+    
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchProjects, updateProjectPhase, createProject, fetchQuotations, fetchProjectTypes, fetchProducts, fetchLeads } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
@@ -1642,4 +1642,10 @@ const Projects = () => {
   );
 };
 
-export default Projects;
+export default function ProjectsPage() {
+  return (
+    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+      <Projects />
+    </React.Suspense>
+  );
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fetchTickets, cancelItem, updateTicketDetails, createTicket, fetchProjects } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
@@ -888,4 +888,10 @@ const Tickets = () => {
   );
 };
 
-export default Tickets;
+export default function TicketsPage() {
+  return (
+    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+      <Tickets />
+    </React.Suspense>
+  );
+}

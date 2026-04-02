@@ -9,6 +9,7 @@ import { PERMISSIONS } from '@/lib/permissions';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import AddClientModal from '@/components/AddClientModal';
 import { fetchClients, deleteClient } from '@/utils/api';
+import { formatPhoneNumber } from '@/utils/countries';
 
 export default function ClientsMaster() {
   const [clients, setClients] = useState<any[]>([]);
@@ -201,7 +202,7 @@ export default function ClientsMaster() {
                 </td>
                 <td>{client.Client_Name || '-'}</td>
                 <td>
-                  <div style={{ fontSize: '0.875rem' }}>{client.Contact_Number || '-'}</div>
+                  <div style={{ fontSize: '0.875rem' }}>{formatPhoneNumber(client.Contact_Number)}</div>
                   {client.Email && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{client.Email}</div>}
                 </td>
                 <td style={{ maxWidth: '400px' }}>
@@ -288,7 +289,7 @@ export default function ClientsMaster() {
                 <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.875rem' }}>
                   <div><strong>Contact Person:</strong> {selectedDetailClient.Client_Name || '-'}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={16} className="text-secondary" /> <strong>Email:</strong> {selectedDetailClient.Email ? <a href={`mailto:${selectedDetailClient.Email}`} className="text-blue-600 hover:underline">{selectedDetailClient.Email}</a> : '-'}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Phone size={16} className="text-secondary" /> <strong>Phone:</strong> {selectedDetailClient.Contact_Number || '-'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Phone size={16} className="text-secondary" /> <strong>Phone:</strong> {formatPhoneNumber(selectedDetailClient.Contact_Number)}</div>
                   <div>
                     <strong>Status:</strong>{' '}
                     <span className={`badge ${selectedDetailClient.IsActive ? 'badge-green' : 'badge-red'}`} style={{ fontSize: '0.7rem' }}>

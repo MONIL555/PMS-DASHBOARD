@@ -11,6 +11,7 @@ export interface ILead extends Document {
   Lead_Status: 'New' | 'In Progress' | 'Converted' | 'Cancelled';
   Lead_Status_Date_Time: Date;
   Cancel_Reason: string;
+  Assigned_User?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +58,10 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
   },
   Cancel_Reason: {
     type: String
+  },
+  Assigned_User: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true // Automatically creates createdAt and updatedAt

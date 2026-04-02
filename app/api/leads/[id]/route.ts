@@ -17,7 +17,8 @@ export async function GET(
         const lead = await Lead.findById(id)
             .populate('Client_Reference')
             .populate('Product_Reference')
-            .populate('Source_Reference');
+            .populate('Source_Reference')
+            .populate('Assigned_User', 'User_ID Name Email');
         if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
         return NextResponse.json(lead);
     } catch (error: any) {
@@ -48,7 +49,8 @@ export async function PUT(
         const lead = await Lead.findByIdAndUpdate(id, body, { new: true, runValidators: true })
             .populate('Client_Reference')
             .populate('Product_Reference')
-            .populate('Source_Reference');
+            .populate('Source_Reference')
+            .populate('Assigned_User', 'User_ID Name Email');
         return NextResponse.json(lead);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

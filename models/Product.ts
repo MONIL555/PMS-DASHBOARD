@@ -8,6 +8,7 @@ export interface IProduct extends Document {
   SubSubType: string;
   Description?: string;
   IsActive: boolean;
+  Assigned_User?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,10 @@ const ProductSchema = new Schema<IProduct, IProductModel>({
   IsActive: {
     type: Boolean,
     default: true
+  },
+  Assigned_User: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, {
   timestamps: true

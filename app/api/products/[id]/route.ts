@@ -15,7 +15,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
     const data = await request.json();
-    const updatedProduct = await Product.findByIdAndUpdate(id, data, { new: true });
+    const updatedProduct = await Product.findByIdAndUpdate(id, data, { new: true })
+      .populate('Assigned_User', 'User_ID Name Email');
     if (!updatedProduct) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }

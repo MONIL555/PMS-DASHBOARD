@@ -17,6 +17,7 @@ export const fetchLeads = async (params: any = {}) => {
   if (params.startDate) query.append('startDate', params.startDate);
   if (params.endDate) query.append('endDate', params.endDate);
   if (params.sortBy) query.append('sortBy', params.sortBy);
+  if (params.assignedUser) query.append('assignedUser', params.assignedUser);
 
   const res = await fetch(`${API_URL}/leads?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch leads');
@@ -363,6 +364,7 @@ export const fetchProducts = async (params: any = {}) => {
       if (params.page) query.append('page', params.page.toString());
       if (params.limit) query.append('limit', params.limit.toString());
       if (params.search) query.append('search', params.search);
+      if (params.assignedUser) query.append('assignedUser', params.assignedUser);
   }
 
   const res = await fetch(`${API_URL}/products?${query.toString()}`);

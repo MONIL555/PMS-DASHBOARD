@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import Lead from '@/models/Lead';
 import { verifyPermission } from '@/lib/auth';
@@ -21,8 +22,18 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'Newest';
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const assignedUser = searchParams.get('assignedUser');
 
     const filter: any = {};
+
+    if (assignedUser) {
+      filter.Assigned_User = new mongoose.Types.ObjectId(assignedUser);
+    }
+    
+    // Ensure Other references are ObjectIds if present in filter for aggregation
+    if (filter.Product_Reference) filter.Product_Reference = new mongoose.Types.ObjectId(filter.Product_Reference);
+    if (filter.Source_Reference) filter.Source_Reference = new mongoose.Types.ObjectId(filter.Source_Reference);
+    if (filter.Client_Reference) filter.Client_Reference = new mongoose.Types.ObjectId(filter.Client_Reference);
 
     if (status !== 'All') {
       filter.Lead_Status = status;
@@ -105,6 +116,27 @@ export async function GET(request: Request) {
           }
         },
         { $unwind: { path: '$Source_Reference', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'users',
+            let: { userId: '$Assigned_User' },
+            pipeline: [
+              { 
+                $match: { 
+                  $expr: { 
+                    $eq: [
+                      '$_id', 
+                      { $convert: { input: '$$userId', to: 'objectId', onError: '$$userId', onNull: '$$userId' } }
+                    ] 
+                  } 
+                } 
+              },
+              { $project: { User_ID: 1, Name: 1, Email: 1 } }
+            ],
+            as: 'Assigned_User'
+          }
+        },
+        { $unwind: { path: '$Assigned_User', preserveNullAndEmptyArrays: true } },
         { $sort: { 'Client_Reference.Company_Name': sortDirection } },
         { $skip: (page - 1) * limit },
         { $limit: limit }
@@ -120,6 +152,7 @@ export async function GET(request: Request) {
         .populate('Client_Reference')
         .populate('Product_Reference')
         .populate('Source_Reference')
+        .populate('Assigned_User', 'User_ID Name Email')
         .sort(sortOption)
         .skip((page - 1) * limit)
         .limit(limit);
@@ -194,7 +227,7 @@ export async function POST(request: Request) {
     });
 
     await newLead.save();
-    await newLead.populate(['Client_Reference', 'Product_Reference', 'Source_Reference']);
+    await newLead.populate(['Client_Reference', 'Product_Reference', 'Source_Reference', 'Assigned_User']);
     return NextResponse.json(newLead, { status: 201 });
   } catch (error: any) {
     console.error('Error creating lead:', error);

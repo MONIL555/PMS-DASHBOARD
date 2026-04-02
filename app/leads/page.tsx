@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources } from '@/utils/api';
+import React, { useEffect, useState } from 'react';
+import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users, ArrowUpDown, ChevronUp, ChevronDown, Plus } from 'lucide-react';
@@ -14,6 +14,7 @@ import ClientFields from '@/components/ClientFields';
 import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { formatPhoneNumber } from '@/utils/countries';
 
 const Leads = () => {
   const searchParams = useSearchParams();
@@ -22,6 +23,7 @@ const Leads = () => {
   const [statusCounts, setStatusCounts] = useState({ New: 0, 'In Progress': 0, Converted: 0, Cancelled: 0 });
   const [products, setProducts] = useState<any[]>([]);
   const [sources, setSources] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,8 @@ const Leads = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  
+  const [assignedUserFilter, setAssignedUserFilter] = useState('All');
+
   // Initialize from search params
   const initialStartDate = searchParams.get('startDate') || '';
   const initialEndDate = searchParams.get('endDate') || '';
@@ -73,6 +76,7 @@ const Leads = () => {
     Client_Reference: '',
     Product_Reference: '',
     Source_Reference: '',
+    Assigned_User: '',
     Lead_Status: 'New',
     Inquiry_Date: new Date().toISOString().split('T')[0],
     Notes: ''
@@ -111,12 +115,14 @@ const Leads = () => {
 
   const loadInitialData = async () => {
     try {
-      const [productsData, sourcesData] = await Promise.all([
+      const [productsData, sourcesData, usersData] = await Promise.all([
         fetchProducts({ active: true, limit: 100 }),
-        fetchLeadSources({ active: true, limit: 100 })
+        fetchLeadSources({ active: true, limit: 100 }),
+        fetchUsers({ active: true, limit: 100 })
       ]);
       setProducts(productsData.products);
       setSources(sourcesData.sources);
+      setUsers(usersData.users);
     } catch (err: any) {
       setError(err.message);
     }
@@ -152,6 +158,7 @@ const Leads = () => {
         limit: ITEMS_PER_PAGE,
         search: searchTerm,
         status: statusFilter,
+        assignedUser: assignedUserFilter !== 'All' ? assignedUserFilter : undefined,
         sortBy: sortBy,
         startDate,
         endDate
@@ -173,7 +180,7 @@ const Leads = () => {
 
   useEffect(() => {
     fetchLeadsData();
-  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate]);
+  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
 
   // Debounced search effect
   useEffect(() => {
@@ -187,7 +194,7 @@ const Leads = () => {
   // Reset page when filter changes (already handled by dependencies, but explicit is better)
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate]);
+  }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
 
   const handleConvert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,6 +252,7 @@ const Leads = () => {
       Client_Reference: '',
       Product_Reference: '',
       Source_Reference: '',
+      Assigned_User: '',
       Lead_Status: 'New',
       Inquiry_Date: new Date().toISOString().split('T')[0],
       Notes: ''
@@ -275,7 +283,8 @@ const Leads = () => {
   const handleProductSelect = (product: any) => {
     setAddLeadData({
       ...addLeadData,
-      Product_Reference: product._id
+      Product_Reference: product._id,
+      Assigned_User: product.Assigned_User?._id || product.Assigned_User || addLeadData.Assigned_User
     });
     setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
     toast.success(`Service "${product.SubSubType || product.SubType || product.Type}" selected!`);
@@ -473,6 +482,32 @@ const Leads = () => {
                 </div>
               </th>
               <th>Product / Service</th>
+              <th>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Assigned To</span>
+                  <select
+                    className="premium-table-filter"
+                    value={assignedUserFilter}
+                    onChange={(e) => setAssignedUserFilter(e.target.value)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--primary-color)',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      fontSize: '0.75rem',
+                      padding: 0,
+                      marginTop: '0.2rem'
+                    }}
+                  >
+                    <option value="All">All Users</option>
+                    {users.map(u => (
+                      <option key={u._id} value={u._id}>{u.Name}</option>
+                    ))}
+                  </select>
+                </div>
+              </th>
               <th>Status</th>
               <th
                 onClick={() => dateRange === 'All' && setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest')}
@@ -541,13 +576,19 @@ const Leads = () => {
                   <div className="font-medium text-primary">{lead.Client_Reference?.Company_Name || '-'}</div>
                 </td>
                 <td>
-                  <div style={{ fontSize: '0.85rem' }}>
+                  <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'row' }}>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
                       {[lead.Product_Reference?.Type, lead.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                     </div>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>&nbsp;/&nbsp;</span>
                     <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
                       {lead.Product_Reference?.SubSubType || lead.Product_Reference?.SubType || lead.Product_Reference?.Type || '-'}
                     </div>
+                  </div>
+                </td>
+                <td>
+                  <div className="font-medium text-primary">
+                    {lead.Assigned_User ? lead.Assigned_User.Name : <span className="text-secondary italic" style={{ fontSize: '0.8rem' }}>Unassigned</span>}
                   </div>
                 </td>
                 <td>
@@ -596,7 +637,7 @@ const Leads = () => {
                 <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.875rem' }}>
                   <div><strong className="text-secondary">Contact Person:</strong> {selectedDetailLead.Client_Reference?.Client_Name || '-'}</div>
                   <div><strong className="text-secondary">Email:</strong> {selectedDetailLead.Client_Reference?.Email ? <a href={`mailto:${selectedDetailLead.Client_Reference.Email}`} className="text-primary hover:underline">{selectedDetailLead.Client_Reference.Email}</a> : '-'}</div>
-                  <div><strong className="text-secondary">Phone:</strong> {selectedDetailLead.Client_Reference?.Contact_Number || '-'}</div>
+                  <div><strong className="text-secondary">Phone:</strong> {formatPhoneNumber(selectedDetailLead.Client_Reference?.Contact_Number)}</div>
                   <div><strong className="text-secondary">GST/PAN No:</strong> {selectedDetailLead.Client_Reference?.Company_No || '-'}</div>
                   <div><strong className="text-secondary">Location:</strong> {selectedDetailLead.Client_Reference?.Location || '-'}</div>
                 </div>
@@ -614,6 +655,7 @@ const Leads = () => {
                     </div>
                   </div>
                   <div><strong className="text-secondary">Source:</strong> {selectedDetailLead.Source_Reference?.Source_Name || '-'}</div>
+                  <div><strong className="text-secondary">Assigned To:</strong> {selectedDetailLead.Assigned_User ? selectedDetailLead.Assigned_User.Name : <span className="text-secondary italic">Unassigned</span>}</div>
                   <div><strong className="text-secondary">Inquiry Date:</strong> {formatDateDDMMYYYY(selectedDetailLead.Inquiry_Date)}</div>
                   <div>
                     <strong className="text-secondary">Current Status:</strong>{' '}
@@ -666,6 +708,7 @@ const Leads = () => {
                           Client_Reference: selectedDetailLead.Client_Reference?._id || '',
                           Product_Reference: selectedDetailLead.Product_Reference?._id || '',
                           Source_Reference: selectedDetailLead.Source_Reference?._id || '',
+                          Assigned_User: selectedDetailLead.Assigned_User?._id || '',
                           Lead_Status: selectedDetailLead.Lead_Status || 'New',
                           Inquiry_Date: selectedDetailLead.Inquiry_Date ? new Date(selectedDetailLead.Inquiry_Date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                           Notes: selectedDetailLead.Notes || ''
@@ -836,7 +879,7 @@ const Leads = () => {
       {/* Add/Edit Lead Modal */}
       {isAddModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '800px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
+          <div className="modal-content" style={{ maxWidth: '900px', width: '95%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
             <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
               <h2>{editLeadId ? 'Edit Lead' : 'Add New Lead'}</h2>
               <button className="modal-close" onClick={handleAddModalClose}><X size={20} /></button>
@@ -850,10 +893,10 @@ const Leads = () => {
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       {!editLeadId && (
                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={isNewClient} 
-                            onChange={(e) => setIsNewClient(e.target.checked)} 
+                          <input
+                            type="checkbox"
+                            checked={isNewClient}
+                            onChange={(e) => setIsNewClient(e.target.checked)}
                             style={{ width: '14px', height: '14px' }}
                           />
                           New Client?
@@ -874,9 +917,9 @@ const Leads = () => {
                       )}
                     </>
                   ) : (
-                    <ClientFields 
-                      values={newClientData} 
-                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    <ClientFields
+                      values={newClientData}
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })}
                     />
                   )}
                 </div>
@@ -918,6 +961,21 @@ const Leads = () => {
                     value={addLeadData.Inquiry_Date}
                     onChange={val => setAddLeadData({ ...addLeadData, Inquiry_Date: val })}
                   />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Assigned To</label>
+                  <select
+                    className="form-select"
+                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+                    value={addLeadData.Assigned_User}
+                    onChange={e => setAddLeadData({ ...addLeadData, Assigned_User: e.target.value })}
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((u) => (
+                      <option key={u._id} value={u._id}>{u.Name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -987,4 +1045,10 @@ const Leads = () => {
   );
 };
 
-export default Leads;
+export default function LeadsPage() {
+  return (
+    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+      <Leads />
+    </React.Suspense>
+  );
+}

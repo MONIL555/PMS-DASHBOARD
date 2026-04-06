@@ -49,42 +49,32 @@ export async function PUT(
         const isProjectId = id.startsWith('PRJ-');
         const query = isProjectId ? { Project_ID: id } : { _id: id };
 
-        const project = await Project.findOne(query);
+        // Calculate phase updates manually since we are using findOneAndUpdate
+        const phaseUpdates: any = {};
+        if (body['UAT.UAT_Status'] === 'Approved') phaseUpdates['UAT.UAT_Date'] = new Date();
+        if (body['Deployment.Deployment_Status'] === 'Success') phaseUpdates['Deployment.Deployment_Date'] = new Date();
+        if (body['Delivery.Delivery_Status'] === 'Delivered') phaseUpdates['Delivery.Delivery_Date'] = new Date();
+
+        const updateData = { ...body, ...phaseUpdates };
+
+        const project = await Project.findOneAndUpdate(query, { $set: updateData }, { new: true, runValidators: true })
+            .populate([
+                { path: 'Client_Reference', select: 'Company_Name Client_Name Contact_Number' },
+                { path: 'Product_Reference', select: 'Product_Name' },
+                { path: 'Lead_Reference', select: 'Lead_ID Company_Name Client_Name Contact_Number' },
+                { path: 'Project_Type', select: 'Type_Name' },
+                { 
+                    path: 'Quotation_Reference', 
+                    select: 'Quotation_ID Commercial Product_Name_Service Requirement Project_Scope_Description',
+                    populate: { path: 'Product_Reference', select: 'Product_Name' }
+                }
+            ]);
+
         if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-        Object.keys(body).forEach(key => project.set(key, body[key]));
-
-        const phaseUpdates: Record<string, { val: string, field: string }> = {
-            'UAT.UAT_Status': { val: 'Approved', field: 'UAT.UAT_Date' },
-            'Deployment.Deployment_Status': { val: 'Success', field: 'Deployment.Deployment_Date' },
-            'Delivery.Delivery_Status': { val: 'Delivered', field: 'Delivery.Delivery_Date' }
-        };
-
-        Object.entries(phaseUpdates).forEach(([statusField, config]) => {
-            if (project.isModified(statusField) && project.get(statusField) === config.val) {
-                project.set(config.field, new Date());
-            }
-        });
-
-        if (project.Pipeline_Status !== 'On Hold' && project.Hold_History?.length) {
-            project.Hold_History.forEach((h: any) => { if (!h.Hold_End_Date) h.Hold_End_Date = new Date(); });
-            project.markModified('Hold_History');
-        }
-
-        await project.save();
-        await project.populate([
-            { path: 'Client_Reference', select: 'Company_Name Client_Name Contact_Number' },
-            { path: 'Product_Reference', select: 'Product_Name' },
-            { path: 'Lead_Reference', select: 'Lead_ID Company_Name Client_Name Contact_Number' },
-            { path: 'Project_Type', select: 'Type_Name' },
-            { 
-                path: 'Quotation_Reference', 
-                select: 'Quotation_ID Commercial Product_Name_Service Requirement Project_Scope_Description',
-                populate: { path: 'Product_Reference', select: 'Product_Name' }
-            }
-        ]);
         return NextResponse.json(project);
     } catch (error: any) {
+        console.error('PUT Error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

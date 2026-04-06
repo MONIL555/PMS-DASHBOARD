@@ -52,6 +52,21 @@ export interface IProject extends Document {
     Date_Time: Date;
     Reason: string;
   };
+  External_Services: Array<{
+    Service_Name: string;
+    Inquiry_Date: Date;
+    Delivery_Date: Date;
+    Amount: number;
+    Billing_Status: 'Working' | 'Generated' | 'Given to Client' | 'Receiving' | 'Under Process' | 'Received';
+    Status_Date: Date;
+    Cycle_Anchor_Date: Date;
+    Payment_Timeline: string;
+    Payment_Terms: 'Monthly' | 'Quarterly' | 'Annually';
+    Reminder: {
+      Enabled: boolean;
+      Notify_Before: string;
+    };
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,7 +138,32 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
     Stage: String,
     Date_Time: Date,
     Reason: String
-  }
+  },
+
+  // External Services
+  External_Services: [{
+    Service_Name: { type: String, required: true },
+    Inquiry_Date: Date,
+    Delivery_Date: Date,
+    Amount: { type: Number, default: 0 },
+    Billing_Status: {
+      type: String,
+      enum: ['Working', 'Generated', 'Given to Client', 'Receiving', 'Under Process', 'Received'],
+      default: 'Working'
+    },
+    Status_Date: Date,
+    Cycle_Anchor_Date: Date,
+    Payment_Timeline: String,
+    Payment_Terms: {
+      type: String,
+      enum: ['Monthly', 'Quarterly', 'Annually'],
+      default: 'Monthly'
+    },
+    Reminder: {
+      Enabled: { type: Boolean, default: true },
+      Notify_Before: { type: String, default: '3 days before' }
+    }
+  }]
 }, { timestamps: true });
 
 // Auto-ID Logic
@@ -144,7 +184,9 @@ ProjectSchema.statics.getProjectOptions = function () {
     deploymentStatus: (this.schema.path('Deployment.Deployment_Status') as any).enumValues,
     deliveryStatus: (this.schema.path('Delivery.Delivery_Status') as any).enumValues,
     paymentSchedule: (this.schema.path('Go_Live.Payment_Schedule') as any).enumValues,
-    exitType: (this.schema.path('Termination.Exit_Type') as any).enumValues
+    exitType: (this.schema.path('Termination.Exit_Type') as any).enumValues,
+    billingStatus: (this.schema.path('External_Services.Billing_Status') as any).enumValues,
+    paymentTerms: (this.schema.path('External_Services.Payment_Terms') as any).enumValues
   };
 };
 

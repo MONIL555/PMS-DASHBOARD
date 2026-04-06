@@ -180,6 +180,12 @@ export const updateProjectPhase = async (projectId: string, updateData: any) => 
   return res.json();
 };
 
+export const fetchPaymentReminders = async () => {
+  const res = await fetch(`${API_URL}/projects/reminders`);
+  if (!res.ok) throw new Error('Failed to fetch payment reminders');
+  return res.json();
+};
+
 export const fetchTickets = async (params: any = {}) => {
   const query = new URLSearchParams();
   if (params.page) query.append('page', params.page.toString());

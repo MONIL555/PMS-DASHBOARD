@@ -52,16 +52,28 @@ export async function GET(request: Request) {
       for (const service of project.External_Services) {
         if (!service.Reminder?.Enabled || (!service.Cycle_Anchor_Date && !service.Status_Date)) continue;
 
-        const notifyDays = parseNotifyBefore(service.Reminder.Notify_Before || '3 days before');
-        const baseDate = service.Cycle_Anchor_Date || service.Status_Date;
-        const nextBilling = getNextBillingDate(baseDate, service.Payment_Terms || 'Monthly');
+        let nextBilling: Date;
+        let reminderDate: Date;
 
-        // Calculate reminder trigger date
-        const reminderDate = new Date(nextBilling);
-        reminderDate.setDate(reminderDate.getDate() - notifyDays);
+        if (service.Reminder.Notify_Before === 'Custom Date' && service.Reminder.Custom_Date) {
+          nextBilling = new Date(service.Reminder.Custom_Date);
+          reminderDate = new Date(service.Reminder.Custom_Date); // Start reminding exactly on this date
+        } else {
+          const notifyDays = parseNotifyBefore(service.Reminder.Notify_Before || '3 days before');
+          const baseDate = service.Cycle_Anchor_Date || service.Status_Date;
+          nextBilling = getNextBillingDate(baseDate, service.Payment_Terms || 'Monthly');
+          
+          reminderDate = new Date(nextBilling);
+          reminderDate.setDate(reminderDate.getDate() - notifyDays);
+        }
 
-        // Show reminder if we're within the notification window (reminder date <= now <= billing date)
-        if (reminderDate <= now && now <= nextBilling) {
+        // For Custom Date: Show reminder if now >= custom date
+        // For Cyclical: Show reminder if we're within the notification window (reminder date <= now <= billing date)
+        const isTriggered = (service.Reminder.Notify_Before === 'Custom Date') 
+          ? (now.getTime() >= reminderDate.getTime())
+          : (reminderDate <= now && now <= nextBilling);
+
+        if (isTriggered) {
           const daysUntilDue = Math.ceil((nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           reminders.push({
             projectId: project._id,

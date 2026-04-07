@@ -41,7 +41,7 @@ const HierarchicalProductSelector: React.FC<HierarchicalProductSelectorProps> = 
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const data = await fetchProducts({ active: true, limit: 1000 });
+        const data = await fetchProducts({ active: true });
         setProducts(data.products);
       } catch (err) {
         console.error("Failed to fetch products:", err);

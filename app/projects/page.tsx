@@ -162,25 +162,21 @@ const Projects = () => {
         endDate = customEndDate;
       }
 
-      const [projectsResponse, productsData] = await Promise.all([
-        fetchProjects({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: debouncedSearch,
-          phase: phaseFilter,
-          pipeline: pipelineFilter,
-          person: personFilter,
-          sortBy: sortBy,
-          startDate,
-          endDate
-        }),
-        fetchProducts({ active: true, limit: 100 })
-      ]);
+      const projectsResponse = await fetchProjects({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch,
+        phase: phaseFilter,
+        pipeline: pipelineFilter,
+        person: personFilter,
+        sortBy: sortBy,
+        startDate,
+        endDate
+      });
       setProjects(projectsResponse.projects);
       setTotalItems(projectsResponse.totalItems);
       setStatusCounts(projectsResponse.statusCounts);
       setAssignedPersons(projectsResponse.assignedPersons || []);
-      setProducts(productsData.products);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -214,7 +210,7 @@ const Projects = () => {
 
   const loadQuotations = async () => {
     try {
-      const quotationsData = await fetchQuotations({ limit: 1000 });
+      const quotationsData = await fetchQuotations();
       setQuotations(quotationsData.quotations);
     } catch (err: any) {
       toast.error('Error fetching quotations: ' + err.message);
@@ -223,17 +219,24 @@ const Projects = () => {
 
   const loadLeads = async () => {
     try {
-      const leadsData = await fetchLeads({ limit: 1000 });
+      const leadsData = await fetchLeads();
       setLeads(leadsData.leads);
     } catch (err: any) {
       toast.error('Error fetching leads: ' + err.message);
     }
   };
 
+  // Load static master data once on mount (products are only needed for Add modal)
   useEffect(() => {
-    loadData();
-    loadQuotations();
-    loadLeads();
+    const loadProducts = async () => {
+      try {
+        const productsData = await fetchProducts({ active: true });
+        setProducts(productsData.products);
+      } catch (err: any) {
+        console.error('Error loading products:', err);
+      }
+    };
+    loadProducts();
   }, []);
 
   useEffect(() => {
@@ -533,6 +536,7 @@ const Projects = () => {
             onClick={() => {
               setIsAddModalOpen(true);
               loadQuotations();
+              loadLeads();
             }}
             className="btn btn-primary"
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -1445,10 +1449,10 @@ const Projects = () => {
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client / Company Selection *</label>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isNewClient} 
-                          onChange={(e) => setIsNewClient(e.target.checked)} 
+                        <input
+                          type="checkbox"
+                          checked={isNewClient}
+                          onChange={(e) => setIsNewClient(e.target.checked)}
                           style={{ width: '14px', height: '14px' }}
                         />
                         New Client?
@@ -1470,9 +1474,9 @@ const Projects = () => {
                       )}
                     </>
                   ) : (
-                    <ClientFields 
-                      values={newClientData} 
-                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    <ClientFields
+                      values={newClientData}
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })}
                     />
                   )}
                 </div>

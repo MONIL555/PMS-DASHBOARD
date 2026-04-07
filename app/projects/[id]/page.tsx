@@ -94,7 +94,8 @@ const ProjectDetails = () => {
     Payment_Terms: 'Monthly',
     Reminder: {
       Enabled: true,
-      Notify_Before: '3 days before'
+      Notify_Before: '3 days before',
+      Custom_Date: ''
     }
   });
 
@@ -359,7 +360,7 @@ const ProjectDetails = () => {
       Cycle_Anchor_Date: '',
       Payment_Timeline: '',
       Payment_Terms: 'Monthly',
-      Reminder: { Enabled: true, Notify_Before: '3 days before' }
+      Reminder: { Enabled: true, Notify_Before: '3 days before', Custom_Date: '' }
     });
     setEditingServiceIndex(null);
   };
@@ -383,7 +384,8 @@ const ProjectDetails = () => {
       Payment_Terms: svc.Payment_Terms || 'Monthly',
       Reminder: {
         Enabled: svc.Reminder?.Enabled || false,
-        Notify_Before: svc.Reminder?.Notify_Before || '3 days before'
+        Notify_Before: svc.Reminder?.Notify_Before || '3 days before',
+        Custom_Date: svc.Reminder?.Custom_Date ? new Date(svc.Reminder.Custom_Date).toISOString().split('T')[0] : ''
       }
     });
     setEditingServiceIndex(index);
@@ -404,7 +406,12 @@ const ProjectDetails = () => {
         Inquiry_Date: serviceFormData.Inquiry_Date || undefined,
         Delivery_Date: serviceFormData.Delivery_Date || undefined,
         Status_Date: serviceFormData.Status_Date || undefined,
-        Cycle_Anchor_Date: serviceFormData.Cycle_Anchor_Date || undefined
+        Cycle_Anchor_Date: serviceFormData.Cycle_Anchor_Date || undefined,
+        Reminder: {
+          Enabled: serviceFormData.Reminder.Enabled,
+          Notify_Before: serviceFormData.Reminder.Notify_Before,
+          Custom_Date: serviceFormData.Reminder.Notify_Before === 'Custom Date' && serviceFormData.Reminder.Custom_Date ? serviceFormData.Reminder.Custom_Date : undefined
+        }
       };
 
       if (editingServiceIndex !== null) {
@@ -1733,22 +1740,99 @@ const ProjectDetails = () => {
                 </div>
 
                 {serviceFormData.Reminder.Enabled && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(99,102,241,0.08)' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Notify me:</span>
-                    <select
-                      className="form-select"
-                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', minWidth: '150px' }}
-                      value={serviceFormData.Reminder.Notify_Before}
-                      onChange={e => setServiceFormData({
-                        ...serviceFormData,
-                        Reminder: { ...serviceFormData.Reminder, Notify_Before: e.target.value }
-                      })}
-                    >
-                      <option value="24 hours before">24 hours before</option>
-                      <option value="3 days before">3 days before</option>
-                      <option value="7 days before">7 days before</option>
-                    </select>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>* Based on {serviceFormData.Payment_Terms.toLowerCase()} payment cycle</span>
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(99,102,241,0.1)' }}>
+                    <div style={{ marginBottom: '0.75rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Notification Rules
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {/* Option 1: Cyclical Reminder */}
+                      <label style={{ 
+                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', 
+                        background: serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '#fff' : 'transparent',
+                        border: `1px solid ${serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '#6366f1' : 'transparent'}`,
+                        borderRadius: '0.5rem', cursor: 'pointer', transition: '0.2s',
+                        boxShadow: serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '0 2px 4px rgba(99,102,241,0.1)' : 'none'
+                      }}>
+                        <input
+                           type="radio"
+                           name="reminderMode"
+                           style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                           checked={serviceFormData.Reminder.Notify_Before !== 'Custom Date'}
+                           onChange={() => setServiceFormData({...serviceFormData, Reminder: {...serviceFormData.Reminder, Notify_Before: '3 days before'}})}
+                        />
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ padding: '0.4rem', background: '#f1f5f9', borderRadius: '0.35rem', color: '#64748b' }}>
+                            <Bell size={16} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Standard Cycle Reminder</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Alerts before every {serviceFormData.Payment_Terms.toLowerCase()} payment.</div>
+                          </div>
+                        </div>
+                        {serviceFormData.Reminder.Notify_Before !== 'Custom Date' && (
+                          <select
+                            className="form-select"
+                            style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', minWidth: '150px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}
+                            value={serviceFormData.Reminder.Notify_Before}
+                            onChange={e => setServiceFormData({
+                              ...serviceFormData,
+                              Reminder: { ...serviceFormData.Reminder, Notify_Before: e.target.value }
+                            })}
+                          >
+                            <option value="24 hours before">24 hours before</option>
+                            <option value="3 days before">3 days before</option>
+                            <option value="7 days before">7 days before</option>
+                          </select>
+                        )}
+                      </label>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0 1rem' }}>
+                         <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
+                         <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>OR</span>
+                         <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
+                      </div>
+
+                      {/* Option 2: Custom Calendar Date */}
+                      <label style={{ 
+                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', 
+                        background: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#fff' : 'transparent',
+                        border: `1px solid ${serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#6366f1' : 'transparent'}`,
+                        borderRadius: '0.5rem', cursor: 'pointer', transition: '0.2s',
+                        boxShadow: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '0 2px 4px rgba(99,102,241,0.1)' : 'none'
+                      }}>
+                        <input
+                           type="radio"
+                           name="reminderMode"
+                           style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                           checked={serviceFormData.Reminder.Notify_Before === 'Custom Date'}
+                           onChange={() => setServiceFormData({...serviceFormData, Reminder: {...serviceFormData.Reminder, Notify_Before: 'Custom Date', Custom_Date: serviceFormData.Reminder.Custom_Date || new Date().toISOString().split('T')[0]}})}
+                        />
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ padding: '0.4rem', background: '#f1f5f9', borderRadius: '0.35rem', color: '#64748b' }}>
+                            <Calendar size={16} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Specific Calendar Date</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Fire notification on an exact stored date.</div>
+                          </div>
+                        </div>
+                        {serviceFormData.Reminder.Notify_Before === 'Custom Date' && (
+                          <div onClick={(e) => e.preventDefault()}>
+                            <input
+                              type="date"
+                              className="form-input"
+                              style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontWeight: 600, color: '#3b82f6' }}
+                              value={serviceFormData.Reminder.Custom_Date}
+                              onChange={e => setServiceFormData({
+                                ...serviceFormData,
+                                Reminder: { ...serviceFormData.Reminder, Custom_Date: e.target.value }
+                              })}
+                            />
+                          </div>
+                        )}
+                      </label>
+                    </div>
                     {/* Simulation Utility for Testing (Commented out after verification) */}
                     {/* <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dotted rgba(99,102,241,0.2)' }}>
                       <button

@@ -28,7 +28,7 @@ const ClientAutocomplete: React.FC<ClientAutocompleteProps> = ({
   useEffect(() => {
     const loadClients = async () => {
       try {
-        const data = await fetchClients({ active: true, limit: 1000 });
+        const data = await fetchClients({ active: true });
         setClients(data.clients);
       } catch (err) {
         console.error("Failed to fetch clients for autocomplete:", err);
@@ -49,7 +49,7 @@ const ClientAutocomplete: React.FC<ClientAutocompleteProps> = ({
 
       // Check if the current value is an exact match for one of the filtered results
       // This usually happens right after selecting a suggestion
-      const hasExactMatch = filtered.some(c => 
+      const hasExactMatch = filtered.some(c =>
         c.Company_Name === value || c.Client_Name === value
       );
 

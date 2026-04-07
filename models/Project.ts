@@ -159,7 +159,8 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
     },
     Reminder: {
       Enabled: { type: Boolean, default: true },
-      Notify_Before: { type: String, default: '3 days before' }
+      Notify_Before: { type: String, default: '3 days before' },
+      Custom_Date: { type: Date }
     }
   }]
 }, { timestamps: true });

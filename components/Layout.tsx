@@ -40,7 +40,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
       }
     };
     loadReminders();
-  }, [pathname, isLoginPage]);
+  }, [isLoginPage]);
 
   const handleDismissReminders = () => {
     setRemindersDismissed(true);

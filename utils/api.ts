@@ -8,6 +8,22 @@
 
 const API_URL = '/api';
 
+// Simple in-memory cache for static master data to prevent redundant requests across page navigations
+const masterCache: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
+export const getCached = (key: string) => {
+  const cached = masterCache[key];
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached.data;
+  return null;
+};
+export const setCache = (key: string, data: any) => {
+  masterCache[key] = { data, timestamp: Date.now() };
+};
+export const clearCachePrefix = (prefix: string) => {
+  Object.keys(masterCache).forEach(k => { if (k.startsWith(prefix)) delete masterCache[k]; });
+};
+
 export const fetchLeads = async (params: any = {}) => {
   const query = new URLSearchParams();
   if (params.page) query.append('page', params.page.toString());
@@ -325,12 +341,24 @@ export const fetchProducts = async (params: any = {}) => {
       if (params.assignedUser) query.append('assignedUser', params.assignedUser);
   }
 
+  const isMasterFetch = params.active && !params.search && !params.page;
+  const cacheKey = isMasterFetch ? `products_${params.limit}` : null;
+  
+  if (cacheKey) {
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+  }
+
   const res = await fetch(`${API_URL}/products?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch products');
-  return res.json();
+  const data = await res.json();
+  
+  if (cacheKey) setCache(cacheKey, data);
+  return data;
 };
 
 export const createProduct = async (data: any) => {
+  clearCachePrefix('products_');
   const res = await fetch(`${API_URL}/products`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -342,6 +370,7 @@ export const createProduct = async (data: any) => {
 };
 
 export const updateProduct = async (id: string, data: any) => {
+  clearCachePrefix('products_');
   const res = await fetch(`${API_URL}/products/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -353,6 +382,7 @@ export const updateProduct = async (id: string, data: any) => {
 };
 
 export const deleteProduct = async (id: string) => {
+  clearCachePrefix('products_');
   const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
   const result = await res.json();
   if (!res.ok) throw new Error(result.error || 'Failed to delete product');
@@ -436,12 +466,24 @@ export const fetchRoles = async (params: any = {}) => {
       if (params.search) query.append('search', params.search);
   }
 
+  const isMasterFetch = params.active && !params.search && !params.page;
+  const cacheKey = isMasterFetch ? `roles_${params.limit}` : null;
+  
+  if (cacheKey) {
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+  }
+
   const res = await fetch(`${API_URL}/roles?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch roles');
-  return res.json();
+  const data = await res.json();
+  
+  if (cacheKey) setCache(cacheKey, data);
+  return data;
 };
 
 export const createRole = async (data: any) => {
+  clearCachePrefix('roles_');
   const res = await fetch(`${API_URL}/roles`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -487,6 +529,7 @@ export const createUser = async (data: any) => {
 };
 
 export const updateUser = async (id: string, data: any) => {
+  clearCachePrefix('users_');
   const res = await fetch(`${API_URL}/users/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -498,6 +541,7 @@ export const updateUser = async (id: string, data: any) => {
 };
 
 export const deleteUser = async (id: string) => {
+  clearCachePrefix('users_');
   const res = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete user');
   return res.json();

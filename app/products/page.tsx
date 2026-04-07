@@ -52,7 +52,6 @@ export default function ProductsMaster() {
     try {
       setLoading(true);
       const response = await fetchProducts({
-        limit: 0,
         search: debouncedSearch
       });
       setProducts(response.products);
@@ -65,7 +64,7 @@ export default function ProductsMaster() {
 
   const loadUsers = async () => {
     try {
-      const response = await fetchUsers({ active: true, limit: 100 });
+      const response = await fetchUsers({ active: true });
       setUsers(response.users);
     } catch (error: any) {
       console.error('Error fetching users:', error);

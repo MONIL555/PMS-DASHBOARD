@@ -40,25 +40,32 @@ export default function UsersMaster() {
 
   const loadData = async () => {
     try {
-      const [usersResponse, rolesData] = await Promise.all([
-        fetchUsers({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: debouncedSearch
-        }),
-        fetchRoles({ active: true, limit: 20 })
-      ]);
-
+      const usersResponse = await fetchUsers({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch
+      });
       setUsers(usersResponse.users);
       setTotalItems(usersResponse.totalItems);
-      // fetchRoles now returns { roles, totalItems }
-      setRoles(rolesData.roles.filter((r: any) => r.IsActive));
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  // Load static master data once on mount (roles are only needed for Add/Edit modal dropdown)
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const rolesData = await fetchRoles({ active: true });
+        setRoles(rolesData.roles.filter((r: any) => r.IsActive));
+      } catch (err: any) {
+        console.error('Error loading roles:', err);
+      }
+    };
+    loadRoles();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {

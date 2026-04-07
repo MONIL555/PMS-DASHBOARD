@@ -116,9 +116,9 @@ const Leads = () => {
   const loadInitialData = async () => {
     try {
       const [productsData, sourcesData, usersData] = await Promise.all([
-        fetchProducts({ active: true, limit: 100 }),
-        fetchLeadSources({ active: true, limit: 100 }),
-        fetchUsers({ active: true, limit: 100 })
+        fetchProducts({ active: true }),
+        fetchLeadSources({ active: true }),
+        fetchUsers({ active: true })
       ]);
       setProducts(productsData.products);
       setSources(sourcesData.sources);

@@ -28,7 +28,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const data = await fetchProducts({ active: true, limit: 1000 });
+        const data = await fetchProducts({ active: true });
         setProducts(data.products);
       } catch (err) {
         console.error("Failed to fetch products for autocomplete:", err);
@@ -50,7 +50,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
       });
 
       // Check if the current value matches a full hierarchical path exactly
-      const hasExactMatch = filtered.some(p => 
+      const hasExactMatch = filtered.some(p =>
         `${p.Type} > ${p.SubType} > ${p.SubSubType}` === value
       );
 

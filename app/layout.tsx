@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Layout from "@/components/Layout";
 import { OptionsProvider } from "@/context/OptionsContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -17,10 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <OptionsProvider>
-          <Layout>{children}</Layout>
-          <Toaster position="top-right" />
-        </OptionsProvider>
+        <AuthProvider>
+          <OptionsProvider>
+            <Layout>{children}</Layout>
+            <Toaster position="top-right" />
+          </OptionsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

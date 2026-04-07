@@ -161,24 +161,20 @@ const Quotations = () => {
         endDate = customEndDate;
       }
 
-      const [quotationsResponse, productsData] = await Promise.all([
-        fetchQuotations({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: debouncedSearch,
-          status: statusFilter,
-          sortBy: sortBy,
-          minComm,
-          maxComm,
-          startDate,
-          endDate
-        }),
-        fetchProducts({ active: true, limit: 100 })
-      ]);
+      const quotationsResponse = await fetchQuotations({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch,
+        status: statusFilter,
+        sortBy: sortBy,
+        minComm,
+        maxComm,
+        startDate,
+        endDate
+      });
       setQuotations(quotationsResponse.quotations);
       setTotalItems(quotationsResponse.totalItems);
       setStatusCounts(quotationsResponse.statusCounts);
-      setProducts(productsData.products);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -232,16 +228,24 @@ const Quotations = () => {
 
   const loadLeadsData = async () => {
     try {
-      const response = await fetchLeads({ limit: 1000 });
+      const response = await fetchLeads();
       setLeads(response.leads.filter((l: any) => l.Lead_Status !== 'Cancelled'));
     } catch (err: any) {
       toast.error('Error fetching leads: ' + err.message);
     }
   };
 
+  // Load static master data once on mount
   useEffect(() => {
-    loadData();
-    loadLeadsData();
+    const loadProducts = async () => {
+      try {
+        const productsData = await fetchProducts({ active: true });
+        setProducts(productsData.products);
+      } catch (err: any) {
+        console.error('Error loading products:', err);
+      }
+    };
+    loadProducts();
   }, []);
 
   useEffect(() => {

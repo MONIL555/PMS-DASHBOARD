@@ -46,9 +46,9 @@ const Tickets = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState({
-      In_Progress: 0,
-      Open: 0,
-      Closed: 0
+    In_Progress: 0,
+    Open: 0,
+    Closed: 0
   });
   const ITEMS_PER_PAGE = 20;
 
@@ -111,14 +111,14 @@ const Tickets = () => {
       }
 
       const response = await fetchTickets({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: debouncedSearch,
-          status: statusFilter,
-          priority: priorityFilter,
-          sortBy: sortBy,
-          startDate,
-          endDate
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch,
+        status: statusFilter,
+        priority: priorityFilter,
+        sortBy: sortBy,
+        startDate,
+        endDate
       });
       setTickets(response.tickets);
       setTotalItems(response.totalItems);
@@ -132,7 +132,7 @@ const Tickets = () => {
 
   const loadProjectsData = async () => {
     try {
-      const projectsData = await fetchProjects({ limit: 100 });
+      const projectsData = await fetchProjects();
       setProjectsList(projectsData.projects.filter((p: any) => p.Pipeline_Status !== 'Closed'));
     } catch (err: any) {
       toast.error('Error fetching projects: ' + err.message);
@@ -141,7 +141,7 @@ const Tickets = () => {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-        setDebouncedSearch(searchTerm);
+      setDebouncedSearch(searchTerm);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
@@ -151,7 +151,7 @@ const Tickets = () => {
   }, [debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
-      loadData();
+    loadData();
   }, [currentPage, debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   const handleCancelSubmit = async (e: React.FormEvent) => {

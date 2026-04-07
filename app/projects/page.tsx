@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { fetchProjects, updateProjectPhase, createProject, fetchQuotations, fetchProjectTypes, fetchProducts, fetchLeads } from '@/utils/api';
+import { fetchProjects, updateProjectPhase, createProject, fetchQuotations, fetchProducts, fetchLeads } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import {
@@ -28,7 +28,6 @@ const Projects = () => {
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
-  const [projectTypes, setProjectTypes] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState('');
 
@@ -102,7 +101,6 @@ const Projects = () => {
     Assigned_Person: '',
     Report_Type: 'Overview',
     Costing: 0,
-    Project_Type: '',
     Start_Date: '',
     End_Date: ''
   });
@@ -111,7 +109,6 @@ const Projects = () => {
   const [adding, setAdding] = useState(false);
   const [addProjectData, setAddProjectData] = useState({
     Project_Name: '',
-    Project_Type: '',
     Quotation_Reference: '',
     Lead_Reference: '',
     Client_Reference: '',
@@ -235,15 +232,6 @@ const Projects = () => {
 
   useEffect(() => {
     loadData();
-    const loadTypes = async () => {
-      try {
-        const response = await fetchProjectTypes({ active: true, limit: 100 });
-        setProjectTypes(response.projectTypes);
-      } catch (err: any) {
-        console.error('Error fetching project types:', err);
-      }
-    };
-    loadTypes();
     loadQuotations();
     loadLeads();
   }, []);
@@ -419,7 +407,6 @@ const Projects = () => {
     try {
       const dataToSubmit: any = {
         Project_Name: addProjectData.Project_Name || undefined,
-        Project_Type: addProjectData.Project_Type || undefined,
         Quotation_Reference: addProjectData.Quotation_Reference || undefined,
         Lead_Reference: addProjectData.Lead_Reference || undefined,
         Client_Reference: addProjectData.Client_Reference || undefined,
@@ -1028,22 +1015,6 @@ const Projects = () => {
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Type *</label>
-                  <select
-                    className="form-select"
-                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                    required
-                    value={editData.Project_Type}
-                    onChange={e => setEditData({ ...editData, Project_Type: e.target.value })}
-                  >
-                    <option value="">-- Select Type --</option>
-                    {projectTypes.map(t => (
-                      <option key={t._id} value={t._id}>{t.Type_Name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Priority</label>
                   <select
                     className="form-select"
@@ -1333,22 +1304,6 @@ const Projects = () => {
                     onChange={e => setAddProjectData({ ...addProjectData, Project_Name: e.target.value })}
                     placeholder="e.g. Website Development"
                   />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Type *</label>
-                  <select
-                    className="form-select"
-                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                    required
-                    value={addProjectData.Project_Type}
-                    onChange={e => setAddProjectData({ ...addProjectData, Project_Type: e.target.value })}
-                  >
-                    <option value="">-- Select Type --</option>
-                    {projectTypes.map(t => (
-                      <option key={t._id} value={t._id}>{t.Type_Name}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>

@@ -4,7 +4,6 @@ import Counter from './Counter';
 export interface IProject extends Document {
   Project_ID: string;
   Project_Name: string;
-  Project_Type: mongoose.Types.ObjectId;
   Lead_Reference: mongoose.Types.ObjectId;
   Quotation_Reference: mongoose.Types.ObjectId;
   Client_Reference: mongoose.Types.ObjectId;
@@ -78,7 +77,6 @@ export interface IProjectModel extends Model<IProject> {
 const ProjectSchema = new Schema<IProject, IProjectModel>({
   Project_ID: { type: String, unique: true },
   Project_Name: { type: String, required: true, trim: true },
-  Project_Type: { type: Schema.Types.ObjectId, ref: 'ProjectType', required: true },
   Lead_Reference: { type: Schema.Types.ObjectId, ref: 'Lead' },
   Quotation_Reference: { type: Schema.Types.ObjectId, ref: 'Quotation' },
   Client_Reference: { type: Schema.Types.ObjectId, ref: 'Client', required: true },

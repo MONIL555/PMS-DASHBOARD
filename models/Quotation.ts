@@ -6,7 +6,6 @@ export interface IQuotation extends Document {
   Lead_ID: mongoose.Types.ObjectId;
   Client_Reference: mongoose.Types.ObjectId;
   Product_Reference: mongoose.Types.ObjectId;
-  Project_Type: mongoose.Types.ObjectId;
   Quotation_Date: Date;
   Client_Info: string;
   Requirement: string;
@@ -47,19 +46,8 @@ const QuotationSchema = new Schema<IQuotation, IQuotationModel>({
     ref: 'Client',
     required: true
   },
-  Product_Reference: {
-    type: Schema.Types.ObjectId,
-    ref: 'Product',
-    required: true
-  },
-  Project_Type: {
-    type: Schema.Types.ObjectId,
-    ref: 'ProjectType'
-  },
-  Quotation_Date: {
-    type: Date,
-    default: Date.now
-  },
+  Product_Reference: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+  Quotation_Date: { type: Date, default: Date.now },
   Client_Info: {
     type: String,
     trim: true

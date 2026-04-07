@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { fetchProjectById, updateProjectPhase, fetchProjectTypes } from '@/utils/api';
+import { fetchProjectById, updateProjectPhase } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import {
@@ -22,7 +22,6 @@ const ProjectDetails = () => {
   const { hasPermission } = usePermissions();
 
   const [project, setProject] = useState<any | null>(null);
-  const [projectTypes, setProjectTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -64,7 +63,6 @@ const ProjectDetails = () => {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({
     Project_Name: '',
-    Project_Type: '',
     Priority: 'Normal',
     Pipeline_Status: 'Active',
     Assigned_Person: '',
@@ -107,12 +105,8 @@ const ProjectDetails = () => {
     try {
       if (!id) return;
       setLoading(true);
-      const [data, typesResponse] = await Promise.all([
-        fetchProjectById(id),
-        fetchProjectTypes({ active: true, limit: 100 })
-      ]);
+      const data = await fetchProjectById(id);
       setProject(data);
-      setProjectTypes(typesResponse.projectTypes);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -264,7 +258,6 @@ const ProjectDetails = () => {
     try {
       const payload = {
         Project_Name: editData.Project_Name,
-        Project_Type: editData.Project_Type,
         Priority: editData.Priority,
         Pipeline_Status: editData.Pipeline_Status,
         Start_Details: {
@@ -547,7 +540,7 @@ const ProjectDetails = () => {
               </span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0, fontWeight: 500 }}>
-              ID: {project.Project_ID} &nbsp;•&nbsp; {project.Client_Reference?.Company_Name || project.Lead_Reference?.Client_Reference?.Company_Name || 'Standalone Project'} &nbsp;•&nbsp; {project.Project_Type?.Type_Name || project.Project_Type || 'Type Not Configured'} &nbsp;•&nbsp; {[project.Product_Reference?.Type, project.Product_Reference?.SubType, project.Product_Reference?.SubSubType].filter(Boolean).join(' > ') || project.Quotation_Reference?.Product_Name_Service || [project.Quotation_Reference?.Product_Reference?.Type, project.Quotation_Reference?.Product_Reference?.SubType, project.Quotation_Reference?.Product_Reference?.SubSubType].filter(Boolean).join(' > ') || 'Service'}
+              ID: {project.Project_ID} &nbsp;•&nbsp; {project.Client_Reference?.Company_Name || project.Lead_Reference?.Client_Reference?.Company_Name || 'Standalone Project'} &nbsp;•&nbsp; {[project.Product_Reference?.Type, project.Product_Reference?.SubType, project.Product_Reference?.SubSubType].filter(Boolean).join(' > ') || project.Quotation_Reference?.Product_Name_Service || [project.Quotation_Reference?.Product_Reference?.Type, project.Quotation_Reference?.Product_Reference?.SubType, project.Quotation_Reference?.Product_Reference?.SubSubType].filter(Boolean).join(' > ') || 'Service'}
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -1042,7 +1035,6 @@ const ProjectDetails = () => {
                 setSelectedEditProject(project);
                 setEditData({
                   Project_Name: project.Project_Name || '',
-                  Project_Type: project.Project_Type?._id || project.Project_Type || '',
                   Priority: project.Priority || 'Normal',
                   Pipeline_Status: project.Pipeline_Status || 'Active',
                   Assigned_Person: project.Start_Details?.Assigned_Person || '',
@@ -1117,7 +1109,6 @@ const ProjectDetails = () => {
         </div>
       )}
 
-      {/* --- MODALS (Copied from Projects.tsx) --- */}
       {/* 1. Go-Live Configuration Modal (Using existing phase update structure but focused) */}
       {showPhaseUpgradeModal && (
         <div className="modal-overlay" onClick={() => setShowPhaseUpgradeModal(false)}>
@@ -1295,22 +1286,6 @@ const ProjectDetails = () => {
                     value={editData.Project_Name}
                     onChange={e => setEditData({ ...editData, Project_Name: e.target.value })}
                   />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Type *</label>
-                  <select
-                    className="form-select"
-                    required
-                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                    value={editData.Project_Type}
-                    onChange={e => setEditData({ ...editData, Project_Type: e.target.value })}
-                  >
-                    <option value="">Select Type</option>
-                    {projectTypes.map(type => (
-                      <option key={type._id} value={type._id}>{type.Type_Name}</option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1578,7 +1553,7 @@ const ProjectDetails = () => {
       {/* 5. Add / Edit External Service Modal */}
       {showServiceModal && (
         <div className="modal-overlay" onClick={() => { setShowServiceModal(false); resetServiceForm(); }}>
-          <div className="modal-content" style={{ maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '1000px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.35rem', marginBottom: '0.15rem' }}>
@@ -1607,8 +1582,8 @@ const ProjectDetails = () => {
                 </div>
               </div>
 
-              {/* Date Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              {/* Date Row + Amount */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>INQUIRY DATE *</label>
                   <DateInput
@@ -1628,10 +1603,6 @@ const ProjectDetails = () => {
                     onChange={val => setServiceFormData({ ...serviceFormData, Delivery_Date: val })}
                   />
                 </div>
-              </div>
-
-              {/* Amount + Status Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>AMOUNT (₹) *</label>
                   <input
@@ -1646,6 +1617,10 @@ const ProjectDetails = () => {
                     min="0"
                   />
                 </div>
+              </div>
+
+              {/* Status Row + Last Updated Date + Payment Terms */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>STATUS</label>
                   <select
@@ -1678,10 +1653,6 @@ const ProjectDetails = () => {
                     <option value="Received">Received</option>
                   </select>
                 </div>
-              </div>
-
-              {/* Status Date + Payment Terms */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>LAST UPDATED DATE</label>
                   <DateInput

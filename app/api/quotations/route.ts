@@ -4,7 +4,6 @@ import Quotation from '@/models/Quotation';
 import Lead from '@/models/Lead';
 import Client from '@/models/Client';
 import Product from '@/models/Product';
-import ProjectType from '@/models/ProjectType';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -114,12 +113,11 @@ export async function GET(request: Request) {
         ]);
     } else {
         quotations = await Quotation.find(filter)
-          .populate('Client_Reference')
-          .populate('Product_Reference')
-          .populate({ path: 'Project_Type', strictPopulate: false })
-          .sort(sortOption)
-          .skip((page - 1) * limit)
-          .limit(limit);
+            .populate('Client_Reference')
+            .populate('Product_Reference')
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(limit);
     }
 
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
@@ -149,7 +147,6 @@ export async function GET(request: Request) {
         ]) : await Quotation.find(filter)
           .populate('Client_Reference')
           .populate('Product_Reference')
-          .populate({ path: 'Project_Type', strictPopulate: false })
           .sort(sortOption)
           .skip((page - 1) * limit)
           .limit(limit)
@@ -214,8 +211,7 @@ export async function POST(request: Request) {
     await newQuote.save();
     await newQuote.populate([
         { path: 'Client_Reference' },
-        { path: 'Product_Reference' },
-        { path: 'Project_Type', strictPopulate: false }
+        { path: 'Product_Reference' }
     ]);
 
     if (quotationData.Lead_ID) {

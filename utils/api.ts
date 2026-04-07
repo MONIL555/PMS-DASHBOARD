@@ -312,54 +312,6 @@ export const deleteClient = async (id: string) => {
 
 // ... existing lead sources ...
 
-// Project Type Masters
-export const fetchProjectTypes = async (params: any = {}) => {
-  const query = new URLSearchParams();
-  if (typeof params === 'boolean') {
-      if (params) query.append('active', 'true');
-  } else {
-      if (params.active) query.append('active', 'true');
-      if (params.page) query.append('page', params.page.toString());
-      if (params.limit) query.append('limit', params.limit.toString());
-      if (params.search) query.append('search', params.search);
-  }
-
-  const res = await fetch(`${API_URL}/project-types?${query.toString()}`);
-  if (!res.ok) throw new Error('Failed to fetch project types');
-  return res.json();
-};
-
-export const createProjectType = async (data: any) => {
-  const res = await fetch(`${API_URL}/project-types`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || 'Failed to create project type');
-  return result;
-};
-
-export const updateProjectType = async (id: string, data: any) => {
-  const res = await fetch(`${API_URL}/project-types/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || 'Failed to update project type');
-  return result;
-};
-
-export const deleteProjectType = async (id: string) => {
-  const res = await fetch(`${API_URL}/project-types/${id}`, {
-    method: 'DELETE',
-  });
-  const result = await res.json();
-  if (!res.ok) throw new Error(result.error || 'Failed to delete project type');
-  return result;
-};
-
 // Product Masters
 export const fetchProducts = async (params: any = {}) => {
   const query = new URLSearchParams();

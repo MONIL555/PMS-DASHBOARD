@@ -17,7 +17,7 @@ export async function GET(
         const quotation = await Quotation.findById(id)
             .populate('Client_Reference')
             .populate('Product_Reference')
-            .populate('Project_Type');
+            .populate('Product_Reference');
         if (!quotation) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
         return NextResponse.json(quotation);
     } catch (error: any) {
@@ -40,7 +40,7 @@ export async function PUT(
         const quotation = await Quotation.findByIdAndUpdate(id, body, { new: true, runValidators: true })
             .populate('Client_Reference')
             .populate('Product_Reference')
-            .populate('Project_Type');
+            .populate('Product_Reference');
         if (!quotation) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
         return NextResponse.json(quotation);
     } catch (error: any) {

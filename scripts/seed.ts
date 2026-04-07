@@ -3,7 +3,6 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 
 import Client from '../models/Client';
-import ProjectType from '../models/ProjectType';
 import Product from '../models/Product';
 import LeadSource from '../models/LeadSource';
 import Lead from '../models/Lead';
@@ -35,7 +34,6 @@ async function seed() {
     console.log("🗑️ Wiping existing database...");
     await Promise.all([
       Client.deleteMany({}),
-      ProjectType.deleteMany({}),
       Product.deleteMany({}),
       LeadSource.deleteMany({}),
       Lead.deleteMany({}),
@@ -57,23 +55,6 @@ async function seed() {
     // ============================================
     // 1. SEED MASTERS
     // ============================================
-
-    // Project Types
-    const projectTypesData = [
-      { Type_Name: "Web Development", Description: "Full-stack web applications and portals." },
-      { Type_Name: "Mobile App", Description: "Native and cross-platform solutions." },
-      { Type_Name: "Cloud Migration", Description: "Moving infrastructure to AWS/Azure." },
-      { Type_Name: "UI/UX Design", Description: "User interface and experience design." },
-      { Type_Name: "Maintenance", Description: "Ongoing support and bug fixes." },
-      { Type_Name: "Data Analytics", Description: "Business intelligence visualization." }
-    ];
-    const projectTypes = [];
-    for (const data of projectTypesData) {
-      const pType = new ProjectType(data);
-      await pType.save();
-      projectTypes.push(pType);
-    }
-    console.log(`✅ Seeded ${projectTypes.length} Project Types.`);
 
     //lead sources
     const sourcesData = [
@@ -241,7 +222,6 @@ async function seed() {
 
         const project = new Project({
             Project_Name: `Enterprise Project ${i+1}`,
-            Project_Type: randomItem(projectTypes)._id,
             Lead_Reference: quote.Lead_ID,
             Quotation_Reference: quote._id,
             Client_Reference: quote.Client_Reference,

@@ -21,7 +21,6 @@ export async function GET(
             .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
             .populate('Product_Reference', 'Type SubType SubSubType')
             .populate('Lead_Reference', 'Lead_ID Company_Name Client_Name Contact_Number')
-            .populate('Project_Type', 'Type_Name')
             .populate({
                 path: 'Quotation_Reference',
                 select: 'Quotation_ID Commercial Product_Name_Service Requirement Project_Scope_Description',
@@ -62,7 +61,6 @@ export async function PUT(
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Contact_Number' },
                 { path: 'Product_Reference', select: 'Product_Name' },
                 { path: 'Lead_Reference', select: 'Lead_ID Company_Name Client_Name Contact_Number' },
-                { path: 'Project_Type', select: 'Type_Name' },
                 { 
                     path: 'Quotation_Reference', 
                     select: 'Quotation_ID Commercial Product_Name_Service Requirement Project_Scope_Description',

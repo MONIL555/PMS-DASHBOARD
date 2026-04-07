@@ -5,7 +5,6 @@ import "@/models/Quotation";
 import "@/models/Project";
 import "@/models/Ticket";
 import "@/models/Product";
-import "@/models/ProjectType";
 import "@/models/LeadSource";
 import "@/models/Counter";
 import "@/models/Role";

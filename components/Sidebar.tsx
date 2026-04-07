@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, User, FileText, Briefcase,
-  TicketIcon, Archive, Building2, Layers, Package,
+  TicketIcon, Archive, Building2, Package,
   Link as LinkIcon, Shield, LogOut, ChevronLeft, ChevronRight,
   User as UserIcon, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -66,7 +66,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   // Determine if MASTERS section should be shown
   const showMasters = hasPermission(PERMISSIONS.CLIENTS_VIEW) ||
     hasPermission(PERMISSIONS.PRODUCTS_VIEW) ||
-    hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) ||
     hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) ||
     hasPermission(PERMISSIONS.ROLES_VIEW) ||
     hasPermission(PERMISSIONS.USERS_VIEW);
@@ -206,7 +205,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
               {(isMastersOpen || isCollapsed) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
-                  {hasPermission(PERMISSIONS.PROJECT_TYPES_VIEW) && <SidebarLink to="/project-types" icon={<Layers size={20} />} label="Project Types" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.PRODUCTS_VIEW) && <SidebarLink to="/products" icon={<Package size={20} />} label="Services" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) && <SidebarLink to="/lead-sources" icon={<LinkIcon size={20} />} label="Lead Sources" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.ROLES_VIEW) && <SidebarLink to="/roles" icon={<Shield size={20} />} label="Roles" isCollapsed={isCollapsed} />}

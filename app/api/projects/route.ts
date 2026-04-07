@@ -107,10 +107,6 @@ export async function GET(request: Request) {
                 }
             },
             { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: { from: 'projecttypes', localField: 'Project_Type', foreignField: '_id', as: 'Project_Type' }
-            },
-            { $unwind: { path: '$Project_Type', preserveNullAndEmptyArrays: true } },
             { $sort: { 'Client_Reference.Company_Name': sortDirection } },
             { $skip: (page - 1) * limit },
             { $limit: limit }
@@ -128,7 +124,6 @@ export async function GET(request: Request) {
             .populate('Client_Reference', 'Company_Name Client_Name Contact_Number')
             .populate('Product_Reference', 'Type SubType SubSubType')
             .populate('Lead_Reference', 'Lead_ID')
-            .populate('Project_Type', 'Type_Name')
             .populate('Quotation_Reference', 'Quotation_ID Commercial Requirement Project_Scope_Description')
             .sort(sortOption)
             .skip((page - 1) * limit)
@@ -221,7 +216,6 @@ export async function POST(request: Request) {
         { path: 'Client_Reference', select: 'Company_Name Client_Name Contact_Number' },
         { path: 'Product_Reference', select: 'Type SubType SubSubType' },
         { path: 'Lead_Reference', select: 'Lead_ID' },
-        { path: 'Project_Type', select: 'Type_Name' },
         { path: 'Quotation_Reference', select: 'Quotation_ID Commercial Requirement Project_Scope_Description' }
     ]);
     return NextResponse.json(newProject, { status: 201 });

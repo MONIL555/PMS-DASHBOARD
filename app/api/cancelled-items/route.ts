@@ -6,7 +6,6 @@ import Project from '@/models/Project';
 import Ticket from '@/models/Ticket';
 import Client from '@/models/Client';
 import Product from '@/models/Product';
-import ProjectType from '@/models/ProjectType';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -133,8 +132,7 @@ export async function GET(request: Request) {
             model = Quotation;
             populateKeys = [
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Email Contact_Number' },
-                { path: 'Product_Reference', select: 'Type SubType SubSubType' },
-                { path: 'Project_Type', select: 'Type_Name' }
+                { path: 'Product_Reference', select: 'Type SubType SubSubType' }
             ];
         } else if (item.Original_Collection === 'Project') {
             model = Project;
@@ -142,8 +140,7 @@ export async function GET(request: Request) {
                 { path: 'Lead_Reference', select: 'Lead_ID' },
                 { path: 'Quotation_Reference', select: 'Quotation_ID' },
                 { path: 'Client_Reference', select: 'Company_Name Client_Name Email Contact_Number' },
-                { path: 'Product_Reference', select: 'Type SubType SubSubType' },
-                { path: 'Project_Type', select: 'Type_Name' }
+                { path: 'Product_Reference', select: 'Type SubType SubSubType' }
             ];
         } else if (item.Original_Collection === 'Ticket') {
             model = Ticket;

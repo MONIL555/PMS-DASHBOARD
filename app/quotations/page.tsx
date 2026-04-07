@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProjectTypes, fetchProducts } from '@/utils/api';
+import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProducts } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import { X, ArrowRight, Loader2, MessageCircle, Search, FileText, CheckCircle, XCircle, CircleFadingPlus, MessageSquare, ArrowBigRightDashIcon, Plus } from 'lucide-react';
@@ -22,7 +22,6 @@ const Quotations = () => {
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
-  const [projectTypes, setProjectTypes] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState('');
 
@@ -68,7 +67,6 @@ const Quotations = () => {
   const [convertData, setConvertData] = useState({
     Client_Reference: '',
     Product_Reference: '',
-    Project_Type: '',
     Project_Name: '',
     Priority: 'Normal',
     Assigned_Person: '',
@@ -243,15 +241,6 @@ const Quotations = () => {
 
   useEffect(() => {
     loadData();
-    const loadTypes = async () => {
-      try {
-        const response = await fetchProjectTypes({ active: true, limit: 100 });
-        setProjectTypes(response.projectTypes);
-      } catch (err: any) {
-        console.error('Error fetching project types:', err);
-      }
-    };
-    loadTypes();
     loadLeadsData();
   }, []);
 
@@ -276,7 +265,6 @@ const Quotations = () => {
       setConvertData({
         Client_Reference: selectedQuotation.Client_Reference?._id || selectedQuotation.Lead_ID?.Client_Reference?._id || '',
         Product_Reference: selectedQuotation.Product_Reference?._id || '',
-        Project_Type: selectedQuotation.Project_Type?._id || '',
         Project_Name: selectedQuotation.Client_Reference?.Company_Name || selectedQuotation.Lead_ID?.Client_Reference?.Company_Name || '',
         Priority: 'Normal',
         Assigned_Person: '',
@@ -814,15 +802,7 @@ const Quotations = () => {
               <div>
                 <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.25rem' }}>Proposal Details</h3>
                 <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
-                  <div>
-                    <strong className="text-secondary">Service/Product:</strong>
-                    <div style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '0.5rem', verticalAlign: 'top' }}>
-                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {[selectedDetailQuotation.Product_Reference?.Type, selectedDetailQuotation.Product_Reference?.SubType].filter(Boolean).join(' / ')}
-                      </span>
-                      <span className="font-bold text-blue-700">{selectedDetailQuotation.Product_Reference?.SubSubType || selectedDetailQuotation.Product_Reference?.SubType || selectedDetailQuotation.Product_Reference?.Type || '-'}</span>
-                    </div>
-                  </div>
+                  <div><strong className="text-secondary">Service/Product:</strong> {selectedDetailQuotation.Product_Reference?.SubSubType || '-'}</div>
                   <div><strong className="text-secondary">Company Name:</strong> {selectedDetailQuotation.Client_Reference?.Company_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Company_Name || selectedDetailQuotation.Client_Info || '-'}</div>
                   {(selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name) && (
                     <div><strong className="text-secondary">Client Name:</strong> {selectedDetailQuotation.Client_Reference?.Client_Name || selectedDetailQuotation.Lead_ID?.Client_Reference?.Client_Name}</div>
@@ -1026,22 +1006,6 @@ const Quotations = () => {
                   <select className="form-select" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Priority} onChange={e => setConvertData({ ...convertData, Priority: e.target.value })}>
                     <option value="Normal">Normal</option>
                     <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Project Type *</label>
-                  <select
-                    className="form-select"
-                    style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-                    required
-                    value={convertData.Project_Type}
-                    onChange={e => setConvertData({ ...convertData, Project_Type: e.target.value })}
-                  >
-                    <option value="">-- Select Type --</option>
-                    {projectTypes.map(t => (
-                      <option key={t._id} value={t._id}>{t.Type_Name}</option>
-                    ))}
                   </select>
                 </div>
 
@@ -1387,10 +1351,10 @@ const Quotations = () => {
                     <label className="form-label" style={{ fontSize: '0.8rem', margin: 0 }}>Client *</label>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, color: isNewClient ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isNewClient} 
-                          onChange={(e) => setIsNewClient(e.target.checked)} 
+                        <input
+                          type="checkbox"
+                          checked={isNewClient}
+                          onChange={(e) => setIsNewClient(e.target.checked)}
                           style={{ width: '14px', height: '14px' }}
                         />
                         New Client?
@@ -1410,9 +1374,9 @@ const Quotations = () => {
                       )}
                     </>
                   ) : (
-                    <ClientFields 
-                      values={newClientData} 
-                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })} 
+                    <ClientFields
+                      values={newClientData}
+                      onChange={(field, value) => setNewClientData({ ...newClientData, [field]: value })}
                     />
                   )}
                 </div>

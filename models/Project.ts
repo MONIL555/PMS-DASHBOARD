@@ -64,6 +64,7 @@ export interface IProject extends Document {
     Reminder: {
       Enabled: boolean;
       Notify_Before: string;
+      Custom_Date?: Date;
     };
   }>;
   createdAt: Date;

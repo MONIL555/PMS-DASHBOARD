@@ -87,7 +87,7 @@ const ProjectDetails = () => {
     Inquiry_Date: new Date().toISOString().split('T')[0],
     Delivery_Date: '',
     Amount: 0,
-    Billing_Status: 'Working',
+    Billing_Status: 'Working On',
     Status_Date: new Date().toISOString().split('T')[0],
     Cycle_Anchor_Date: new Date().toISOString().split('T')[0],
     Payment_Timeline: '',
@@ -121,7 +121,7 @@ const ProjectDetails = () => {
 
   const getNextBilling = (svc: any) => {
     // Only use Cycle Anchor Date to calculate upcoming payments.
-    // Falls back to null if no Cycle Anchor exists (i.e., status has never been 'Generated').
+    // Falls back to null if no Cycle Anchor exists (i.e., status has never been 'Invoice Generated').
     const base = svc.Cycle_Anchor_Date;
     if (!base) return null;
 
@@ -132,6 +132,9 @@ const ProjectDetails = () => {
     if (svc.Payment_Terms === 'Annually') monthsInterval = 12;
 
     let nextBilling = new Date(baseDate);
+    if (svc.Payment_Terms === 'One Time') {
+      return nextBilling;
+    }
     // Ensure we find the NEXT upcoming date from 'now'
     while (nextBilling <= now) {
       nextBilling.setMonth(nextBilling.getMonth() + monthsInterval);
@@ -153,8 +156,37 @@ const ProjectDetails = () => {
         const reminderDate = new Date(nextBilling);
         reminderDate.setDate(reminderDate.getDate() - notifyDays);
 
-        if (now >= reminderDate && now <= nextBilling) {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const reminderDay = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
+        const daysSinceReminder = Math.floor((today.getTime() - reminderDay.getTime()) / (1000 * 60 * 60 * 24));
+
+        let isTriggered = false;
+        if (svc.Billing_Status !== 'Received') {
+          if (svc.Reminder?.Notify_Before === 'Custom Date') {
+            isTriggered = now.getTime() >= reminderDate.getTime();
+          } else if (svc.Payment_Terms === 'One Time') {
+            isTriggered = daysSinceReminder >= 0 && daysSinceReminder % 2 === 0;
+          } else {
+            isTriggered = now >= reminderDate && now <= nextBilling;
+          }
+        }
+
+        if (isTriggered) {
           const daysLeft = Math.ceil((nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Trigger the WhatsApp background processing (Server prevents duplicates via DB checks)
+          fetch('/api/whatsapp/remind', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: project._id,
+              serviceId: svc._id,
+              currentDateIso: today.toISOString(),
+              nextBillingIso: nextBilling.toISOString(),
+              isOneTime: svc.Payment_Terms === 'One Time'
+            })
+          }).catch(err => console.error('Failed to trigger WA reminder', err));
+
           toast(`Reminder: [${project.Project_ID}] ${svc.Service_Name} billing due in ${daysLeft} day(s)!`, {
             icon: '🔔',
             duration: 6000,
@@ -355,7 +387,7 @@ const ProjectDetails = () => {
       Inquiry_Date: new Date().toISOString().split('T')[0],
       Delivery_Date: '',
       Amount: 0,
-      Billing_Status: 'Working',
+      Billing_Status: 'Working On',
       Status_Date: new Date().toISOString().split('T')[0],
       Cycle_Anchor_Date: '',
       Payment_Timeline: '',
@@ -377,7 +409,7 @@ const ProjectDetails = () => {
       Inquiry_Date: svc.Inquiry_Date ? new Date(svc.Inquiry_Date).toISOString().split('T')[0] : '',
       Delivery_Date: svc.Delivery_Date ? new Date(svc.Delivery_Date).toISOString().split('T')[0] : '',
       Amount: svc.Amount || 0,
-      Billing_Status: svc.Billing_Status || 'Working',
+      Billing_Status: svc.Billing_Status || 'Working On',
       Status_Date: svc.Status_Date ? new Date(svc.Status_Date).toISOString().split('T')[0] : '',
       Cycle_Anchor_Date: svc.Cycle_Anchor_Date ? new Date(svc.Cycle_Anchor_Date).toISOString().split('T')[0] : '',
       Payment_Timeline: svc.Payment_Timeline || '',
@@ -458,14 +490,14 @@ const ProjectDetails = () => {
 
   const getBillingStatusColor = (status: string) => {
     const colors: Record<string, { bg: string; text: string; border: string }> = {
-      'Working': { bg: 'rgba(99,102,241,0.08)', text: '#6366f1', border: 'rgba(99,102,241,0.2)' },
-      'Generated': { bg: 'rgba(59,130,246,0.08)', text: '#3b82f6', border: 'rgba(59,130,246,0.2)' },
+      'Working On': { bg: 'rgba(99,102,241,0.08)', text: '#6366f1', border: 'rgba(99,102,241,0.2)' },
+      'Invoice Generated': { bg: 'rgba(59,130,246,0.08)', text: '#3b82f6', border: 'rgba(59,130,246,0.2)' },
       'Given to Client': { bg: 'rgba(245,158,11,0.08)', text: '#d97706', border: 'rgba(245,158,11,0.2)' },
       'Receiving': { bg: 'rgba(16,185,129,0.08)', text: '#059669', border: 'rgba(16,185,129,0.2)' },
       'Under Process': { bg: 'rgba(139,92,246,0.08)', text: '#7c3aed', border: 'rgba(139,92,246,0.2)' },
       'Received': { bg: 'rgba(16,185,129,0.12)', text: '#047857', border: 'rgba(16,185,129,0.3)' }
     };
-    return colors[status] || colors['Working'];
+    return colors[status] || colors['Working On'];
   };
 
   const renderPhaseStep = (label: string, isActive: boolean, isCompleted: boolean, date?: string) => (
@@ -1629,7 +1661,7 @@ const ProjectDetails = () => {
               {/* Status Row + Last Updated Date + Payment Terms */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>STATUS</label>
+                  <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.25rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--text-secondary)' }}>BILLING STATUS</label>
                   <select
                     className="form-select"
                     style={{ padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
@@ -1644,16 +1676,16 @@ const ProjectDetails = () => {
                         updates.Status_Date = today;
                       }
 
-                      // Start or reset the payment cycle ONLY when set to 'Generated'
-                      if (newStatus === 'Generated' && newStatus !== serviceFormData.Billing_Status) {
+                      // Start or reset the payment cycle ONLY when set to 'Invoice Generated'
+                      if (newStatus === 'Invoice Generated' && newStatus !== serviceFormData.Billing_Status) {
                         updates.Cycle_Anchor_Date = today;
                       }
 
                       setServiceFormData({ ...serviceFormData, ...updates });
                     }}
                   >
-                    <option value="Working">Working</option>
-                    <option value="Generated">Generated</option>
+                    <option value="Working On">Working On</option>
+                    <option value="Invoice Generated">Invoice Generated</option>
                     <option value="Given to Client">Given To Client</option>
                     <option value="Receiving">Receiving</option>
                     <option value="Under Process">Under Process</option>
@@ -1680,6 +1712,7 @@ const ProjectDetails = () => {
                     <option value="Monthly">Monthly</option>
                     <option value="Quarterly">Quarterly</option>
                     <option value="Annually">Annually</option>
+                    <option value="One Time">One Time</option>
                   </select>
                 </div>
               </div>
@@ -1747,30 +1780,36 @@ const ProjectDetails = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {/* Option 1: Cyclical Reminder */}
-                      <label style={{ 
-                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', 
+                      <label style={{
+                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem',
                         background: serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '#fff' : 'transparent',
                         border: `1px solid ${serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '#6366f1' : 'transparent'}`,
                         borderRadius: '0.5rem', cursor: 'pointer', transition: '0.2s',
                         boxShadow: serviceFormData.Reminder.Notify_Before !== 'Custom Date' ? '0 2px 4px rgba(99,102,241,0.1)' : 'none'
                       }}>
                         <input
-                           type="radio"
-                           name="reminderMode"
-                           style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
-                           checked={serviceFormData.Reminder.Notify_Before !== 'Custom Date'}
-                           onChange={() => setServiceFormData({...serviceFormData, Reminder: {...serviceFormData.Reminder, Notify_Before: '3 days before'}})}
+                          type="radio"
+                          name="reminderMode"
+                          style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                          checked={serviceFormData.Reminder.Notify_Before !== 'Custom Date'}
+                          onChange={() => setServiceFormData({ ...serviceFormData, Reminder: { ...serviceFormData.Reminder, Notify_Before: '3 days before' } })}
                         />
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                           <div style={{ padding: '0.4rem', background: '#f1f5f9', borderRadius: '0.35rem', color: '#64748b' }}>
                             <Bell size={16} />
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Standard Cycle Reminder</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Alerts before every {serviceFormData.Payment_Terms.toLowerCase()} payment.</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {serviceFormData.Payment_Terms === 'One Time' ? 'Single Payment Reminder' : 'Standard Cycle Reminder'}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {serviceFormData.Payment_Terms === 'One Time'
+                                ? 'Alerts before deadline and repeats every 2 days until paid.'
+                                : `Alerts before every ${serviceFormData.Payment_Terms.toLowerCase()} payment.`}
+                            </div>
                           </div>
                         </div>
-                        {serviceFormData.Reminder.Notify_Before !== 'Custom Date' && (
+                        {serviceFormData.Reminder.Notify_Before !== 'Custom Date' && serviceFormData.Payment_Terms !== 'One Time' && (
                           <select
                             className="form-select"
                             style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', minWidth: '150px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}
@@ -1787,51 +1826,55 @@ const ProjectDetails = () => {
                         )}
                       </label>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0 1rem' }}>
-                         <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
-                         <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>OR</span>
-                         <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
-                      </div>
+                      {serviceFormData.Payment_Terms !== 'One Time' && (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0 1rem' }}>
+                            <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>OR</span>
+                            <div style={{ flex: 1, height: '1px', background: 'rgba(99,102,241,0.1)' }} />
+                          </div>
 
-                      {/* Option 2: Custom Calendar Date */}
-                      <label style={{ 
-                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', 
-                        background: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#fff' : 'transparent',
-                        border: `1px solid ${serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#6366f1' : 'transparent'}`,
-                        borderRadius: '0.5rem', cursor: 'pointer', transition: '0.2s',
-                        boxShadow: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '0 2px 4px rgba(99,102,241,0.1)' : 'none'
-                      }}>
-                        <input
-                           type="radio"
-                           name="reminderMode"
-                           style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
-                           checked={serviceFormData.Reminder.Notify_Before === 'Custom Date'}
-                           onChange={() => setServiceFormData({...serviceFormData, Reminder: {...serviceFormData.Reminder, Notify_Before: 'Custom Date', Custom_Date: serviceFormData.Reminder.Custom_Date || new Date().toISOString().split('T')[0]}})}
-                        />
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div style={{ padding: '0.4rem', background: '#f1f5f9', borderRadius: '0.35rem', color: '#64748b' }}>
-                            <Calendar size={16} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Specific Calendar Date</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Fire notification on an exact stored date.</div>
-                          </div>
-                        </div>
-                        {serviceFormData.Reminder.Notify_Before === 'Custom Date' && (
-                          <div onClick={(e) => e.preventDefault()}>
+                          {/* Option 2: Custom Calendar Date */}
+                          <label style={{
+                            display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem',
+                            background: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#fff' : 'transparent',
+                            border: `1px solid ${serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '#6366f1' : 'transparent'}`,
+                            borderRadius: '0.5rem', cursor: 'pointer', transition: '0.2s',
+                            boxShadow: serviceFormData.Reminder.Notify_Before === 'Custom Date' ? '0 2px 4px rgba(99,102,241,0.1)' : 'none'
+                          }}>
                             <input
-                              type="date"
-                              className="form-input"
-                              style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontWeight: 600, color: '#3b82f6' }}
-                              value={serviceFormData.Reminder.Custom_Date}
-                              onChange={e => setServiceFormData({
-                                ...serviceFormData,
-                                Reminder: { ...serviceFormData.Reminder, Custom_Date: e.target.value }
-                              })}
+                              type="radio"
+                              name="reminderMode"
+                              style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                              checked={serviceFormData.Reminder.Notify_Before === 'Custom Date'}
+                              onChange={() => setServiceFormData({ ...serviceFormData, Reminder: { ...serviceFormData.Reminder, Notify_Before: 'Custom Date', Custom_Date: serviceFormData.Reminder.Custom_Date || new Date().toISOString().split('T')[0] } })}
                             />
-                          </div>
-                        )}
-                      </label>
+                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <div style={{ padding: '0.4rem', background: '#f1f5f9', borderRadius: '0.35rem', color: '#64748b' }}>
+                                <Calendar size={16} />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Specific Calendar Date</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Fire notification on an exact stored date.</div>
+                              </div>
+                            </div>
+                            {serviceFormData.Reminder.Notify_Before === 'Custom Date' && (
+                              <div onClick={(e) => e.preventDefault()}>
+                                <input
+                                  type="date"
+                                  className="form-input"
+                                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem', width: 'auto', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', fontWeight: 600, color: '#3b82f6' }}
+                                  value={serviceFormData.Reminder.Custom_Date}
+                                  onChange={e => setServiceFormData({
+                                    ...serviceFormData,
+                                    Reminder: { ...serviceFormData.Reminder, Custom_Date: e.target.value }
+                                  })}
+                                />
+                              </div>
+                            )}
+                          </label>
+                        </>
+                      )}
                     </div>
                     {/* Simulation Utility for Testing (Commented out after verification) */}
                     {/* <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dotted rgba(99,102,241,0.2)' }}>
@@ -1840,7 +1883,7 @@ const ProjectDetails = () => {
                         onClick={() => {
                           const testDate = new Date();
                           testDate.setDate(testDate.getDate() - 28);
-                          // Set both dates to simulate an old "Generated" cycle
+                          // Set both dates to simulate an old "Invoice Generated" cycle
                           setServiceFormData({ 
                             ...serviceFormData, 
                             Cycle_Anchor_Date: testDate.toISOString().split('T')[0],

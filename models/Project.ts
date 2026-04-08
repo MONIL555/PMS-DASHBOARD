@@ -56,15 +56,17 @@ export interface IProject extends Document {
     Inquiry_Date: Date;
     Delivery_Date: Date;
     Amount: number;
-    Billing_Status: 'Working' | 'Generated' | 'Given to Client' | 'Receiving' | 'Under Process' | 'Received';
+    Billing_Status: 'Working On' | 'Invoice Generated' | 'Given to Client' | 'Receiving' | 'Under Process' | 'Received';
     Status_Date: Date;
     Cycle_Anchor_Date: Date;
     Payment_Timeline: string;
-    Payment_Terms: 'Monthly' | 'Quarterly' | 'Annually';
+    Payment_Terms: 'Monthly' | 'Quarterly' | 'Annually' | 'One Time';
     Reminder: {
       Enabled: boolean;
       Notify_Before: string;
       Custom_Date?: Date;
+      Last_WA_Sent_Billing_Date?: Date;
+      Last_WA_Sent_Date?: Date;
     };
   }>;
   createdAt: Date;
@@ -147,21 +149,23 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
     Amount: { type: Number, default: 0 },
     Billing_Status: {
       type: String,
-      enum: ['Working', 'Generated', 'Given to Client', 'Receiving', 'Under Process', 'Received'],
-      default: 'Working'
+      enum: ['Working On', 'Invoice Generated', 'Given to Client', 'Receiving', 'Under Process', 'Received'],
+      default: 'Working On'
     },
     Status_Date: Date,
     Cycle_Anchor_Date: Date,
     Payment_Timeline: String,
     Payment_Terms: {
       type: String,
-      enum: ['Monthly', 'Quarterly', 'Annually'],
+      enum: ['Monthly', 'Quarterly', 'Annually', 'One Time'],
       default: 'Monthly'
     },
     Reminder: {
       Enabled: { type: Boolean, default: true },
       Notify_Before: { type: String, default: '3 days before' },
-      Custom_Date: { type: Date }
+      Custom_Date: { type: Date },
+      Last_WA_Sent_Billing_Date: { type: Date },
+      Last_WA_Sent_Date: { type: Date }
     }
   }]
 }, { timestamps: true });

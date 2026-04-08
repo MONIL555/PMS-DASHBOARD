@@ -17,12 +17,16 @@ function getNextBillingDate(statusDate: Date, paymentTerms: string): Date {
   const now = new Date();
   const base = new Date(statusDate);
   
+  let next = new Date(base);
+  if (paymentTerms === 'One Time') {
+    return next;
+  }
+
   let monthsInterval = 1;
   if (paymentTerms === 'Quarterly') monthsInterval = 3;
   if (paymentTerms === 'Annually') monthsInterval = 12;
 
   // Find the next billing date from statusDate going forward
-  let next = new Date(base);
   while (next <= now) {
     next.setMonth(next.getMonth() + monthsInterval);
   }
@@ -67,11 +71,20 @@ export async function GET(request: Request) {
           reminderDate.setDate(reminderDate.getDate() - notifyDays);
         }
 
-        // For Custom Date: Show reminder if now >= custom date
-        // For Cyclical: Show reminder if we're within the notification window (reminder date <= now <= billing date)
-        const isTriggered = (service.Reminder.Notify_Before === 'Custom Date') 
-          ? (now.getTime() >= reminderDate.getTime())
-          : (reminderDate <= now && now <= nextBilling);
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const reminderDay = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
+        const daysSinceReminder = Math.floor((today.getTime() - reminderDay.getTime()) / (1000 * 60 * 60 * 24));
+
+        let isTriggered = false;
+        if (service.Billing_Status !== 'Received') {
+          if (service.Reminder.Notify_Before === 'Custom Date') {
+            isTriggered = (now.getTime() >= reminderDate.getTime());
+          } else if (service.Payment_Terms === 'One Time') {
+            isTriggered = (daysSinceReminder >= 0 && daysSinceReminder % 2 === 0);
+          } else {
+            isTriggered = (reminderDate <= now && now <= nextBilling);
+          }
+        }
 
         if (isTriggered) {
           const daysUntilDue = Math.ceil((nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));

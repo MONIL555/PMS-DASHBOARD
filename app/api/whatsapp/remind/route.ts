@@ -33,6 +33,14 @@ export async function POST(req: Request) {
 
     const currentDate = new Date(currentDateIso);
     const nextBillingDate = new Date(nextBillingIso);
+
+    // --- NEW: Check if cycle is already paid ---
+    const isPaid = (service.Payment_History || []).some((ph: any) => 
+      new Date(ph.Cycle_Date).getTime() === nextBillingDate.getTime()
+    );
+    if (isPaid) {
+      return NextResponse.json({ message: 'Payment already collected for this cycle. Skipping notification.' }, { status: 200 });
+    }
     
     // Concurrency check based on DB fields
     let shouldUpdateDB = false;

@@ -74,7 +74,7 @@ export async function GET(request: Request) {
             // --- SERVICE BILLINGS ---
             if (p.External_Services && p.External_Services.length > 0) {
                 p.External_Services.forEach((svc: any) => {
-                    if (svc.Billing_Status === 'Received') return;
+                    if (svc.Billing_Status === 'Received' && svc.Payment_Terms === 'One Time') return;
 
                     let nextBilling: Date | null = null;
                     const anchorRaw = svc.Cycle_Anchor_Date || svc.Inquiry_Date || p.createdAt;
@@ -120,15 +120,22 @@ export async function GET(request: Request) {
                     }
 
                     if (nextBilling) {
+                        // Check if this cycle is already paid
+                        const isPaid = (svc.Payment_History || []).some((ph: any) =>
+                            new Date(ph.Cycle_Date).getTime() === nextBilling!.getTime()
+                        );
                         calendarEvents.push({
                             id: `svc-${p._id}-${svc._id}-${currentMonth}`,
                             date: nextBilling.toISOString(),
                             type: 'billing',
-                            title: `Billing: ${svc.Service_Name}`,
+                            title: `${p.Project_Name} - Billing: ${svc.Service_Name}`,
                             clientName: p.Client_Reference?.Company_Name || p.Client_Reference?.Client_Name || 'Unknown',
                             value: getCycleAmount(svc.Amount, svc.Payment_Terms),
                             schedule: svc.Payment_Terms,
-                            refId: p.Project_ID
+                            refId: p.Project_ID,
+                            isPaid,
+                            projectId: p._id.toString(),
+                            serviceId: svc._id.toString()
                         });
                     }
                 });
@@ -180,6 +187,10 @@ export async function GET(request: Request) {
                 }
 
                 if (nextBilling) {
+                    // Check if this renewal cycle is already paid
+                    const isPaid = (goLive.Payment_History || []).some((ph: any) =>
+                        new Date(ph.Cycle_Date).getTime() === nextBilling!.getTime()
+                    );
                     calendarEvents.push({
                         id: `renewal-${p._id}-${currentMonth}`,
                         date: nextBilling.toISOString(),
@@ -188,7 +199,10 @@ export async function GET(request: Request) {
                         clientName: p.Client_Reference?.Company_Name || p.Client_Reference?.Client_Name || 'Unknown',
                         value: getCycleAmount(p.Start_Details?.Costing || 0, goLive.Payment_Schedule),
                         schedule: goLive.Payment_Schedule,
-                        refId: p.Project_ID
+                        refId: p.Project_ID,
+                        isPaid,
+                        projectId: p._id.toString(),
+                        serviceId: null
                     });
                 }
             }

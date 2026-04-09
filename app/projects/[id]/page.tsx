@@ -121,11 +121,9 @@ const ProjectDetails = () => {
 
   const getNextBilling = (svc: any) => {
     // Only use Cycle Anchor Date to calculate upcoming payments.
-    // Falls back to null if no Cycle Anchor exists (i.e., status has never been 'Invoice Generated').
     const base = svc.Cycle_Anchor_Date;
     if (!base) return null;
 
-    const now = new Date();
     const baseDate = new Date(base);
     let monthsInterval = 1;
     if (svc.Payment_Terms === 'Quarterly') monthsInterval = 3;
@@ -135,10 +133,17 @@ const ProjectDetails = () => {
     if (svc.Payment_Terms === 'One Time') {
       return nextBilling;
     }
-    // Ensure we find the NEXT upcoming date from 'now'
-    while (nextBilling <= now) {
+
+    const paidCycles = (svc.Payment_History || []).map((ph: any) => new Date(ph.Cycle_Date).toDateString());
+
+    // Advance until we find a date that is NOT in the paid history
+    // We limit to 120 cycles (10 years) to prevent infinite loops if something is wrong
+    let iterations = 0;
+    while (paidCycles.includes(nextBilling.toDateString()) && iterations < 120) {
       nextBilling.setMonth(nextBilling.getMonth() + monthsInterval);
+      iterations++;
     }
+
     return nextBilling;
   };
 
@@ -977,12 +982,17 @@ const ProjectDetails = () => {
                           }}>
                             <div style={{ color: 'var(--text-secondary)', display: 'flex' }}><CreditCard size={15} strokeWidth={2.5} /></div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Terms</div>
+                              <div style={{ fontSize: '0.55rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Terms</span>
+                                {svc.Payment_History?.length > 0 && (
+                                  <span style={{ color: '#10b981' }}>{svc.Payment_History.length} Collected</span>
+                                )}
+                              </div>
                               <div style={{ fontSize: '0.8rem', fontWeight: 650, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span>{svc.Payment_Terms}</span>
                                 {svc.Cycle_Anchor_Date && (
                                   <span style={{ fontSize: '0.7rem', color: '#b45309', fontWeight: 700, marginLeft: '0.4rem' }}>
-                                    (Next: {formatDateDDMMYYYY(getNextBilling(svc))})
+                                    (Next Unpaid: {formatDateDDMMYYYY(getNextBilling(svc))})
                                   </span>
                                 )}
                               </div>

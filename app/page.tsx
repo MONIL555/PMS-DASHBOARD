@@ -173,6 +173,21 @@ const Dashboard = () => {
 		const [loadingCal, setLoadingCal] = useState(true);
 		const [popupDay, setPopupDay] = useState<number | null>(null);
 		const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+		const [markingPayment, setMarkingPayment] = useState<string | null>(null); // event id being toggled
+		const handleCellClick = (day: number, e: React.MouseEvent) => {
+			const dayEvents = getEventsForDay(day);
+			if (dayEvents.length === 0) return;
+			
+			// Position centered near the click point
+			const x = e.clientX;
+			const y = e.clientY;
+			
+			setPopupPos({ 
+				top: Math.min(y + 10, window.innerHeight - 380), 
+				left: Math.min(Math.max(10, x - 160), window.innerWidth - 340) 
+			});
+			setPopupDay(day);
+		};
 
 		const now = new Date();
 		const currentMonth = currentDate.getMonth();
@@ -209,10 +224,56 @@ const Dashboard = () => {
 			setPopupDay(null);
 		};
 
-		const getEventStyle = (type: string) => {
+		const getEventStyle = (type: string, isPaid?: boolean) => {
+			if (isPaid) return { bg: '#f0fdf4', color: '#15803d', border: '#22c55e' };
 			if (type === 'renewal') return { bg: '#f3e8ff', color: '#7c3aed', border: '#a855f7' };
 			if (type === 'billing') return { bg: '#dcfce7', color: '#166534', border: '#22c55e' };
 			return { bg: '#fef3c7', color: '#b45309', border: '#f59e0b' };
+		};
+
+		const handleTogglePayment = async (ev: any) => {
+			if (markingPayment) return; // prevent double-click
+			setMarkingPayment(ev.id);
+			try {
+				if (ev.isPaid) {
+					// Undo payment
+					const res = await fetch('/api/projects/payment', {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							projectId: ev.projectId,
+							serviceId: ev.serviceId,
+							cycleDate: ev.date,
+							type: ev.type === 'renewal' ? 'renewal' : 'billing'
+						})
+					});
+					if (res.ok) {
+						setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, isPaid: false } : e));
+						toast.success('Payment collection undone');
+					}
+				} else {
+					// Mark as paid
+					const res = await fetch('/api/projects/payment', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							projectId: ev.projectId,
+							serviceId: ev.serviceId,
+							cycleDate: ev.date,
+							type: ev.type === 'renewal' ? 'renewal' : 'billing',
+							amount: ev.value || 0
+						})
+					});
+					if (res.ok) {
+						setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, isPaid: true } : e));
+						toast.success(`₹${(ev.value || 0).toLocaleString()} marked as collected`);
+					}
+				}
+			} catch (err) {
+				toast.error('Failed to update payment status');
+			} finally {
+				setMarkingPayment(null);
+			}
 		};
 
 		const getEventsForDay = (day: number) => {
@@ -223,29 +284,26 @@ const Dashboard = () => {
 			});
 		};
 
-		const handleCellClick = (day: number, e: React.MouseEvent) => {
-			const dayEvents = getEventsForDay(day);
-			if (dayEvents.length === 0) { setPopupDay(null); return; }
-			if (popupDay === day) { setPopupDay(null); return; }
-			const rect = e.currentTarget.getBoundingClientRect();
-			setPopupPos({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 340) });
-			setPopupDay(day);
-		};
+
 
 		const renderCell = (day: number) => {
 			const dayEvents = getEventsForDay(day);
 			const renderDate = new Date(currentYear, currentMonth, day);
 			const isToday = renderDate.toDateString() === now.toDateString();
 			const hasEvents = dayEvents.length > 0;
+			const allPaid = hasEvents && dayEvents.every((e: any) => e.isPaid || e.type === 'followup');
+			const hasBillingEvents = dayEvents.some((e: any) => e.type === 'billing' || e.type === 'renewal');
 
 			return (
-				<div key={day} onClick={(e) => handleCellClick(day, e)} style={{
+				<div key={day} 
+					onClick={(e) => handleCellClick(day, e)}
+					style={{
 					minHeight: '70px',
 					minWidth: 0,
 					padding: '0.5rem',
-					border: isToday ? '1px solid #bfdbfe' : '1px solid #f1f5f9',
+					border: isToday ? '1px solid #bfdbfe' : allPaid && hasBillingEvents ? '1px solid #bbf7d0' : '1px solid #f1f5f9',
 					borderRadius: '8px',
-					backgroundColor: isToday ? '#eff6ff' : 'white',
+					backgroundColor: isToday ? '#eff6ff' : allPaid && hasBillingEvents ? '#f0fdf4' : 'white',
 					display: 'flex',
 					flexDirection: 'column',
 					gap: '0.25rem',
@@ -253,14 +311,21 @@ const Dashboard = () => {
 					cursor: hasEvents ? 'pointer' : 'default',
 					position: 'relative'
 				}}>
-					<div style={{ fontSize: '0.8rem', fontWeight: isToday ? 800 : 600, color: isToday ? '#3b82f6' : 'var(--text-secondary)', alignSelf: 'flex-end', marginBottom: '2px' }}>
-						{day}
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+						{allPaid && hasBillingEvents && (
+							<div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+								<Check size={9} color="white" strokeWidth={4} />
+							</div>
+						)}
+						<div style={{ fontSize: '0.8rem', fontWeight: isToday ? 800 : 600, color: isToday ? '#3b82f6' : 'var(--text-secondary)', marginLeft: 'auto', marginBottom: '2px' }}>
+							{day}
+						</div>
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', flex: 1, paddingRight: '2px' }}>
 						{dayEvents.slice(0, 3).map((ev: any) => {
-							const style = getEventStyle(ev.type);
+							const style = getEventStyle(ev.type, ev.isPaid);
 							return (
-								<div key={ev.id} title={`${ev.title} - ${ev.clientName} (₹${ev.value?.toLocaleString()})`} style={{
+								<div key={ev.id} style={{
 									padding: '2px 5px',
 									borderRadius: '4px',
 									fontSize: '0.65rem',
@@ -271,9 +336,10 @@ const Dashboard = () => {
 									backgroundColor: style.bg,
 									color: style.color,
 									borderLeft: `3px solid ${style.border}`,
-									cursor: 'pointer'
+									opacity: ev.isPaid ? 0.7 : 1,
+									textDecoration: ev.isPaid ? 'line-through' : 'none'
 								}}>
-									{ev.clientName}
+									{ev.isPaid ? '✓ ' : ''}{ev.clientName}
 								</div>
 							);
 						})}
@@ -345,11 +411,13 @@ const Dashboard = () => {
 
 				{popupDay !== null && popupEvents.length > 0 && (
 					<>
-						<div onClick={() => setPopupDay(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }} />
-						<div style={{
+						<div onClick={(e) => { e.stopPropagation(); setPopupDay(null); }} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }} />
+						<div 
+							onClick={(e) => e.stopPropagation()}
+							style={{
 							position: 'fixed',
 							top: popupPos.top,
-							left: popupPos.left,
+							left: Math.max(20, popupPos.left),
 							width: '320px',
 							maxHeight: '360px',
 							overflowY: 'auto',
@@ -370,7 +438,9 @@ const Dashboard = () => {
 							</div>
 							<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 								{popupEvents.map((ev: any) => {
-									const style = getEventStyle(ev.type);
+									const style = getEventStyle(ev.type, ev.isPaid);
+									const isBillingType = ev.type === 'billing' || ev.type === 'renewal';
+									const isToggling = markingPayment === ev.id;
 									return (
 										<div key={ev.id} style={{
 											padding: '0.6rem 0.75rem',
@@ -378,23 +448,60 @@ const Dashboard = () => {
 											backgroundColor: style.bg,
 											borderLeft: `3px solid ${style.border}`,
 											display: 'flex',
-											flexDirection: 'column',
-											gap: '0.2rem'
+											alignItems: 'flex-start',
+											gap: '0.6rem',
+											opacity: ev.isPaid ? 0.85 : 1,
+											transition: 'all 0.2s ease'
 										}}>
-											<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-												<span style={{ fontSize: '0.78rem', fontWeight: 700, color: style.color }}>{ev.clientName}</span>
-												{ev.value > 0 && (
-													<span style={{ fontSize: '0.72rem', fontWeight: 800, color: style.color }}>
-														₹{ev.value.toLocaleString()}
+											{isBillingType && (
+												<button
+													onClick={(e) => { e.stopPropagation(); handleTogglePayment(ev); }}
+													disabled={isToggling}
+													title={ev.isPaid ? 'Click to undo collection' : 'Click to mark as collected'}
+													style={{
+														width: '22px',
+														height: '22px',
+														minWidth: '22px',
+														borderRadius: '50%',
+														border: ev.isPaid ? '2px solid #22c55e' : '2px solid #cbd5e1',
+														backgroundColor: ev.isPaid ? '#22c55e' : 'white',
+														display: 'flex',
+														alignItems: 'center',
+														justifyContent: 'center',
+														cursor: isToggling ? 'wait' : 'pointer',
+														padding: 0,
+														marginTop: '1px',
+														transition: 'all 0.2s ease',
+														boxShadow: ev.isPaid ? '0 2px 4px rgba(34,197,94,0.3)' : '0 1px 2px rgba(0,0,0,0.05)',
+														opacity: isToggling ? 0.6 : 1
+													}}
+												>
+													{ev.isPaid && <Check size={12} color="white" strokeWidth={4} />}
+												</button>
+											)}
+											<div style={{ flex: 1, minWidth: 0 }}>
+												<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+													<span style={{ fontSize: '0.78rem', fontWeight: 700, color: style.color, textDecoration: ev.isPaid ? 'line-through' : 'none' }}>{ev.clientName}</span>
+													{ev.value > 0 && (
+														<span style={{ fontSize: '0.72rem', fontWeight: 800, color: style.color }}>
+															₹{ev.value.toLocaleString()}
+														</span>
+													)}
+												</div>
+												<div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
+													{ev.title}
+													{ev.schedule && <span style={{ marginLeft: '0.5rem', fontWeight: 600, opacity: 0.7 }}>({ev.schedule})</span>}
+												</div>
+												<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+													<span style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 500 }}>
+														{ev.refId}
 													</span>
-												)}
-											</div>
-											<div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
-												{ev.title}
-												{ev.schedule && <span style={{ marginLeft: '0.5rem', fontWeight: 600, opacity: 0.7 }}>({ev.schedule})</span>}
-											</div>
-											<div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 500 }}>
-												{ev.refId}
+													{ev.isPaid && (
+														<span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#15803d', backgroundColor: '#dcfce7', padding: '1px 6px', borderRadius: '8px' }}>
+															✓ Collected
+														</span>
+													)}
+												</div>
 											</div>
 										</div>
 									);

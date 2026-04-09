@@ -50,6 +50,12 @@ export interface IProject extends Document {
       Last_Email_Sent_Billing_Date?: Date;
       Last_Email_Sent_Date?: Date;
     };
+    Payment_History: Array<{
+      Cycle_Date: Date;
+      Collected_At: Date;
+      Amount: number;
+      Collected_By: string;
+    }>;
   };
   Termination: {
     Exit_Type: 'Terminate' | 'Discontinue' | 'Cancelled';
@@ -76,6 +82,12 @@ export interface IProject extends Document {
       Last_Email_Sent_Billing_Date?: Date;
       Last_Email_Sent_Date?: Date;
     };
+    Payment_History: Array<{
+      Cycle_Date: Date;
+      Collected_At: Date;
+      Amount: number;
+      Collected_By: string;
+    }>;
   }>;
   Deadline_Alert: {
     Last_WA_Sent_Date?: Date;
@@ -148,7 +160,13 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
       Last_WA_Sent_Date: { type: Date },
       Last_Email_Sent_Billing_Date: { type: Date },
       Last_Email_Sent_Date: { type: Date }
-    }
+    },
+    Payment_History: [{
+      Cycle_Date: { type: Date, required: true },
+      Collected_At: { type: Date, default: Date.now },
+      Amount: { type: Number, default: 0 },
+      Collected_By: { type: String, default: '' }
+    }]
   },
 
   // Termination Section
@@ -192,7 +210,13 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
       Last_WA_Sent_Date: { type: Date },
       Last_Email_Sent_Billing_Date: { type: Date },
       Last_Email_Sent_Date: { type: Date }
-    }
+    },
+    Payment_History: [{
+      Cycle_Date: { type: Date, required: true },
+      Collected_At: { type: Date, default: Date.now },
+      Amount: { type: Number, default: 0 },
+      Collected_By: { type: String, default: '' }
+    }]
   }]
 }, { timestamps: true });
 

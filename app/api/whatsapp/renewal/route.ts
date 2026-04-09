@@ -31,6 +31,14 @@ export async function POST(req: Request) {
     const currentDate = new Date(currentDateIso);
     const nextBillingDate = new Date(nextBillingIso);
 
+    // --- NEW: Check if cycle is already paid ---
+    const isPaid = (project.Go_Live?.Payment_History || []).some((ph: any) =>
+      new Date(ph.Cycle_Date).getTime() === nextBillingDate.getTime()
+    );
+    if (isPaid) {
+      return NextResponse.json({ message: 'Payment already collected for this renewal cycle. Skipping notification.' }, { status: 200 });
+    }
+
     // Deduplication: check if already sent for this billing cycle
     const lastSent = project.Go_Live?.Renewal_Reminder?.Last_WA_Sent_Billing_Date;
     if (lastSent && new Date(lastSent).getTime() === nextBillingDate.getTime()) {

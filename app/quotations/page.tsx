@@ -263,6 +263,57 @@ const Quotations = () => {
     loadData();
   }, [currentPage, debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
 
+  // Proactive Quotation Follow-up Alert Check
+  useEffect(() => {
+    if (!quotations || quotations.length === 0) return;
+
+    const today = new Date();
+    const triggeredIds = new Set<string>();
+
+    quotations.forEach((qtn: any) => {
+      // Only check active quotations (Sent / Follow-up)
+      if (!['Sent', 'Follow-up'].includes(qtn.Quotation_Status)) return;
+      if (!qtn.Followup_Notification) return;
+
+      const hasFollowUps = qtn.Follow_Ups && qtn.Follow_Ups.length > 0;
+      const lastPending = hasFollowUps
+        ? [...qtn.Follow_Ups].reverse().find((f: any) => f.Outcome === 'Pending')
+        : null;
+
+      let shouldAlert = false;
+
+      if (!hasFollowUps) {
+        // No follow-ups: alert 5 days after quotation creation
+        const createdAt = new Date(qtn.Quotation_Date || qtn.createdAt);
+        const daysSinceCreation = Math.ceil((today.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceCreation >= 5) shouldAlert = true;
+      } else if (lastPending) {
+        // Has pending follow-up: alert 3 days after it
+        const followUpDate = new Date(lastPending.Followup_Date);
+        const daysSinceFollowUp = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceFollowUp >= 3) shouldAlert = true;
+      }
+
+      if (shouldAlert && !triggeredIds.has(qtn._id)) {
+        triggeredIds.add(qtn._id);
+
+        // Fire-and-forget: WhatsApp
+        fetch('/api/whatsapp/quotation-followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quotationId: qtn._id })
+        }).catch(err => console.error('Failed to trigger WA follow-up', err));
+
+        // Fire-and-forget: Email
+        fetch('/api/email/quotation-followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quotationId: qtn._id })
+        }).catch(err => console.error('Failed to trigger email follow-up', err));
+      }
+    });
+  }, [quotations]);
+
   useEffect(() => {
     if (selectedQuotation) {
       setProductSearchName(selectedQuotation.Product_Reference ? [selectedQuotation.Product_Reference.Type, selectedQuotation.Product_Reference.SubType, selectedQuotation.Product_Reference.SubSubType].filter(Boolean).join(' > ') : '');

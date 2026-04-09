@@ -24,6 +24,10 @@ export interface IQuotation extends Document {
     Outcome: 'Converted' | 'Cancelled' | 'Pending';
   }>;
   Cancel_Reason: string;
+  Followup_Alert: {
+    Last_WA_Sent_Date?: Date;
+    Last_Email_Sent_Date?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -103,6 +107,12 @@ const QuotationSchema = new Schema<IQuotation, IQuotationModel>({
   }],
   Cancel_Reason: {
     type: String
+  },
+
+  // Follow-up Alert Tracking
+  Followup_Alert: {
+    Last_WA_Sent_Date: { type: Date },
+    Last_Email_Sent_Date: { type: Date }
   }
 }, {
   timestamps: true

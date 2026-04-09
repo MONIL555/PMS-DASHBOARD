@@ -63,6 +63,12 @@ export const PERMISSIONS = {
   USERS_CREATE: 'users_create',
   USERS_EDIT: 'users_edit',
   USERS_DELETE: 'users_delete',
+
+  // Notifications
+  NOTIFICATIONS_VIEW: 'notifications_view',
+  NOTIFICATIONS_CREATE: 'notifications_create',
+  NOTIFICATIONS_EDIT: 'notifications_edit',
+  NOTIFICATIONS_DELETE: 'notifications_delete',
 };
 
 export const PERMISSION_GROUPS = {
@@ -116,8 +122,12 @@ export const PERMISSION_GROUPS = {
     { id: PERMISSIONS.PROJECT_TYPES_DELETE, label: 'Delete Project Types' },
     { id: PERMISSIONS.LEAD_SOURCES_VIEW, label: 'View Lead Sources' },
     { id: PERMISSIONS.LEAD_SOURCES_CREATE, label: 'Create Lead Sources' },
-    { id: PERMISSIONS.LEAD_SOURCES_EDIT, label: 'Edit Lead Sources' },
-    { id: PERMISSIONS.LEAD_SOURCES_DELETE, label: 'Delete Lead Sources' },
+    {id: PERMISSIONS.LEAD_SOURCES_EDIT, label: 'Edit Lead Sources'},
+    {id: PERMISSIONS.LEAD_SOURCES_DELETE, label: 'Delete Lead Sources'},
+    {id: PERMISSIONS.NOTIFICATIONS_VIEW, label: 'View Notifications'},
+    {id: PERMISSIONS.NOTIFICATIONS_CREATE, label: 'Create Notifications'},
+    {id: PERMISSIONS.NOTIFICATIONS_EDIT, label: 'Edit Notifications'},
+    {id: PERMISSIONS.NOTIFICATIONS_DELETE, label: 'Delete Notifications'},
   ],
   Management: [
     { id: PERMISSIONS.ROLES_VIEW, label: 'View Roles' },

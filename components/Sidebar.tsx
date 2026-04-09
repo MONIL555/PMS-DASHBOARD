@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, User, FileText, Briefcase,
   TicketIcon, Archive, Building2, Package,
   Link as LinkIcon, Shield, LogOut, ChevronLeft, ChevronRight,
-  User as UserIcon, ChevronDown, ChevronUp
+  User as UserIcon, ChevronDown, ChevronUp, Bell
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
@@ -68,7 +68,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
     hasPermission(PERMISSIONS.PRODUCTS_VIEW) ||
     hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) ||
     hasPermission(PERMISSIONS.ROLES_VIEW) ||
-    hasPermission(PERMISSIONS.USERS_VIEW);
+    hasPermission(PERMISSIONS.USERS_VIEW) ||
+    hasPermission(PERMISSIONS.NOTIFICATIONS_VIEW);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
@@ -209,6 +210,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                   {hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) && <SidebarLink to="/lead-sources" icon={<LinkIcon size={20} />} label="Lead Sources" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.ROLES_VIEW) && <SidebarLink to="/roles" icon={<Shield size={20} />} label="Roles" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.USERS_VIEW) && <SidebarLink to="/users" icon={<User size={20} />} label="Users" isCollapsed={isCollapsed} />}
+                  {hasPermission(PERMISSIONS.NOTIFICATIONS_VIEW) && <SidebarLink to="/notifications" icon={<Bell size={20} />} label="Notifications" isCollapsed={isCollapsed} />}
                 </div>
               )}
             </>

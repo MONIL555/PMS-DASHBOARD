@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
+import SystemConfig from '@/models/SystemConfig';
+import NotificationConfig from '@/models/NotificationConfig';
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +12,17 @@ export async function POST(req: Request) {
 
     if (!projectId || !serviceId || !currentDateIso) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    // --- GLOBAL OVERRIDE: Check Notification Master ---
+    const billingTrigger = await NotificationConfig.findOne({
+      Event_Name: { $regex: /^Billing Reminder$/i }
+    });
+    if (!billingTrigger || !billingTrigger.IsEnabled) {
+      return NextResponse.json({ message: 'Billing Reminder trigger is disabled in Notification Master.' }, { status: 200 });
+    }
+    if (!billingTrigger.Channels.includes('WhatsApp')) {
+      return NextResponse.json({ message: 'WhatsApp channel is disabled for Billing Reminder.' }, { status: 200 });
     }
 
     const project = await Project.findById(projectId).populate('Client_Reference');
@@ -22,7 +35,6 @@ export async function POST(req: Request) {
     const nextBillingDate = new Date(nextBillingIso);
     
     // Concurrency check based on DB fields
-    // Ensure we haven't already fired completely for this timeframe
     let shouldUpdateDB = false;
     
     if (isOneTime) {
@@ -45,9 +57,12 @@ export async function POST(req: Request) {
        await project.save();
     }
 
+    // Fetch admin WhatsApp number from Global System Settings (instead of env var)
+    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
+    const internalNumber = globalSettings?.Admin_WhatsApp || '';
+
     // Prepare WhatsApp Message Content
     const clientRef: any = project.Client_Reference; // Populated
-    const internalNumber = process.env.INTERNAL_WHATSAPP_NUMBER || '';
     const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioPhone = process.env.TWILIO_WHATSAPP_NUMBER;

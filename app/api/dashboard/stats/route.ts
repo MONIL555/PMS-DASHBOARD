@@ -120,7 +120,7 @@ export async function GET(request: Request) {
             monthlyLeads, monthlyQuotes, monthlyForecast, monthlyProjects,
             recentLeads, recentQuotes, recentProjects, recentTickets,
             upcomingProjects, allProjCount,
-            topClientsAgg, staffDistAgg, avgDurationAgg,
+            topClientsAgg, staffDistAgg, avgDurationAgg, topServicesAgg,
             detailedPrevData = [0, 0, 0, [], []]
         ] = await Promise.all([
             Lead.countDocuments(isFY ? { Inquiry_Date: dateFilter } : {}),
@@ -170,6 +170,15 @@ export async function GET(request: Request) {
                 { $match: { 'Start_Details.Start_Date': { $exists: true }, 'Start_Details.End_Date': { $exists: true } } },
                 { $project: { duration: { $divide: [{ $subtract: ["$Start_Details.End_Date", "$Start_Details.Start_Date"] }, 1000 * 60 * 60 * 24] } } },
                 { $group: { _id: null, avg: { $avg: "$duration" } } }
+            ]),
+            Lead.aggregate([
+                { $match: isFY ? { Inquiry_Date: dateFilter } : {} },
+                { $group: { _id: "$Product_Reference", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 5 },
+                { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'product' } },
+                { $unwind: '$product' },
+                { $project: { name: "$product.SubSubType", value: '$count' } }
             ]),
             
             // Previous FY data for comparisons
@@ -226,6 +235,7 @@ export async function GET(request: Request) {
             },
             strategic: {
                 topClients: topClientsAgg || [],
+                topServices: topServicesAgg || [],
                 staffDistribution: staffDistAgg || []
             },
             recentActivities: formatActivities(recentLeads, recentQuotes, recentProjects, recentTickets),

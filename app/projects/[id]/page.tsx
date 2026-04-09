@@ -187,13 +187,97 @@ const ProjectDetails = () => {
             })
           }).catch(err => console.error('Failed to trigger WA reminder', err));
 
-          toast(`Reminder: [${project.Project_ID}] ${svc.Service_Name} billing due in ${daysLeft} day(s)!`, {
-            icon: '🔔',
-            duration: 6000,
-            style: { border: '1px solid #f59e0b', color: '#d97706', fontWeight: '600' }
-          });
+          // Trigger the Email background processing (Server prevents duplicates via DB checks)
+          fetch('/api/email/remind', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: project._id,
+              serviceId: svc._id,
+              currentDateIso: today.toISOString(),
+              nextBillingIso: nextBilling.toISOString(),
+              isOneTime: svc.Payment_Terms === 'One Time'
+            })
+          }).catch(err => console.error('Failed to trigger email reminder', err));
         }
       });
+    }
+  }, [project]);
+
+  // Proactive Project Deadline Alert Check on Load
+  useEffect(() => {
+    if (!project || project.Pipeline_Status !== 'Active') return;
+    const endDate = project.Start_Details?.End_Date;
+    if (!endDate) return;
+
+    const now = new Date();
+    const deadline = new Date(endDate);
+    const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Trigger alert if deadline is within 3 days (or already passed)
+    if (daysLeft <= 3) {
+      // Fire-and-forget: WhatsApp deadline alert
+      fetch('/api/whatsapp/deadline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project._id })
+      }).catch(err => console.error('Failed to trigger WA deadline alert', err));
+
+      // Fire-and-forget: Email deadline alert
+      fetch('/api/email/deadline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project._id })
+      }).catch(err => console.error('Failed to trigger email deadline alert', err));
+    }
+  }, [project]);
+
+  // Proactive Go-Live Renewal Reminder Check on Load
+  useEffect(() => {
+    if (!project || project.Pipeline_Status !== 'Active') return;
+    const goLive = project.Go_Live;
+    if (!goLive?.GoLive_Date || !goLive?.Renewal_Rate || !goLive?.Payment_Schedule) return;
+
+    const today = new Date();
+    const anchorDate = new Date(goLive.GoLive_Date);
+    let nextRenewal = new Date(anchorDate);
+
+    // Calculate next renewal date based on Payment_Schedule
+    if (goLive.Payment_Schedule === 'One Time') {
+      nextRenewal = new Date(anchorDate);
+    } else {
+      const monthsPerCycle = goLive.Payment_Schedule === 'Monthly' ? 1
+        : goLive.Payment_Schedule === 'Quarterly' ? 3 : 12;
+
+      // Advance from anchor until we find the next future date
+      while (nextRenewal <= today) {
+        nextRenewal.setMonth(nextRenewal.getMonth() + monthsPerCycle);
+      }
+    }
+
+    const daysLeft = Math.ceil((nextRenewal.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Trigger if renewal is within 5 days
+    if (daysLeft <= 5) {
+      const payload = {
+        projectId: project._id,
+        currentDateIso: today.toISOString(),
+        nextBillingIso: nextRenewal.toISOString()
+      };
+
+      // Fire-and-forget: WhatsApp renewal alert
+      fetch('/api/whatsapp/renewal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error('Failed to trigger WA renewal', err));
+
+      // Fire-and-forget: Email renewal alert
+      fetch('/api/email/renewal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.error('Failed to trigger email renewal', err));
     }
   }, [project]);
 
@@ -1255,6 +1339,7 @@ const ProjectDetails = () => {
                               <option value="Monthly">Monthly</option>
                               <option value="Quarterly">Quarterly</option>
                               <option value="Yearly">Yearly</option>
+                              <option value="One Time">One Time</option>
                             </>
                           )}
                       </select>

@@ -43,7 +43,13 @@ export interface IProject extends Document {
     GoLive_Date: Date;
     Renewal_Rate: number;
     User_Wise_Rate: number;
-    Payment_Schedule: 'Monthly' | 'Quarterly' | 'Yearly';
+    Payment_Schedule: 'Monthly' | 'Quarterly' | 'Yearly' | 'One Time';
+    Renewal_Reminder: {
+      Last_WA_Sent_Billing_Date?: Date;
+      Last_WA_Sent_Date?: Date;
+      Last_Email_Sent_Billing_Date?: Date;
+      Last_Email_Sent_Date?: Date;
+    };
   };
   Termination: {
     Exit_Type: 'Terminate' | 'Discontinue' | 'Cancelled';
@@ -67,8 +73,14 @@ export interface IProject extends Document {
       Custom_Date?: Date;
       Last_WA_Sent_Billing_Date?: Date;
       Last_WA_Sent_Date?: Date;
+      Last_Email_Sent_Billing_Date?: Date;
+      Last_Email_Sent_Date?: Date;
     };
   }>;
+  Deadline_Alert: {
+    Last_WA_Sent_Date?: Date;
+    Last_Email_Sent_Date?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -130,7 +142,13 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
     GoLive_Date: Date,
     Renewal_Rate: Number,
     User_Wise_Rate: Number,
-    Payment_Schedule: { type: String, enum: ['Monthly', 'Quarterly', 'Yearly'] }
+    Payment_Schedule: { type: String, enum: ['Monthly', 'Quarterly', 'Yearly', 'One Time'] },
+    Renewal_Reminder: {
+      Last_WA_Sent_Billing_Date: { type: Date },
+      Last_WA_Sent_Date: { type: Date },
+      Last_Email_Sent_Billing_Date: { type: Date },
+      Last_Email_Sent_Date: { type: Date }
+    }
   },
 
   // Termination Section
@@ -139,6 +157,12 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
     Stage: String,
     Date_Time: Date,
     Reason: String
+  },
+
+  // Deadline Alert Tracking
+  Deadline_Alert: {
+    Last_WA_Sent_Date: { type: Date },
+    Last_Email_Sent_Date: { type: Date }
   },
 
   // External Services
@@ -165,7 +189,9 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
       Notify_Before: { type: String, default: '3 days before' },
       Custom_Date: { type: Date },
       Last_WA_Sent_Billing_Date: { type: Date },
-      Last_WA_Sent_Date: { type: Date }
+      Last_WA_Sent_Date: { type: Date },
+      Last_Email_Sent_Billing_Date: { type: Date },
+      Last_Email_Sent_Date: { type: Date }
     }
   }]
 }, { timestamps: true });

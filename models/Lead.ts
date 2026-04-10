@@ -12,6 +12,17 @@ export interface ILead extends Document {
   Lead_Status_Date_Time: Date;
   Cancel_Reason: string;
   Assigned_User?: mongoose.Types.ObjectId;
+  Followup_Notification: boolean;
+  Sent_Via: 'WhatsApp' | 'Email';
+  Followup_Alert: {
+    Last_WA_Sent_Date?: Date;
+    Last_Email_Sent_Date?: Date;
+  };
+  Follow_Ups: Array<{
+    Followup_Date: Date;
+    Remarks: string;
+    Outcome: 'Converted' | 'Cancelled' | 'Pending';
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,13 +73,35 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
   Assigned_User: {
     type: Schema.Types.ObjectId,
     ref: 'User'
+  },
+  Follow_Ups: [{
+    Followup_Date: { type: Date, default: Date.now },
+    Remarks: { type: String, trim: true },
+    Outcome: {
+      type: String,
+      enum: ['Converted', 'Cancelled', 'Pending'],
+      default: 'Pending'
+    }
+  }],
+  Followup_Notification: {
+    type: Boolean,
+    default: true
+  },
+  Sent_Via: {
+    type: String,
+    enum: ['WhatsApp', 'Email'],
+    default: 'Email'
+  },
+  Followup_Alert: {
+    Last_WA_Sent_Date: { type: Date },
+    Last_Email_Sent_Date: { type: Date }
   }
 }, {
   timestamps: true // Automatically creates createdAt and updatedAt
 });
 
 // --- LOGIC: Auto-Increment Lead_ID (LEA-0001) ---
-LeadSchema.pre('save', async function () {
+LeadSchema.pre('save', async function (this: ILead) {
   if (this.isNew) {
     const counter = await Counter.findOneAndUpdate(
       { id: 'lead_id' },

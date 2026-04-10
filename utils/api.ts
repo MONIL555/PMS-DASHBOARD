@@ -70,6 +70,16 @@ export const updateLeadStatus = async (leadId: string, status: string) => {
   return res.json();
 };
 
+export const addLeadFollowUp = async (leadId: string, data: any) => {
+  const res = await fetch(`${API_URL}/leads/${leadId}/followup`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) throw new Error('Failed to add lead follow-up');
+  return res.json();
+};
+
 export const fetchQuotations = async (params: any = {}) => {
   const query = new URLSearchParams();
   if (params.page) query.append('page', params.page.toString());

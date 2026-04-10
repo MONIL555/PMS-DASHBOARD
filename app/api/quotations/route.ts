@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     if (status !== 'All') {
         if (status === 'Rejected') {
             filter.Quotation_Status = { $in: ['Rejected', 'Cancelled'] };
+        } else if (status === 'Exclude-Converted') {
+            filter.Quotation_Status = { $ne: 'Converted' };
         } else {
             filter.Quotation_Status = status;
         }

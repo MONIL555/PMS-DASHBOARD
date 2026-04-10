@@ -26,7 +26,7 @@ const Quotations = () => {
   const [error, setError] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [commRange, setCommRange] = useState('All');
 
   // Initialize from search params

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   Users, FileText, Briefcase, Ticket as TicketIcon, TrendingUp, Clock,
   PieChart as PieChartIcon, Calendar, ArrowUpRight, ArrowDownRight,
@@ -161,6 +161,19 @@ const DashboardCalendar = () => {
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
   const [markingPayment, setMarkingPayment] = useState<string | null>(null);
   const [calView, setCalView] = useState<'calendar' | 'list'>('calendar');
+  const calendarPopupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (calendarPopupRef.current && !calendarPopupRef.current.contains(event.target as Node)) {
+        setPopupDay(null);
+      }
+    };
+    if (popupDay !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [popupDay]);
 
   const now = new Date();
   const cm = currentDate.getMonth();
@@ -314,34 +327,31 @@ const DashboardCalendar = () => {
 
       {/* POPUP */}
       {popupDay !== null && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setPopupDay(null)} />
-          <div className="db-calendar-popup" style={{ top: popupPos.top, left: popupPos.left }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-              <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>Events on {popupDay} {MONTHS[cm]}</h3>
-              <button onClick={() => setPopupDay(null)} style={{ background: '#f8fafc', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px', color: '#64748b' }}><X size={14} /></button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {popupEvs.map((ev, i) => (
-                <div key={i} className="db-popup-ev-card" style={evStyle(ev.type, ev.isPaid)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.25rem' }}>
-                    <p style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>{ev.projectTitle || ev.title}</p>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8 }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
-                  </div>
-                  {ev.clientName && <p style={{ fontSize: '0.68rem', margin: '0 0 0.5rem 0', opacity: 0.9 }}>Client: {ev.clientName}</p>}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    {ev.value ? <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>₹{ev.value.toLocaleString()}</span> : <div />}
-                    {(ev.type === 'billing' || ev.type === 'renewal') && (
-                      <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-popup-mark ${ev.isPaid ? 'paid' : ''}`}>
-                        {markingPayment === ev.id ? <Loader2 size={12} className="spin" /> : ev.isPaid ? 'Mark Pending' : 'Mark Collected'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div ref={calendarPopupRef} className="db-calendar-popup" style={{ top: popupPos.top, left: popupPos.left }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>Events on {popupDay} {MONTHS[cm]}</h3>
+            <button onClick={() => setPopupDay(null)} style={{ background: '#f8fafc', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px', color: '#64748b' }}><X size={14} /></button>
           </div>
-        </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {popupEvs.map((ev, i) => (
+              <div key={i} className="db-popup-ev-card" style={evStyle(ev.type, ev.isPaid)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.25rem' }}>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>{ev.projectTitle || ev.title}</p>
+                  <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8 }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
+                </div>
+                {ev.clientName && <p style={{ fontSize: '0.68rem', margin: '0 0 0.5rem 0', opacity: 0.9 }}>Client: {ev.clientName}</p>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {ev.value ? <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>₹{ev.value.toLocaleString()}</span> : <div />}
+                  {(ev.type === 'billing' || ev.type === 'renewal') && (
+                    <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-popup-mark ${ev.isPaid ? 'paid' : ''}`}>
+                      {markingPayment === ev.id ? <Loader2 size={12} className="spin" /> : ev.isPaid ? 'Mark Pending' : 'Mark Collected'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -360,6 +370,20 @@ const Dashboard = () => {
   const [selectedFY, setSelectedFY] = useState(getCurrentFY());
   const [filters, setFilters] = useState(['Leads', 'Quotations', 'Projects', 'Tickets']);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+    };
+    if (isFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFilterOpen]);
+
   const [darkMode, setDarkMode] = useState(false);
   const [activitySearch, setActivitySearch] = useState('');
   const [activityTab, setActivityTab] = useState<'All' | 'Lead' | 'Quotation' | 'Project' | 'Ticket'>('All');
@@ -428,6 +452,9 @@ const Dashboard = () => {
       const q = activitySearch.toLowerCase();
       list = list.filter((a: any) => a.title?.toLowerCase().includes(q) || a.id?.toLowerCase().includes(q) || a.status?.toLowerCase().includes(q));
     }
+    if (activityTab === 'All') {
+      return list.slice(0, 10);
+    }
     return list;
   }, [data, activityTab, activitySearch]);
 
@@ -474,7 +501,14 @@ const Dashboard = () => {
       id: 'stats', component: (
         <div className="db-grid-4">
           {statsCards.map((stat, i) => (
-            <div key={i} className="premium-card db-stat-card" onClick={() => { const { startDate, endDate } = getFYDates(selectedFY); const p = new URLSearchParams(); if (startDate) p.append('startDate', startDate); if (endDate) p.append('endDate', endDate); router.push(`${stat.path}${p.toString() ? `?${p}` : ''}`); }}>
+            <div key={i} className="premium-card db-stat-card" onClick={() => { 
+              const { startDate, endDate } = getFYDates(selectedFY); 
+              const p = new URLSearchParams(); 
+              if (startDate) p.append('startDate', startDate); 
+              if (endDate) p.append('endDate', endDate); 
+              if (stat.cat === 'Leads' || stat.cat === 'Quotations') p.append('status', 'Exclude-Converted');
+              router.push(`${stat.path}?${p.toString()}`); 
+            }}>
               {/* background blob */}
               <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: stat.color, opacity: 0.06, pointerEvents: 'none' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
@@ -506,12 +540,9 @@ const Dashboard = () => {
 
   /* ── KPI STRIP ── */
   const kpis = [
-    { show: hasLeads && hasQuotations, lbl: 'Lead → Quote', val: `${data.conversionRates.leadToQuote}%`, icon: TrendingUp, color: '#3b82f6', bg: '#eff6ff' },
-    { show: hasQuotations && hasProjects, lbl: 'Quote → Project', val: `${data.conversionRates.quoteToProject}%`, icon: Target, color: '#f59e0b', bg: '#fffbeb' },
-    { show: hasProjects, lbl: 'Avg Duration', val: `${data.conversionRates.avgCompletionTime}d`, icon: Clock, color: '#10b981', bg: '#f0fdf4' },
-    { show: hasTickets, lbl: 'Open Tickets', val: data.stats.totalOpenTickets, icon: TicketIcon, color: '#ef4444', bg: '#fef2f2' },
-    { show: hasFinance && hasProjects, lbl: 'Avg Proj. Value', val: `₹${Math.round(data.commercialValue.avgProjectValue).toLocaleString()}`, icon: IndianRupee, color: '#8b5cf6', bg: '#faf5ff' },
-    { show: hasFinance && hasQuotations, lbl: 'Avg Quote Value', val: `₹${Math.round(data.commercialValue.avgQuoteValue).toLocaleString()}`, icon: Banknote, color: '#06b6d4', bg: '#ecfeff' },
+    { show: hasLeads && hasQuotations, lbl: 'Lead → Quote : With Conversion Time', val: `${data.conversionRates.leadToQuote}% / ${data.conversionRates.avgLeadToQuoteTime}d`, icon: TrendingUp, color: '#3b82f6', bg: '#eff6ff' },
+    { show: hasQuotations && hasProjects, lbl: 'Quote → Project : With Conversion Time', val: `${data.conversionRates.quoteToProject}% / ${data.conversionRates.avgQuoteToProjectTime}d`, icon: Target, color: '#f59e0b', bg: '#fffbeb' },
+    { show: hasProjects, lbl: 'Avg Project Duration', val: `${data.conversionRates.avgCompletionTime}d`, icon: Clock, color: '#10b981', bg: '#f0fdf4' },
   ].filter(k => k.show);
 
   if (kpis.length > 0) {
@@ -523,7 +554,7 @@ const Dashboard = () => {
               <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={15} /></div>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.lbl}</p>
-                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{typeof k.val === 'number' ? k.val.toLocaleString() : k.val}</p>
+                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{k.val}</p>
               </div>
             </div>
           ))}
@@ -1077,17 +1108,17 @@ const Dashboard = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* dark mode */}
+          {/* dark mode 
           <button onClick={() => setDarkMode(d => !d)} className="db-icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'}>
             {darkMode ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-          {/* print */}
+          </button>*/}
+          {/* print 
           <button onClick={() => window.print()} className="db-icon-btn" title="Print / Export PDF">
             <Printer size={15} />
-          </button>
+          </button>*/}
 
           {/* filter */}
-          <div style={{ position: 'relative' }}>
+          <div ref={filterRef} style={{ position: 'relative' }}>
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="db-filter-btn">
               <div style={{ display: 'flex', marginRight: '0.5rem' }}>
                 {filters.slice(0, 4).map((f, i) => (
@@ -1105,38 +1136,35 @@ const Dashboard = () => {
             </button>
 
             {isFilterOpen && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setIsFilterOpen(false)} />
-                <div className="premium-card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: '230px', padding: '0.5rem', zIndex: 100, border: '1px solid var(--border-color)' }}>
-                  <p style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-secondary)', padding: '0.4rem 0.75rem 0.5rem' }}>Toggle sections</p>
-                  {[
-                    { id: 'Leads', icon: <Users size={13} />, color: '#3b82f6', desc: 'Leads & Inquiries' },
-                    { id: 'Quotations', icon: <FileText size={13} />, color: '#f59e0b', desc: 'Quotes & Proposals' },
-                    { id: 'Projects', icon: <Briefcase size={13} />, color: '#10b981', desc: 'Active Projects' },
-                    { id: 'Tickets', icon: <TicketIcon size={13} />, color: '#ef4444', desc: 'Support Tickets' },
-                    { id: 'Finance', icon: <Banknote size={13} />, color: '#8b5cf6', desc: 'Financial Metrics' },
-                  ].map(f => {
-                    const on = filters.includes(f.id);
-                    return (
-                      <div key={f.id} onClick={() => toggleFilter(f.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                        <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${on ? f.color : '#e2e8f0'}`, background: on ? f.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                          {on && <Check size={9} color="white" strokeWidth={4} />}
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{f.id}</p>
-                        </div>
+              <div className="premium-card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: '230px', padding: '0.5rem', zIndex: 100, border: '1px solid var(--border-color)' }}>
+                <p style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-secondary)', padding: '0.4rem 0.75rem 0.5rem' }}>Toggle sections</p>
+                {[
+                  { id: 'Leads', icon: <Users size={13} />, color: '#3b82f6', desc: 'Leads & Inquiries' },
+                  { id: 'Quotations', icon: <FileText size={13} />, color: '#f59e0b', desc: 'Quotes & Proposals' },
+                  { id: 'Projects', icon: <Briefcase size={13} />, color: '#10b981', desc: 'Active Projects' },
+                  { id: 'Tickets', icon: <TicketIcon size={13} />, color: '#ef4444', desc: 'Support Tickets' },
+                  { id: 'Finance', icon: <Banknote size={13} />, color: '#8b5cf6', desc: 'Financial Metrics' },
+                ].map(f => {
+                  const on = filters.includes(f.id);
+                  return (
+                    <div key={f.id} onClick={() => toggleFilter(f.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${on ? f.color : '#e2e8f0'}`, background: on ? f.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                        {on && <Check size={9} color="white" strokeWidth={4} />}
                       </div>
-                    );
-                  })}
-                  <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }} />
-                  <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.35rem' }}>
-                    <button onClick={e => { e.stopPropagation(); setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>All</button>
-                    <button onClick={e => { e.stopPropagation(); setFilters([]); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>Clear</button>
-                  </div>
+                      <div>
+                        <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{f.id}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }} />
+                <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.35rem' }}>
+                  <button onClick={e => { e.stopPropagation(); setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>All</button>
+                  <button onClick={e => { e.stopPropagation(); setFilters([]); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>Clear</button>
                 </div>
-              </>
+              </div>
             )}
           </div>
 

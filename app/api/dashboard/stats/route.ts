@@ -84,7 +84,7 @@ const formatActivities = (leads: any[], quotes: any[], projs: any[], tickets: an
             date: t.updatedAt || t.createdAt,
             status: t.Status
         }))
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 export async function GET(request: Request) {
@@ -121,6 +121,7 @@ export async function GET(request: Request) {
             recentLeads, recentQuotes, recentProjects, recentTickets,
             upcomingProjects, allProjCount,
             topClientsAgg, staffDistAgg, avgDurationAgg, topServicesAgg,
+            avgLeadToQuoteAgg, avgQuoteToProjectAgg,
             detailedPrevData = [0, 0, 0, [], []]
         ] = await Promise.all([
             Lead.countDocuments(isFY ? { Inquiry_Date: dateFilter } : {}),
@@ -140,13 +141,13 @@ export async function GET(request: Request) {
             Lead.find({}, 'Lead_ID createdAt updatedAt Lead_Status Client_Reference Product_Reference')
                 .populate('Client_Reference', 'Company_Name Client_Name')
                 .populate('Product_Reference', 'Product_Name')
-                .sort({ updatedAt: -1 }).limit(3).lean(),
+                .sort({ updatedAt: -1 }).limit(6).lean(),
             Quotation.find({}, 'Quotation_ID createdAt updatedAt Quotation_Status Client_Reference Product_Reference')
                 .populate('Client_Reference', 'Company_Name Client_Name')
                 .populate('Product_Reference', 'Product_Name')
-                .sort({ updatedAt: -1 }).limit(3).lean(),
-            Project.find({}, 'Project_ID Project_Name createdAt updatedAt Pipeline_Status').sort({ updatedAt: -1 }).limit(3).lean(),
-            Ticket.find({}, 'Ticket_Number Title createdAt updatedAt Status').sort({ updatedAt: -1 }).limit(3).lean(),
+                .sort({ updatedAt: -1 }).limit(6).lean(),
+            Project.find({}, 'Project_ID Project_Name createdAt updatedAt Pipeline_Status').sort({ updatedAt: -1 }).limit(6).lean(),
+            Ticket.find({}, 'Ticket_Number Title createdAt updatedAt Status').sort({ updatedAt: -1 }).limit(6).lean(),
             Project.find({ Pipeline_Status: { $in: ['Active', 'On Hold'] }, 'Start_Details.End_Date': { $exists: true, $ne: null } }).sort({ 'Start_Details.End_Date': 1 }).limit(5).lean(),
             Project.countDocuments(isFY ? { "Start_Details.Start_Date": dateFilter } : {}),
 
@@ -179,6 +180,20 @@ export async function GET(request: Request) {
                 { $lookup: { from: 'products', localField: '_id', foreignField: '_id', as: 'product' } },
                 { $unwind: '$product' },
                 { $project: { name: "$product.SubSubType", value: '$count' } }
+            ]),
+            Quotation.aggregate([
+                { $match: { Lead_ID: { $exists: true }, ...(isFY ? { Quotation_Date: dateFilter } : {}) } },
+                { $lookup: { from: 'leads', localField: 'Lead_ID', foreignField: '_id', as: 'lead' } },
+                { $unwind: '$lead' },
+                { $project: { duration: { $divide: [{ $subtract: ["$Quotation_Date", "$lead.Inquiry_Date"] }, 1000 * 60 * 60 * 24] } } },
+                { $group: { _id: null, avg: { $avg: "$duration" } } }
+            ]),
+            Project.aggregate([
+                { $match: { Quotation_Reference: { $exists: true }, ...(isFY ? { "Start_Details.Start_Date": dateFilter } : {}) } },
+                { $lookup: { from: 'quotations', localField: 'Quotation_Reference', foreignField: '_id', as: 'quote' } },
+                { $unwind: '$quote' },
+                { $project: { duration: { $divide: [{ $subtract: ["$Start_Details.Start_Date", "$quote.Quotation_Date"] }, 1000 * 60 * 60 * 24] } } },
+                { $group: { _id: null, avg: { $avg: "$duration" } } }
             ]),
             
             // Previous FY data for comparisons
@@ -231,7 +246,9 @@ export async function GET(request: Request) {
             conversionRates: {
                 leadToQuote: leadCount ? ((quoteCount / leadCount) * 100).toFixed(1) : "0.0",
                 quoteToProject: quoteCount ? ((allProjCount / quoteCount) * 100).toFixed(1) : "0.0",
-                avgCompletionTime: avgDurationAgg[0]?.avg ? Math.round(avgDurationAgg[0].avg) : 0
+                avgCompletionTime: avgDurationAgg[0]?.avg ? Math.round(avgDurationAgg[0].avg) : 0,
+                avgLeadToQuoteTime: avgLeadToQuoteAgg[0]?.avg ? Math.round(avgLeadToQuoteAgg[0].avg) : 0,
+                avgQuoteToProjectTime: avgQuoteToProjectAgg[0]?.avg ? Math.round(avgQuoteToProjectAgg[0].avg) : 0
             },
             strategic: {
                 topClients: topClientsAgg || [],

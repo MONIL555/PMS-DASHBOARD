@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers } from '@/utils/api';
+import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers, addLeadFollowUp } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
-import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users, ArrowUpDown, ChevronUp, ChevronDown, Plus } from 'lucide-react';
+import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users, ArrowUpDown, ChevronUp, ChevronDown, Plus, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
 import DateInput from '@/components/DateInput';
@@ -31,7 +31,7 @@ const Leads = () => {
   const [error, setError] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
   const [assignedUserFilter, setAssignedUserFilter] = useState('All');
 
   // Initialize from search params
@@ -79,7 +79,9 @@ const Leads = () => {
     Assigned_User: '',
     Lead_Status: 'New',
     Inquiry_Date: new Date().toISOString().split('T')[0],
-    Notes: ''
+    Notes: '',
+    Followup_Notification: true,
+    Sent_Via: 'Email'
   });
 
   const [convertData, setConvertData] = useState({
@@ -94,6 +96,13 @@ const Leads = () => {
     Letterhead: 'No',
     Sent_Via: 'Email',
     Followup_Notification: true
+  });
+
+  const [selectedFollowUpLead, setSelectedFollowUpLead] = useState<any | null>(null);
+  const [followingUp, setFollowingUp] = useState(false);
+  const [followUpData, setFollowUpData] = useState({
+    Remarks: '',
+    Outcome: 'Pending'
   });
 
   const openConvertModal = (lead: any) => {
@@ -182,19 +191,91 @@ const Leads = () => {
     fetchLeadsData();
   }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
 
-  // Debounced search effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (currentPage !== 1) setCurrentPage(1);
-      else fetchLeadsData();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  // Reset page when filter changes (already handled by dependencies, but explicit is better)
   useEffect(() => {
     setCurrentPage(1);
   }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
+
+  // --- AUTOMATED LEAD FOLLOW-UP ALERTS ---
+  useEffect(() => {
+    if (loading || fetchingLeads || leads.length === 0) return;
+
+    // We only alert for 'New' or 'In Progress' leads that have notifications enabled
+    const eligibleLeads = leads.filter(l => 
+      (l.Lead_Status === 'New' || l.Lead_Status === 'In Progress') && 
+      l.Followup_Notification !== false
+    );
+
+    eligibleLeads.forEach(lead => {
+      const now = new Date();
+      const todayStr = now.toDateString();
+      let shouldAlert = false;
+
+      const pendingFollowUps = lead.Follow_Ups?.filter((f: any) => f.Outcome === 'Pending') || [];
+      
+      if (pendingFollowUps.length === 0) {
+        // Rule 1: No follow-ups yet - alert 5 days after inquiry
+        const inquiryDate = new Date(lead.Inquiry_Date);
+        const diffDays = Math.floor((now.getTime() - inquiryDate.getTime()) / (1000 * 3600 * 24));
+        if (diffDays >= 5) shouldAlert = true;
+      } else {
+        // Rule 2: Pending follow-up - alert 3 days after last pending follow-up
+        const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
+        const fuDate = new Date(lastFU.Followup_Date);
+        const diffDays = Math.floor((now.getTime() - fuDate.getTime()) / (1000 * 3600 * 24));
+        if (diffDays >= 3) shouldAlert = true;
+      }
+
+      if (shouldAlert) {
+        // Check if already sent today via trackable fields
+        const wasSentWA = lead.Followup_Alert?.Last_WA_Sent_Date && new Date(lead.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr;
+        const wasSentEmail = lead.Followup_Alert?.Last_Email_Sent_Date && new Date(lead.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr;
+
+        if (!wasSentWA) {
+          fetch('/api/whatsapp/lead-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadId: lead._id })
+          }).catch(console.error);
+        }
+
+        if (!wasSentEmail) {
+          fetch('/api/email/lead-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadId: lead._id })
+          }).catch(console.error);
+        }
+      }
+    });
+  }, [leads, loading, fetchingLeads]);
+
+  const handleFollowUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFollowUpLead) return;
+
+    if (!followUpData.Remarks || followUpData.Remarks.length < 5) {
+      toast.error('Follow-up remarks must be at least 5 characters.');
+      return;
+    }
+
+    setFollowingUp(true);
+    try {
+      const updated = await addLeadFollowUp(selectedFollowUpLead._id, followUpData);
+      setSelectedFollowUpLead(null);
+      setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+      toast.success('Follow-up recorded successfully!');
+      fetchLeadsData();
+      
+      // Update details view if open
+      if (selectedDetailLead && selectedDetailLead._id === updated._id) {
+        setSelectedDetailLead(updated);
+      }
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    } finally {
+      setFollowingUp(false);
+    }
+  };
 
   const handleConvert = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,7 +336,9 @@ const Leads = () => {
       Assigned_User: '',
       Lead_Status: 'New',
       Inquiry_Date: new Date().toISOString().split('T')[0],
-      Notes: ''
+      Notes: '',
+      Followup_Notification: true,
+      Sent_Via: 'Email'
     });
     setIsNewClient(false);
     setNewClientData({
@@ -719,12 +802,37 @@ const Leads = () => {
               </div>
             </div>
 
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1rem', color: 'var(--primary-color)', marginBottom: '0.75rem' }}>Notes & Requirements</h3>
-              <div style={{ backgroundColor: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '0.5rem', fontSize: '0.875rem', minHeight: '60px', whiteSpace: 'pre-wrap' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.5rem' }}>Notes & Requirements</h3>
+              <div style={{ backgroundColor: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.85rem', minHeight: '60px', whiteSpace: 'pre-wrap' }}>
                 {selectedDetailLead.Notes || <span className="text-secondary italic">No notes provided.</span>}
               </div>
             </div>
+
+            {selectedDetailLead.Follow_Ups && selectedDetailLead.Follow_Ups.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MessageCircle size={16} /> Follow-up History ({selectedDetailLead.Follow_Ups.length})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', maxHeight: '160px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                  {[...selectedDetailLead.Follow_Ups].reverse().map((fw: any, idx: number) => (
+                    <div key={idx} style={{ padding: '0.65rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '0.5rem', borderLeft: '3px solid #3B82F6' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1E40AF' }}>
+                          {formatDateTimeDDMMYYYY(fw.Followup_Date)}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem', backgroundColor: fw.Outcome === 'Converted' ? '#DCFCE7' : fw.Outcome === 'Cancelled' ? '#FEE2E2' : '#FEF3C7', color: fw.Outcome === 'Converted' ? '#166534' : fw.Outcome === 'Cancelled' ? '#991B1B' : '#92400E', borderRadius: '1rem', fontWeight: 500 }}>
+                          {fw.Outcome}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                        {fw.Remarks}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {selectedDetailLead.Lead_Status !== 'Converted' && selectedDetailLead.Lead_Status !== 'Cancelled' && (
               <div className="modal-footer" style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -741,9 +849,23 @@ const Leads = () => {
                     >
                       Reject Lead
                     </button>
-                  )}
+                  ) || <div></div>}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  {hasPermission(PERMISSIONS.LEADS_EDIT) && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.5rem 1rem', color: '#0369a1', borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#f0f9ff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      onClick={() => {
+                        setSelectedFollowUpLead(selectedDetailLead);
+                        setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+                        setSelectedDetailLead(null);
+                      }}
+                    >
+                      <MessageCircle size={16} /> Record Follow-up
+                    </button>
+                  )}
                   {hasPermission(PERMISSIONS.LEADS_EDIT) && (
                     <button
                       type="button"
@@ -759,7 +881,9 @@ const Leads = () => {
                           Assigned_User: selectedDetailLead.Assigned_User?._id || '',
                           Lead_Status: selectedDetailLead.Lead_Status || 'New',
                           Inquiry_Date: selectedDetailLead.Inquiry_Date ? new Date(selectedDetailLead.Inquiry_Date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                          Notes: selectedDetailLead.Notes || ''
+                          Notes: selectedDetailLead.Notes || '',
+                          Followup_Notification: selectedDetailLead.Followup_Notification !== false,
+                          Sent_Via: selectedDetailLead.Sent_Via || 'Email'
                         });
                         setSelectedDetailLead(null);
                         setIsAddModalOpen(true);
@@ -1077,12 +1201,93 @@ const Leads = () => {
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Notes</label>
                   <textarea className="form-textarea" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} rows={3} value={addLeadData.Notes} onChange={e => setAddLeadData({ ...addLeadData, Notes: e.target.value })} placeholder="Any initial notes or requirements..." />
                 </div>
+
+                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+                  <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.02)', padding: '0.75rem', borderRadius: '0.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600 }}>
+                      <input
+                        type="checkbox"
+                        checked={addLeadData.Followup_Notification}
+                        onChange={(e) => setAddLeadData({ ...addLeadData, Followup_Notification: e.target.checked })}
+                        style={{ width: '16px', height: '16px' }}
+                      />
+                      Enable Follow-up Notifications
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>Preferred Contact:</label>
+                      <select
+                        className="form-select"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem', width: 'auto', minWidth: '120px' }}
+                        value={addLeadData.Sent_Via}
+                        onChange={e => setAddLeadData({ ...addLeadData, Sent_Via: e.target.value as any })}
+                      >
+                        <option value="Email">Email</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={handleAddModalClose}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={addingLead}>
                   {addingLead ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : editLeadId ? 'Update Lead' : 'Save Lead'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-up Modal */}
+      {selectedFollowUpLead && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '550px', width: '95%', padding: '1.5rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+              <h2 className="flex items-center gap-2" style={{ fontSize: '1.2rem' }}>Record Follow-up</h2>
+              <button className="modal-close" onClick={() => setSelectedFollowUpLead(null)}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleFollowUp}>
+              <div style={{ marginBottom: '1.25rem', padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--primary-color)', marginBottom: '0.25rem' }}>Lead: <strong>{selectedFollowUpLead.Lead_ID} ({selectedFollowUpLead.Client_Reference?.Company_Name})</strong></p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>Current Status: <span style={{ fontWeight: 600 }}>{selectedFollowUpLead.Lead_Status}</span></p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Follow-up Remarks *</label>
+                <textarea
+                  required
+                  rows={4}
+                  className="form-textarea"
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  value={followUpData.Remarks}
+                  onChange={e => setFollowUpData({ ...followUpData, Remarks: e.target.value })}
+                  placeholder="Summarize the client interaction, next steps, or discussion points..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Outcome Status</label>
+                <select 
+                  className="form-select" 
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  value={followUpData.Outcome}
+                  onChange={e => setFollowUpData({ ...followUpData, Outcome: e.target.value })}
+                >
+                  <option value="Pending">Keep/Move to 'In Progress'</option>
+                  <option value="Converted">Mark as 'Converted'</option>
+                  <option value="Cancelled">Mark as 'Cancelled'</option>
+                </select>
+                <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>This will trigger an automatic status transition based on the selected outcome.</p>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setSelectedFollowUpLead(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={followingUp}>
+                  {followingUp ? <><Loader2 size={16} className="animate-spin" /> Recording...</> : 'Record Follow-up'}
                 </button>
               </div>
             </form>

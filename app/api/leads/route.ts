@@ -36,7 +36,11 @@ export async function GET(request: Request) {
     if (filter.Client_Reference) filter.Client_Reference = new mongoose.Types.ObjectId(filter.Client_Reference);
 
     if (status !== 'All') {
-      filter.Lead_Status = status;
+      if (status === 'Exclude-Converted') {
+        filter.Lead_Status = { $ne: 'Converted' };
+      } else {
+        filter.Lead_Status = status;
+      }
     }
 
     if (startDate || endDate) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Quotation from '@/models/Quotation';
 import Project from '@/models/Project';
+import Lead from '@/models/Lead';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -46,26 +47,67 @@ export async function GET(request: Request) {
         }).populate('Client_Reference', 'Company_Name Client_Name').lean();
 
         activeQuotes.forEach((q: any) => {
+            let dueDate: Date | null = null;
             if (q.Follow_Ups && q.Follow_Ups.length > 0) {
                 const pendingFollowUps = q.Follow_Ups.filter((f: any) => f.Outcome === 'Pending');
-                pendingFollowUps.forEach((f: any) => {
-                     const fDate = new Date(f.Followup_Date);
-                     if (fDate >= startOfMonth && fDate <= endOfMonth) {
-                         calendarEvents.push({
-                             id: `fu-${q._id}-${fDate.getTime()}`,
-                             date: fDate.toISOString(),
-                             type: 'followup',
-                             title: `Follow-up: ${q.Quotation_ID}`,
-                             clientName: q.Client_Reference?.Company_Name || q.Client_Reference?.Client_Name || 'Unknown',
-                             value: q.Commercial,
-                             refId: q.Quotation_ID
-                         });
-                     }
+                if (pendingFollowUps.length > 0) {
+                    const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
+                    dueDate = new Date(lastFU.Followup_Date);
+                    dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                }
+            } else {
+                // Rule: 5 days after quotation creation if no follow-ups recorded
+                dueDate = new Date(q.Quotation_Date || q.createdAt);
+                dueDate.setDate(dueDate.getDate() + 5);
+            }
+
+            if (dueDate && dueDate >= startOfMonth && dueDate <= endOfMonth) {
+                calendarEvents.push({
+                    id: `fu-${q._id}`,
+                    date: dueDate.toISOString(),
+                    type: 'followup',
+                    title: `Follow-up Due: ${q.Quotation_ID}`,
+                    clientName: q.Client_Reference?.Company_Name || q.Client_Reference?.Client_Name || 'Unknown',
+                    value: q.Commercial,
+                    refId: q.Quotation_ID
+                });
+            }
+        });
+        
+        // 2. Lead Follow-ups
+        const activeLeads = await Lead.find({
+            Lead_Status: { $in: ['New', 'In Progress'] }
+        }).populate('Client_Reference', 'Company_Name Client_Name').lean();
+
+        activeLeads.forEach((l: any) => {
+            let dueDate: Date | null = null;
+            if (l.Follow_Ups && l.Follow_Ups.length > 0) {
+                const pendingFollowUps = l.Follow_Ups.filter((f: any) => f.Outcome === 'Pending');
+                if (pendingFollowUps.length > 0) {
+                    const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
+                    dueDate = new Date(lastFU.Followup_Date);
+                    dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                }
+            } else {
+                // Rule: 5 days after lead inquiry if no follow-ups recorded
+                dueDate = new Date(l.Inquiry_Date || l.createdAt);
+                dueDate.setDate(dueDate.getDate() + 5);
+            }
+
+            if (dueDate && dueDate >= startOfMonth && dueDate <= endOfMonth) {
+                calendarEvents.push({
+                    id: `lfu-${l._id}`,
+                    date: dueDate.toISOString(),
+                    type: 'followup',
+                    title: `Lead Follow-up Due: ${l.Lead_ID}`,
+                    clientName: l.Client_Reference?.Company_Name || l.Client_Reference?.Client_Name || 'Unknown',
+                    value: 0,
+                    refId: l.Lead_ID
                 });
             }
         });
 
-        // 2. Service Billings (External Services)
+        // 3. Service Billings (External Services)
         const activeProjects = await Project.find({
             Pipeline_Status: { $in: ['Active', 'On Hold'] }
         }).populate('Client_Reference', 'Company_Name Client_Name').lean();

@@ -114,7 +114,7 @@ const ProjectSchema = new Schema<IProject, IProjectModel>({
 
   // Project Start Details
   Start_Details: {
-    Phase: String,
+    Phase: { type: String, default: 'UAT Phase' },
     Requirement: String,
     Project_Scope_Description: String,
     Report_Type: { type: String, enum: ['Overview', 'Detailed'], default: 'Overview' },

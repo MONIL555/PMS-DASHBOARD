@@ -282,7 +282,7 @@ const DashboardCalendar = () => {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.1rem' }}>{ev.projectTitle || ev.title || 'General Activity'}</div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ textTransform: 'capitalize' }}>{ev.type}</span>
+                  <span style={{ textTransform: 'capitalize' }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
                   {ev.value && <span>· ₹{ev.value.toLocaleString()}</span>}
                 </div>
               </div>
@@ -326,7 +326,7 @@ const DashboardCalendar = () => {
                 <div key={i} className="db-popup-ev-card" style={evStyle(ev.type, ev.isPaid)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.25rem' }}>
                     <p style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>{ev.projectTitle || ev.title}</p>
-                    <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8 }}>{ev.type}</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8 }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
                   </div>
                   {ev.clientName && <p style={{ fontSize: '0.68rem', margin: '0 0 0.5rem 0', opacity: 0.9 }}>Client: {ev.clientName}</p>}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

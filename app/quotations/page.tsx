@@ -72,7 +72,6 @@ const Quotations = () => {
     Assigned_Person: '',
     Report_Type: 'Overview',
     Costing: 0,
-    Phase: '',
     Start_Date: '',
     End_Date: ''
   });
@@ -325,7 +324,6 @@ const Quotations = () => {
         Assigned_Person: '',
         Report_Type: 'Overview',
         Costing: selectedQuotation.Commercial || 0,
-        Phase: '',
         Start_Date: new Date().toISOString().split('T')[0],
         End_Date: ''
       });
@@ -1127,10 +1125,7 @@ const Quotations = () => {
                   <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Costing} onChange={e => setConvertData({ ...convertData, Costing: parseFloat(e.target.value) })} placeholder="Project cost" />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Initial Phase</label>
-                  <input type="text" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Phase} onChange={e => setConvertData({ ...convertData, Phase: e.target.value })} placeholder="e.g. UAT, Deployment..." />
-                </div>
+
 
                 <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Start Date</label>

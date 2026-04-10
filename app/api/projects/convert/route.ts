@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         Product_Reference: quote.Product_Reference,
         Priority: projectData?.Priority || 'Normal',
         Start_Details: {
-            Phase: projectData?.Phase || 'Initial',
+            Phase: projectData?.Phase || 'UAT Phase',
             Requirement: quote.Requirement || '',
             Project_Scope_Description: quote.Project_Scope_Description || '',
             Report_Type: projectData?.Report_Type || 'Overview',

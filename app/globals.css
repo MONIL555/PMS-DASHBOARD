@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 :root {
   --bg-color: #f8fafc;
@@ -47,6 +47,7 @@
   border: 1px solid rgba(0, 0, 0, 0.05);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: fit-content;
 }
 
 .premium-card:hover {
@@ -65,7 +66,19 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
   background-color: var(--bg-color);
   color: var(--text-primary);
   line-height: 1.5;
@@ -331,6 +344,7 @@ tr:hover td {
   border: 1.5px solid var(--border-color);
   font-size: 1rem;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .premium-search-input::placeholder {
@@ -440,4 +454,344 @@ tr:hover td {
     transform: scale(0.95);
     opacity: 0.9;
   }
+}
+
+/* ============================================================
+   DASHBOARD — additional styles
+   All sizes use rem so they scale with the 51% root font-size,
+   matching the existing app density perfectly.
+   ============================================================ */
+
+/* Spin animation for the calendar loader */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── GRID HELPERS ── */
+.db-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.db-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.db-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 1200px) {
+  .db-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .db-grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .db-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .db-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── CALENDAR GRID ── */
+.db-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.db-calendar-grid>div {
+  background: white;
+  min-height: 50px;
+}
+
+.db-calendar-cell {
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 70px !important;
+  border: 1px solid transparent;
+}
+
+.db-calendar-cell:hover {
+  background: var(--surface-hover);
+  border-color: #cbd5e1;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.db-calendar-cell.today {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.db-calendar-cell.today .day-num {
+  background: #3b82f6;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.day-num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.event-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ── EVENT LIST (List View) ── */
+.db-event-list-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.db-event-list-item:hover {
+  transform: translateX(6px);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.db-event-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.db-event-check.paid {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: white;
+}
+
+.db-event-check:hover:not(.paid) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* ── CALENDAR POPUP ── */
+.db-calendar-popup {
+  position: fixed;
+  width: 340px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  z-index: 101;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.db-popup-ev-card {
+  padding: 1rem;
+  border-radius: 12px;
+  border-left: 5px solid #cbd5e1;
+  margin-bottom: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.db-popup-ev-card:hover {
+  transform: scale(1.02);
+}
+
+.db-popup-mark {
+  padding: 0.45rem 1rem;
+  border-radius: 20px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.db-popup-mark:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.db-popup-mark.paid {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* ── SKELETON SHIMMER ── */
+.db-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: db-shimmer 1.4s infinite;
+}
+
+@keyframes db-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── DASHBOARD HEADER ── */
+.db-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0 0 0.5rem;
+}
+
+/* ── ICON BUTTON ── */
+.db-icon-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  background: white;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.db-icon-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: #eff6ff;
+  transform: translateY(-2px);
+}
+
+/* ── FILTER BUTTON ── */
+.db-filter-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  background: white;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.db-filter-btn:hover {
+  border-color: var(--primary-color);
+  background: #eff6ff;
+}
+
+/* ── STAT CARD ── */
+.db-stat-card {
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* ── DARK THEME ── */
+[data-theme="dark"] {
+  --bg-color: #0f172a;
+  --surface-color: #1e293b;
+  --surface-hover: #334155;
+  --border-color: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+}
+
+[data-theme="dark"] .premium-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .db-calendar-grid>div {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .db-event-list-item {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .db-calendar-popup {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Print-header (always hidden on screen, shown via @media print) */
+.db-print-header {
+  display: none;
 }

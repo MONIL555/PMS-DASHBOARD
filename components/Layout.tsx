@@ -54,7 +54,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="app-container" style={{ overflow: 'hidden', height: '100vh', width: '100vw' }}>
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-      
+
       <div style={{
         flex: 1,
         display: 'flex',
@@ -159,9 +159,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </div>
         )}
 
-        <main style={{ 
-          flex: 1, 
-          padding: 'clamp(1rem, 3vw, 2.5rem)', 
+        <main style={{
+          flex: 1,
+          padding: '1rem',
           overflowY: 'auto',
           backgroundColor: 'var(--bg-color)',
           width: '100%'

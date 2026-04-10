@@ -385,81 +385,129 @@ const Leads = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users className="text-blue-500" />
-            Leads
-          </h1>
-          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
-            <Search className="search-icon" size={18} />
-            <input
-              type="text"
-              placeholder="Search by ID, Company, Product..."
-              className="premium-search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
-            />
+      <div className="page-header" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '1rem', 
+        padding: '0.25rem 0',
+        gap: '1.25rem',
+        minHeight: '48px'
+      }}>
+        {/* Left: Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+          <div style={{ 
+            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+            padding: '0.45rem', 
+            borderRadius: '10px',
+            color: '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Users size={20} strokeWidth={2.5} />
           </div>
+          <h1 className="page-title" style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: 800, 
+            color: 'var(--text-primary)', 
+            margin: 0, 
+            letterSpacing: '-0.025em',
+            whiteSpace: 'nowrap'
+          }}>Leads</h1>
         </div>
+
+        {/* Middle-Left: Search */}
+        <div className="search-wrapper" style={{ flex: 1, maxWidth: '400px', marginBottom: 0 }}>
+          <Search className="search-icon" size={16} />
+          <input
+            type="text"
+            placeholder="Search leads..."
+            className="premium-search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
+          />
+        </div>
+
+        {/* Middle-Right: Stats Filters */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.4rem', 
+          backgroundColor: '#f8fafc', 
+          padding: '0.25rem', 
+          borderRadius: '10px',
+          border: '1px solid var(--border-color)',
+          alignItems: 'center',
+          flexShrink: 0
+        }}>
+          {[
+            { label: 'New', key: 'New', count: statusCounts.New, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <Users size={14} /> },
+            { label: 'Progress', key: 'In Progress', count: statusCounts['In Progress'], color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Zap size={14} /> },
+            { label: 'Converted', key: 'Converted', count: statusCounts.Converted, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <CheckCircle size={14} /> },
+            { label: 'Cancelled', key: 'Cancelled', count: statusCounts.Cancelled, color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: <XCircle size={14} /> }
+          ].map((block) => (
+            <div
+              key={block.key}
+              onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
+              style={{
+                padding: '0.35rem 0.6rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                backgroundColor: statusFilter === block.key ? 'white' : 'transparent',
+                boxShadow: statusFilter === block.key ? '0 2px 4px rgba(0, 0, 0, 0.05)' : 'none',
+                border: statusFilter === block.key ? `1px solid ${block.color}33` : '1px solid transparent',
+                transition: 'all 0.15s ease',
+                minWidth: '100px'
+              }}
+            >
+              <div style={{
+                backgroundColor: block.bgColor,
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                color: block.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {block.icon}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{block.count}</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.01em' }}>{block.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Right: Primary Action */}
         {hasPermission(PERMISSIONS.LEADS_CREATE) && (
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            style={{ 
+              height: '36px',
+              padding: '0 1rem', 
+              borderRadius: '8px', 
+              fontWeight: 600, 
+              fontSize: '0.85rem',
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem',
+              boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
+              transition: 'all 0.2s ease',
+              flexShrink: 0
+            }}
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Add Lead
           </button>
         )}
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '1.25rem' }}>
-        {[
-          { label: 'New Leads', key: 'New', count: statusCounts.New, color: '#64748b', bgColor: 'rgba(100, 116, 139, 0.1)', icon: <Users size={22} /> },
-          { label: 'In Progress', key: 'In Progress', count: statusCounts['In Progress'], color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Zap size={22} /> },
-          { label: 'Converted', key: 'Converted', count: statusCounts.Converted, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <CheckCircle size={22} /> },
-          { label: 'Cancelled', key: 'Cancelled', count: statusCounts.Cancelled, color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.1)', icon: <XCircle size={22} /> }
-        ].map((block) => (
-          <div
-            key={block.key}
-            className="premium-card"
-            style={{
-              padding: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              cursor: 'pointer',
-              borderRadius: '12px',
-              backgroundColor: statusFilter === block.key ? block.bgColor : '#ffffff',
-              boxShadow: statusFilter === block.key
-                ? `inset 0 0 0 2px ${block.color}, 0 10px 15px -3px ${block.bgColor}44`
-                : `inset 0 0 0 1px var(--border-color)`,
-              transition: 'all 0.3s ease',
-            }}
-            onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
-          >
-            <div style={{
-              backgroundColor: block.bgColor,
-              padding: '0.85rem',
-              borderRadius: '14px',
-              color: block.color,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: `0 4px 6px -1px rgba(0,0,0,0.05)`
-            }}>
-              {block.icon}
-            </div>
-            <div>
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.25rem', letterSpacing: '0.025em' }}>{block.label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
 
       <div className="table-container">
         <table>

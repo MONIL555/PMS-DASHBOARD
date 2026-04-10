@@ -96,61 +96,104 @@ const CancelledItems = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h1 className="page-title" style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.025em', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Archive className="text-blue-500" />
-            Cancelled Items (Archives)
-          </h1>
-          <div className="search-wrapper" style={{ minWidth: '400px', marginBottom: 0 }}>
-            <Search className="search-icon" size={18} />
-            <input
-              type="text"
-              placeholder="Search by ID, Reason, or Company..."
-              className="premium-search-input"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', fontSize: '0.95rem' }}
-            />
+      <div className="page-header" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '1rem', 
+        padding: '0.25rem 0',
+        gap: '1.25rem',
+        minHeight: '48px'
+      }}>
+        {/* Left: Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+          <div style={{ 
+            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+            padding: '0.45rem', 
+            borderRadius: '10px',
+            color: '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Archive size={20} strokeWidth={2.5} />
           </div>
+          <h1 className="page-title" style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: 800, 
+            color: 'var(--text-primary)', 
+            margin: 0, 
+            letterSpacing: '-0.025em',
+            whiteSpace: 'nowrap'
+          }}>Archives</h1>
         </div>
-      </div>
 
-      {/* Summary Blocks */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
-        {[
-          { label: 'Leads', type: 'Lead', count: statusCounts.Lead, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Users size={20} /> },
-          { label: 'Quotations', type: 'Quotation', count: statusCounts.Quotation, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <FileText size={20} /> },
-          { label: 'Projects', type: 'Project', count: statusCounts.Project, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Briefcase size={20} /> },
-          { label: 'Tickets', type: 'Ticket', count: statusCounts.Ticket, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <Ticket size={20} /> }
-        ].map((block: any) => (
-          <div
-            key={block.type}
-            className="premium-card"
-            style={{
-              padding: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              cursor: 'pointer',
-              borderRadius: '12px',
-              backgroundColor: typeFilter === block.type ? block.bgColor : '#ffffff',
-              boxShadow: typeFilter === block.type
-                ? `inset 0 0 0 2px ${block.color}, 0 8px 12px -3px ${block.bgColor}44`
-                : `inset 0 0 0 1px var(--border-color)`,
-              transition: 'all 0.3s ease',
-            }}
-            onClick={() => setTypeFilter(typeFilter === block.type ? 'All' : block.type)}
-          >
-            <div style={{ backgroundColor: block.bgColor, padding: '0.75rem', borderRadius: '12px', color: block.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {block.icon}
+        {/* Middle-Left: Search */}
+        <div className="search-wrapper" style={{ flex: 1, maxWidth: '400px', marginBottom: 0 }}>
+          <Search className="search-icon" size={16} />
+          <input
+            type="text"
+            placeholder="Search cancelled items..."
+            className="premium-search-input"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
+          />
+        </div>
+
+        {/* Middle-Right: Stats Filters */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.4rem', 
+          backgroundColor: '#f8fafc', 
+          padding: '0.25rem', 
+          borderRadius: '10px',
+          border: '1px solid var(--border-color)',
+          alignItems: 'center',
+          flexShrink: 0
+        }}>
+          {[
+            { label: 'Leads', type: 'Lead', count: statusCounts.Lead, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Users size={14} /> },
+            { label: 'Quotations', type: 'Quotation', count: statusCounts.Quotation, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <FileText size={14} /> },
+            { label: 'Projects', type: 'Project', count: statusCounts.Project, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Briefcase size={14} /> },
+            { label: 'Tickets', type: 'Ticket', count: statusCounts.Ticket, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <Ticket size={14} /> }
+          ].map((block: any) => (
+            <div
+              key={block.type}
+              onClick={() => setTypeFilter(typeFilter === block.type ? 'All' : block.type)}
+              style={{
+                padding: '0.35rem 0.6rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                backgroundColor: typeFilter === block.type ? 'white' : 'transparent',
+                boxShadow: typeFilter === block.type ? '0 2px 4px rgba(0, 0, 0, 0.05)' : 'none',
+                border: typeFilter === block.type ? `1px solid ${block.color}33` : '1px solid transparent',
+                transition: 'all 0.15s ease',
+                minWidth: '105px'
+              }}
+            >
+              <div style={{
+                backgroundColor: block.bgColor,
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                color: block.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {block.icon}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{block.count}</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.01em' }}>{block.label}</span>
+              </div>
             </div>
-            <div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, lineHeight: 1, color: 'var(--text-primary)' }}>{block.count}</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '0.15rem' }}>{block.label}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
 

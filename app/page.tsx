@@ -95,7 +95,7 @@ const CTooltip = ({ active, payload, label, prefix = '' }: any) => {
 /* ─── WIN RATE GAUGE ─────────────────────────────────────── */
 const WinRateGauge = ({ rate, label, ready = true }: { rate: number; label: string; ready?: boolean }) => {
   const color = rate >= 70 ? '#10b981' : rate >= 40 ? '#3b82f6' : rate >= 20 ? '#f59e0b' : '#ef4444';
-  
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
       <div style={{ position: 'relative', width: '100%', height: '100px', display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
@@ -526,7 +526,7 @@ const Dashboard = () => {
   const statsCards = [
     { title: 'Total Leads', cat: 'Leads', val: data.stats.totalLeads, icon: Users, color: '#3b82f6', iconBg: '#eff6ff', rate: data.stats.leadGrowth || `${data.conversionRates.leadToQuote}%`, rlabel: data.stats.leadGrowth ? 'vs prev. FY' : 'lead→quote', vel: leadVelocity, path: '/leads' },
     { title: 'Quotations', cat: 'Quotations', val: data.stats.totalQuotations, icon: FileText, color: '#f59e0b', iconBg: '#fffbeb', rate: data.stats.quoteGrowth || `${data.conversionRates.quoteToProject}%`, rlabel: data.stats.quoteGrowth ? 'vs prev. FY' : 'quote→proj', vel: null, path: '/quotations' },
-    { title: 'Active Projects', cat: 'Projects', val: data.stats.totalActiveProjects, icon: Briefcase, color: '#10b981', iconBg: '#f0fdf4', rate: data.stats.activeProjectsGrowth || `${data.conversionRates.avgCompletionTime}d`, rlabel: data.stats.activeProjectsGrowth ? 'vs prev. FY' : 'avg duration', vel: revenueVelocity, path: '/projects' },
+    { title: 'Projects', cat: 'Projects', val: data.stats.totalActiveProjects, icon: Briefcase, color: '#10b981', iconBg: '#f0fdf4', rate: data.stats.activeProjectsGrowth || `${data.conversionRates.avgCompletionTime}d`, rlabel: data.stats.activeProjectsGrowth ? 'vs prev. FY' : 'avg duration', vel: revenueVelocity, path: '/projects' },
     { title: 'Open Tickets', cat: 'Tickets', val: data.stats.totalOpenTickets, icon: TicketIcon, color: '#ef4444', iconBg: '#fef2f2', rate: 'Support', rlabel: 'Queue', vel: null, path: '/tickets' },
   ].filter(c => filters.includes(c.cat));
 
@@ -535,13 +535,13 @@ const Dashboard = () => {
       id: 'stats', component: (
         <div className="db-grid-4">
           {statsCards.map((stat, i) => (
-            <div key={i} className="premium-card db-stat-card" onClick={() => { 
-              const { startDate, endDate } = getFYDates(selectedFY); 
-              const p = new URLSearchParams(); 
-              if (startDate) p.append('startDate', startDate); 
-              if (endDate) p.append('endDate', endDate); 
+            <div key={i} className="premium-card db-stat-card" onClick={() => {
+              const { startDate, endDate } = getFYDates(selectedFY);
+              const p = new URLSearchParams();
+              if (startDate) p.append('startDate', startDate);
+              if (endDate) p.append('endDate', endDate);
               if (stat.cat === 'Leads' || stat.cat === 'Quotations') p.append('status', 'Exclude-Converted');
-              router.push(`${stat.path}?${p.toString()}`); 
+              router.push(`${stat.path}?${p.toString()}`);
             }}>
               {/* background blob */}
               <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: stat.color, opacity: 0.06, pointerEvents: 'none' }} />
@@ -717,11 +717,14 @@ const Dashboard = () => {
                   {data.strategic.staffDistribution.slice(0, 6).map((s: any, i: number) => {
                     const pct = (s.value / (data.strategic.staffDistribution[0]?.value || 1)) * 100;
                     const over = s.value >= 5; const warn = !over && s.value >= 3;
+                    const statusTitle = over ? 'Overload' : warn ? 'Warning' : 'Stable';
                     return (
-                      <div key={i}>
+                      <div key={i} title={`${s.name || 'Unassigned'}: ${statusTitle} (${s.value} projects)`}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.3rem' }}>
                           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name || 'Unassigned'}</span>
-                          <span className={`badge ${over ? 'badge-red' : warn ? 'badge-yellow' : 'badge-gray'}`} style={{ fontSize: '0.62rem', flexShrink: 0 }}>{s.value} proj{s.value !== 1 ? 's' : ''}{over ? ' ⚠' : ''}</span>
+                          <span className={`badge ${over ? 'badge-red' : warn ? 'badge-yellow' : 'badge-gray'}`} style={{ fontSize: '0.62rem', flexShrink: 0 }}>
+                            {s.value} proj{s.value !== 1 ? 's' : ''}{over ? ' ⚠' : ''}
+                          </span>
                         </div>
                         <ProgressBar pct={pct} color={over ? '#ef4444' : warn ? '#f59e0b' : '#10b981'} height={5} />
                       </div>
@@ -741,7 +744,7 @@ const Dashboard = () => {
     const hHue = Math.round((billingHealth / 100) * 120); // 0 (red) to 120 (green)
     const hColor = `hsl(${hHue}, 75%, 45%)`;
     const hBg = `hsl(${hHue}, 80%, 97%)`;
-    
+
     sections.push({
       id: 'scorecards', component: (
         <div className="db-grid-3">
@@ -775,7 +778,7 @@ const Dashboard = () => {
 
           <Card style={{ padding: '1.5rem', borderTop: `4px solid ${hColor}` }}>
             <STitle icon={Target} title="Pipeline Velocity" sub="health score" />
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', background: hBg, padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
               <div style={{ fontSize: '3.6rem', fontWeight: 800, color: hColor, lineHeight: 1, letterSpacing: '-0.04em' }}>
                 <AnimatedNum value={billingHealth} ready={countersReady} />

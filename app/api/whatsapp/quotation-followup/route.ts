@@ -30,12 +30,20 @@ export async function POST(req: Request) {
       .populate('Product_Reference', 'Type SubType SubSubType');
     if (!quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
 
-    // Deduplication: only send once per day
+    // Deduplication: only send once per day (Cross-channel synchronized)
     const today = new Date();
     const todayStr = today.toDateString();
-    const lastSent = quotation.Followup_Alert?.Last_WA_Sent_Date;
-    if (lastSent && new Date(lastSent).toDateString() === todayStr) {
+    
+    const lastWA = quotation.Followup_Alert?.Last_WA_Sent_Date;
+    const lastEmail = quotation.Followup_Alert?.Last_Email_Sent_Date;
+    
+    if (lastWA && new Date(lastWA).toDateString() === todayStr) {
+      console.log(`[WhatsApp Followup] Already sent today (WA) for Quotation: ${quotationId}`);
       return NextResponse.json({ message: 'Follow-up WhatsApp already sent today.' }, { status: 200 });
+    }
+    if (lastEmail && new Date(lastEmail).toDateString() === todayStr) {
+      console.log(`[WhatsApp Followup] Already sent today (Email) for Quotation: ${quotationId}`);
+      return NextResponse.json({ message: 'Follow-up Email already sent today. Skipping WhatsApp.' }, { status: 200 });
     }
 
     // Update tracking

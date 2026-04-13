@@ -177,33 +177,42 @@ const ProjectDetails = () => {
         }
 
         if (isTriggered) {
-          const daysLeft = Math.ceil((nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          const isOneTime = svc.Payment_Terms === 'One Time';
+          const alreadySent = isOneTime
+            ? (svc.Reminder.Last_WA_Sent_Date && new Date(svc.Reminder.Last_WA_Sent_Date).toDateString() === today.toDateString()) ||
+              (svc.Reminder.Last_Email_Sent_Date && new Date(svc.Reminder.Last_Email_Sent_Date).toDateString() === today.toDateString())
+            : (svc.Reminder.Last_WA_Sent_Billing_Date && new Date(svc.Reminder.Last_WA_Sent_Billing_Date).getTime() === nextBilling.getTime()) ||
+              (svc.Reminder.Last_Email_Sent_Billing_Date && new Date(svc.Reminder.Last_Email_Sent_Billing_Date).getTime() === nextBilling.getTime());
 
-          // Trigger the WhatsApp background processing (Server prevents duplicates via DB checks)
-          fetch('/api/whatsapp/remind', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              projectId: project._id,
-              serviceId: svc._id,
-              currentDateIso: today.toISOString(),
-              nextBillingIso: nextBilling.toISOString(),
-              isOneTime: svc.Payment_Terms === 'One Time'
-            })
-          }).catch(err => console.error('Failed to trigger WA reminder', err));
+          if (!alreadySent) {
+            console.log(`[Alert] Triggering synchronized billing reminder for Project: ${project.Project_ID}, Service: ${svc.Service_Name}`);
 
-          // Trigger the Email background processing (Server prevents duplicates via DB checks)
-          fetch('/api/email/remind', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              projectId: project._id,
-              serviceId: svc._id,
-              currentDateIso: today.toISOString(),
-              nextBillingIso: nextBilling.toISOString(),
-              isOneTime: svc.Payment_Terms === 'One Time'
-            })
-          }).catch(err => console.error('Failed to trigger email reminder', err));
+            // Trigger the WhatsApp background processing
+            fetch('/api/whatsapp/remind', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectId: project._id,
+                serviceId: svc._id,
+                currentDateIso: today.toISOString(),
+                nextBillingIso: nextBilling.toISOString(),
+                isOneTime: svc.Payment_Terms === 'One Time'
+              })
+            }).catch(err => console.error('Failed to trigger WA reminder', err));
+
+            // Trigger the Email background processing
+            fetch('/api/email/remind', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectId: project._id,
+                serviceId: svc._id,
+                currentDateIso: today.toISOString(),
+                nextBillingIso: nextBilling.toISOString(),
+                isOneTime: svc.Payment_Terms === 'One Time'
+              })
+            }).catch(err => console.error('Failed to trigger email reminder', err));
+          }
         }
       });
     }
@@ -221,19 +230,27 @@ const ProjectDetails = () => {
 
     // Trigger alert if deadline is within 3 days (or already passed)
     if (daysLeft <= 3) {
-      // Fire-and-forget: WhatsApp deadline alert
-      fetch('/api/whatsapp/deadline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project._id })
-      }).catch(err => console.error('Failed to trigger WA deadline alert', err));
+      const todayStr = now.toDateString();
+      const alreadySent = (project.Deadline_Alert?.Last_WA_Sent_Date && new Date(project.Deadline_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
+                         (project.Deadline_Alert?.Last_Email_Sent_Date && new Date(project.Deadline_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
 
-      // Fire-and-forget: Email deadline alert
-      fetch('/api/email/deadline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project._id })
-      }).catch(err => console.error('Failed to trigger email deadline alert', err));
+      if (!alreadySent) {
+        console.log(`[Alert] Triggering synchronized deadline alert for Project: ${project.Project_ID}`);
+
+        // Fire-and-forget: WhatsApp deadline alert
+        fetch('/api/whatsapp/deadline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: project._id })
+        }).catch(err => console.error('Failed to trigger WA deadline alert', err));
+
+        // Fire-and-forget: Email deadline alert
+        fetch('/api/email/deadline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: project._id })
+        }).catch(err => console.error('Failed to trigger email deadline alert', err));
+      }
     }
   }, [project]);
 
@@ -264,25 +281,32 @@ const ProjectDetails = () => {
 
     // Trigger if renewal is within 5 days
     if (daysLeft <= 5) {
-      const payload = {
-        projectId: project._id,
-        currentDateIso: today.toISOString(),
-        nextBillingIso: nextRenewal.toISOString()
-      };
+      const alreadySent = (project.Go_Live.Renewal_Reminder?.Last_WA_Sent_Billing_Date && new Date(project.Go_Live.Renewal_Reminder.Last_WA_Sent_Billing_Date).getTime() === nextRenewal.getTime()) ||
+                         (project.Go_Live.Renewal_Reminder?.Last_Email_Sent_Billing_Date && new Date(project.Go_Live.Renewal_Reminder.Last_Email_Sent_Billing_Date).getTime() === nextRenewal.getTime());
 
-      // Fire-and-forget: WhatsApp renewal alert
-      fetch('/api/whatsapp/renewal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Failed to trigger WA renewal', err));
+      if (!alreadySent) {
+        console.log(`[Alert] Triggering synchronized project costing reminder for Project: ${project.Project_ID}`);
+        
+        const payload = {
+          projectId: project._id,
+          currentDateIso: today.toISOString(),
+          nextBillingIso: nextRenewal.toISOString()
+        };
 
-      // Fire-and-forget: Email renewal alert
-      fetch('/api/email/renewal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.error('Failed to trigger email renewal', err));
+        // Fire-and-forget: WhatsApp renewal alert (Calculated costing)
+        fetch('/api/whatsapp/renewal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(err => console.error('Failed to trigger WA costing reminder', err));
+
+        // Fire-and-forget: Email renewal alert (Calculated costing)
+        fetch('/api/email/renewal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(err => console.error('Failed to trigger email costing reminder', err));
+      }
     }
   }, [project]);
 

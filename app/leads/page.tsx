@@ -230,21 +230,21 @@ const Leads = () => {
         // Mark as alerted to prevent redundant calls in the same session
         alertedIds.current.add(lead._id);
 
-        // Check if already sent today via trackable fields
-        const wasSentWA = lead.Followup_Alert?.Last_WA_Sent_Date && new Date(lead.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr;
-        const wasSentEmail = lead.Followup_Alert?.Last_Email_Sent_Date && new Date(lead.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr;
+        // Cross-channel synchronization: If either channel was sent today, no further notifications are triggered
+        const alreadyAlertedToday = 
+          (lead.Followup_Alert?.Last_WA_Sent_Date && new Date(lead.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
+          (lead.Followup_Alert?.Last_Email_Sent_Date && new Date(lead.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
 
-        if (!wasSentWA) {
-          console.log(`[Alert] Triggering WA follow-up for Lead: ${lead.Lead_ID}`);
+        if (!alreadyAlertedToday) {
+          console.log(`[Alert] Triggering synchronized follow-up for Lead: ${lead.Lead_ID}`);
+          
+          // Trigger both if enabled, but record-keeping will prevent double firing on next load
           fetch('/api/whatsapp/lead-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ leadId: lead._id })
           }).catch(console.error);
-        }
 
-        if (!wasSentEmail) {
-          console.log(`[Alert] Triggering Email follow-up for Lead: ${lead.Lead_ID}`);
           fetch('/api/email/lead-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

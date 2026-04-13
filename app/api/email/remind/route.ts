@@ -17,13 +17,13 @@ export async function POST(req: Request) {
 
     // --- GLOBAL OVERRIDE: Check Notification Master ---
     const billingTrigger = await NotificationConfig.findOne({
-      Event_Name: { $regex: /^Billing Reminder$/i }
+      Event_Name: { $regex: /^External Service Billing Reminder$/i }
     });
     if (!billingTrigger || !billingTrigger.IsEnabled) {
-      return NextResponse.json({ message: 'Billing Reminder trigger is disabled in Notification Master.' }, { status: 200 });
+      return NextResponse.json({ message: 'External Service Billing Reminder trigger is disabled in Notification Master.' }, { status: 200 });
     }
     if (!billingTrigger.Channels.includes('Email')) {
-      return NextResponse.json({ message: 'Email channel is disabled for Billing Reminder.' }, { status: 200 });
+      return NextResponse.json({ message: 'Email channel is disabled for External Service Billing Reminder.' }, { status: 200 });
     }
 
     const project = await Project.findById(projectId).populate('Client_Reference');
@@ -48,16 +48,24 @@ export async function POST(req: Request) {
 
     if (isOneTime) {
       const lesd = service.Reminder?.Last_Email_Sent_Date;
+      const lwsd = service.Reminder?.Last_WA_Sent_Date;
       if (lesd && lesd.toDateString() === currentDate.toDateString()) {
-        return NextResponse.json({ message: 'Already sent for today (One Time).' }, { status: 200 });
+        return NextResponse.json({ message: 'Already sent for today (One Time - Email).' }, { status: 200 });
+      }
+      if (lwsd && lwsd.toDateString() === currentDate.toDateString()) {
+        return NextResponse.json({ message: 'Already sent for today (One Time - WA).' }, { status: 200 });
       }
       if (!service.Reminder) service.Reminder = {};
       service.Reminder.Last_Email_Sent_Date = currentDate;
       shouldUpdateDB = true;
     } else {
       const lesb = service.Reminder?.Last_Email_Sent_Billing_Date;
+      const lwsb = service.Reminder?.Last_WA_Sent_Billing_Date;
       if (lesb && lesb.getTime() === nextBillingDate.getTime()) {
-        return NextResponse.json({ message: 'Already sent for this billing cycle.' }, { status: 200 });
+        return NextResponse.json({ message: 'Already sent for this billing cycle (Email).' }, { status: 200 });
+      }
+      if (lwsb && lwsb.getTime() === nextBillingDate.getTime()) {
+        return NextResponse.json({ message: 'Already sent for this billing cycle (WA).' }, { status: 200 });
       }
       if (!service.Reminder) service.Reminder = {};
       service.Reminder.Last_Email_Sent_Billing_Date = nextBillingDate;

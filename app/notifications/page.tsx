@@ -283,7 +283,28 @@ const NotificationsMaster = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.25rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label style={{ display: 'block', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.4rem', color: '#64748b' }}>EVENT TRIGGER NAME *</label>
-                  <input type="text" className="form-input" required value={editingConfig.Event_Name} onChange={(e) => setEditingConfig({ ...editingConfig, Event_Name: e.target.value })} style={{ padding: '0.6rem 0.8rem', fontSize: '0.9rem' }} />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    required 
+                    readOnly={!!editingConfig._id}
+                    value={editingConfig.Event_Name} 
+                    onChange={(e) => setEditingConfig({ ...editingConfig, Event_Name: e.target.value })} 
+                    style={{ 
+                      padding: '0.6rem 0.8rem', 
+                      fontSize: '0.9rem',
+                      backgroundColor: editingConfig._id ? '#f8fafc' : 'white',
+                      cursor: editingConfig._id ? 'not-allowed' : 'text',
+                      color: editingConfig._id ? '#64748b' : 'inherit',
+                      border: editingConfig._id ? '1px solid #e2e8f0' : '1px solid var(--border-primary)'
+                    }} 
+                  />
+                  {editingConfig._id && (
+                    <p style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.4rem', fontWeight: 500 }}>
+                      <AlertCircle size={10} style={{ display: 'inline', marginRight: '2px' }} />
+                      System names are locked to maintain backend linkage.
+                    </p>
+                  )}
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label style={{ display: 'block', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.75rem', color: '#64748b' }}>ENABLED CHANNELS</label>

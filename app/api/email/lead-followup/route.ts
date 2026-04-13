@@ -33,13 +33,20 @@ export async function POST(req: Request) {
 
     console.log(`[Email Followup] Processing Lead: ${leadId}`);
 
-    // Deduplication: only send once per day
+    // Deduplication: only send once per day (Cross-channel synchronized)
     const today = new Date();
     const todayStr = today.toDateString();
-    const lastSent = lead.Followup_Alert?.Last_Email_Sent_Date;
-    if (lastSent && new Date(lastSent).toDateString() === todayStr) {
-      console.log(`[Email Followup] Already sent today for Lead: ${leadId}`);
+    
+    const lastEmail = lead.Followup_Alert?.Last_Email_Sent_Date;
+    const lastWA = lead.Followup_Alert?.Last_WA_Sent_Date;
+    
+    if (lastEmail && new Date(lastEmail).toDateString() === todayStr) {
+      console.log(`[Email Followup] Already sent today (Email) for Lead: ${leadId}`);
       return NextResponse.json({ message: 'Lead follow-up email already sent today.' }, { status: 200 });
+    }
+    if (lastWA && new Date(lastWA).toDateString() === todayStr) {
+      console.log(`[Email Followup] Already sent today (WA) for Lead: ${leadId}`);
+      return NextResponse.json({ message: 'Lead follow-up WhatsApp already sent today. Skipping Email.' }, { status: 200 });
     }
 
     // Update tracking - use findByIdAndUpdate to avoid saving populated fields

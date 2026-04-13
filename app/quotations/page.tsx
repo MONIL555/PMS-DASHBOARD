@@ -295,21 +295,29 @@ const Quotations = () => {
         // Mark as alerted for this session to stop the spamming
         alertedIds.current.add(qtn._id);
 
-        // Fire-and-forget: WhatsApp
-        console.log(`[Alert] Triggering WA follow-up for Quotation: ${qtn.Quotation_ID}`);
-        fetch('/api/whatsapp/quotation-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quotationId: qtn._id })
-        }).catch(err => console.error('Failed to trigger WA follow-up', err));
+        // Cross-channel synchronization: If either channel was sent today, no further notifications are triggered
+        const todayStr = today.toDateString();
+        const alreadyAlertedToday = 
+          (qtn.Followup_Alert?.Last_WA_Sent_Date && new Date(qtn.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
+          (qtn.Followup_Alert?.Last_Email_Sent_Date && new Date(qtn.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
 
-        // Fire-and-forget: Email
-        console.log(`[Alert] Triggering Email follow-up for Quotation: ${qtn.Quotation_ID}`);
-        fetch('/api/email/quotation-followup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quotationId: qtn._id })
-        }).catch(err => console.error('Failed to trigger email follow-up', err));
+        if (!alreadyAlertedToday) {
+          console.log(`[Alert] Triggering synchronized follow-up for Quotation: ${qtn.Quotation_ID}`);
+
+          // Fire-and-forget: WhatsApp
+          fetch('/api/whatsapp/quotation-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quotationId: qtn._id })
+          }).catch(err => console.error('Failed to trigger WA follow-up', err));
+
+          // Fire-and-forget: Email
+          fetch('/api/email/quotation-followup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quotationId: qtn._id })
+          }).catch(err => console.error('Failed to trigger email follow-up', err));
+        }
       }
     });
   }, [quotations]);

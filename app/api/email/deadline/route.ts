@@ -29,12 +29,20 @@ export async function POST(req: Request) {
     const project = await Project.findById(projectId).populate('Client_Reference');
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
-    // Deduplication: only send once per day
+    // Deduplication: only send once per day (Cross-channel synchronized)
     const today = new Date();
     const todayStr = today.toDateString();
-    const lastSent = project.Deadline_Alert?.Last_Email_Sent_Date;
-    if (lastSent && new Date(lastSent).toDateString() === todayStr) {
+    
+    const lastEmail = project.Deadline_Alert?.Last_Email_Sent_Date;
+    const lastWA = project.Deadline_Alert?.Last_WA_Sent_Date;
+    
+    if (lastEmail && new Date(lastEmail).toDateString() === todayStr) {
+      console.log(`[Email Deadline] Already sent today (Email) for Project: ${projectId}`);
       return NextResponse.json({ message: 'Deadline email already sent today.' }, { status: 200 });
+    }
+    if (lastWA && new Date(lastWA).toDateString() === todayStr) {
+      console.log(`[Email Deadline] Already sent today (WA) for Project: ${projectId}`);
+      return NextResponse.json({ message: 'Deadline WhatsApp already sent today. Skipping Email.' }, { status: 200 });
     }
 
     // Update tracking

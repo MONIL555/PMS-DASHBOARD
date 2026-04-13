@@ -4,6 +4,7 @@ import connectDB from '@/lib/mongodb';
 import Lead from '@/models/Lead';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
+import { autoCleanupStaleItems } from '@/lib/cleanup';
 import Client from '@/models/Client';
 import Product from '@/models/Product';
 import LeadSource from '@/models/LeadSource';
@@ -11,6 +12,7 @@ import LeadSource from '@/models/LeadSource';
 export async function GET(request: Request) {
   try {
     await connectDB();
+    await autoCleanupStaleItems();
     const auth = await verifyPermission(PERMISSIONS.LEADS_VIEW);
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 

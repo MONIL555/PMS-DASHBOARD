@@ -93,22 +93,56 @@ const CTooltip = ({ active, payload, label, prefix = '' }: any) => {
 };
 
 /* ─── WIN RATE GAUGE ─────────────────────────────────────── */
-const WinRateGauge = ({ rate, label }: { rate: number; label: string }) => {
-  const color = rate >= 60 ? '#10b981' : rate >= 35 ? '#f59e0b' : '#ef4444';
-  const gaugeData = [{ value: rate, fill: color }, { value: 100 - rate, fill: '#f1f5f9' }];
+const WinRateGauge = ({ rate, label, ready = true }: { rate: number; label: string; ready?: boolean }) => {
+  const color = rate >= 70 ? '#10b981' : rate >= 40 ? '#3b82f6' : rate >= 20 ? '#f59e0b' : '#ef4444';
+  
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ position: 'relative', width: '180px', height: '110px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
+      <div style={{ position: 'relative', width: '100%', height: '100px', display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart cx="50%" cy="80%" innerRadius="70%" outerRadius="100%" startAngle={180} endAngle={0} data={gaugeData} barSize={14}>
-            <RadialBar dataKey="value" cornerRadius={6} background={{ fill: '#f1f5f9' }} />
-          </RadialBarChart>
+          <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+            <Pie
+              data={[{ value: 1 }]}
+              dataKey="value"
+              cx="50%"
+              cy="85%"
+              startAngle={180}
+              endAngle={0}
+              innerRadius="70%"
+              outerRadius="90%"
+              fill="var(--surface-hover)"
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Pie
+              data={[{ value: rate }, { value: 100 - rate }]}
+              dataKey="value"
+              cx="50%"
+              cy="85%"
+              startAngle={180}
+              endAngle={0}
+              innerRadius="70%"
+              outerRadius="90%"
+              stroke="none"
+              cornerRadius={6}
+              isAnimationActive={true}
+              animationDuration={800}
+            >
+              <Cell key="val" fill={color} />
+              <Cell key="bg" fill="transparent" />
+            </Pie>
+          </PieChart>
         </ResponsiveContainer>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: '0.5rem' }}>
-          <span style={{ fontSize: '1.6rem', fontWeight: 800, color, lineHeight: 1 }}>{rate.toFixed(1)}%</span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '0.25rem', textAlign: 'center' }}>{label}</span>
+        <div style={{ position: 'absolute', bottom: '15%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <p style={{ fontSize: '2.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
+            <AnimatedNum value={Math.round(rate)} ready={ready} />
+            <span style={{ fontSize: '1rem', fontWeight: 600, marginLeft: '1px', color: 'var(--text-secondary)' }}>%</span>
+          </p>
         </div>
       </div>
+      <p style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.2 }}>
+        {label}
+      </p>
     </div>
   );
 };
@@ -704,44 +738,70 @@ const Dashboard = () => {
 
   /* ── SCORECARDS (Win Rate + Health) ── */
   if (hasLeads || hasQuotations || hasProjects) {
-    const hColor = billingHealth >= 70 ? '#10b981' : billingHealth >= 45 ? '#f59e0b' : '#ef4444';
+    const hHue = Math.round((billingHealth / 100) * 120); // 0 (red) to 120 (green)
+    const hColor = `hsl(${hHue}, 75%, 45%)`;
+    const hBg = `hsl(${hHue}, 80%, 97%)`;
+    
     sections.push({
       id: 'scorecards', component: (
         <div className="db-grid-3">
-          {hasLeads && <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <STitle icon={Award} title="Lead Win Rate" sub="converted leads" />
-            <WinRateGauge rate={winRate} label="of leads converted" />
-            <p style={{ marginTop: '0.5rem', fontSize: '0.72rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-              {data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0} converted · {data.stats.totalLeads} total leads
-            </p>
-          </Card>}
+          {hasLeads && (
+            <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
+              <STitle icon={Award} title="Lead Performance" sub="acquisition" />
+              <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <WinRateGauge rate={winRate} label="of leads converted" ready={countersReady} />
+              </div>
+              <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  <span style={{ color: 'var(--primary-color)' }}>{data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0}</span> conv. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalLeads} total</span>
+                </p>
+              </div>
+            </Card>
+          )}
 
-          {hasQuotations && hasProjects && <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <STitle icon={Star} title="Quote Conversion" sub="quotes → projects" />
-            <WinRateGauge rate={quoteConvRate} label="of quotes become projects" />
-            <p style={{ marginTop: '0.5rem', fontSize: '0.72rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-              {data.stats.totalActiveProjects} projects · {data.stats.totalQuotations} quotations
-            </p>
-          </Card>}
+          {hasQuotations && hasProjects && (
+            <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
+              <STitle icon={Star} title="Sales Conversion" sub="deal flow" />
+              <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <WinRateGauge rate={quoteConvRate} label="quotes → projects" ready={countersReady} />
+              </div>
+              <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  <span style={{ color: 'var(--success-color)' }}>{data.stats.totalActiveProjects}</span> proj. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalQuotations} quotes</span>
+                </p>
+              </div>
+            </Card>
+          )}
 
-          <Card style={{ borderLeft: `4px solid ${hColor}` }}>
-            <STitle icon={Target} title="Pipeline Health Score" />
-            <div style={{ background: billingHealth >= 70 ? '#f0fdf4' : billingHealth >= 45 ? '#fffbeb' : '#fef2f2', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1rem' }}>
-              <p style={{ fontSize: '3rem', fontWeight: 800, color: hColor, lineHeight: 1 }}>{billingHealth}</p>
-              <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '0.25rem' }}>/ 100 points</p>
+          <Card style={{ padding: '1.5rem', borderTop: `4px solid ${hColor}` }}>
+            <STitle icon={Target} title="Pipeline Velocity" sub="health score" />
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', background: hBg, padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '3.6rem', fontWeight: 800, color: hColor, lineHeight: 1, letterSpacing: '-0.04em' }}>
+                <AnimatedNum value={billingHealth} ready={countersReady} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: hColor, margin: 0, textTransform: 'uppercase' }}>
+                  {billingHealth >= 75 ? 'Excellent' : billingHealth >= 50 ? 'Healthy' : 'Action Needed'}
+                </p>
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '0.1rem' }}>Overall Effectiveness</p>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
               {[
-                { lbl: 'L→Q Conversion', val: `${data.conversionRates.leadToQuote}%`, max: 50, score: Math.min(parseFloat(data.conversionRates.leadToQuote) || 0, 50) },
-                { lbl: 'Q→P Conversion', val: `${data.conversionRates.quoteToProject}%`, max: 30, score: Math.min((parseFloat(data.conversionRates.quoteToProject) || 0) * (10 / 3), 30) },
-                { lbl: 'Delivery Speed', val: `${data.conversionRates.avgCompletionTime}d avg`, max: 20, score: Math.max(0, 20 - ((data.conversionRates.avgCompletionTime || 999) / 30) * 10) },
+                { lbl: 'Lead Conversion', val: `${data.conversionRates.leadToQuote}%`, max: 50, score: Math.min(parseFloat(data.conversionRates.leadToQuote) || 0, 50), color: '#3b82f6' },
+                { lbl: 'Sales Closing', val: `${data.conversionRates.quoteToProject}%`, max: 30, score: Math.min((parseFloat(data.conversionRates.quoteToProject) || 0) * (10 / 3), 30), color: '#f59e0b' },
+                { lbl: 'Delivery Pace', val: `${data.conversionRates.avgCompletionTime}d`, max: 20, score: Math.max(0, 20 - ((data.conversionRates.avgCompletionTime || 999) / 30) * 10), color: '#10b981' },
               ].map((row, i) => (
                 <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{row.lbl}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-primary)' }}>{row.val}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{row.lbl}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{row.val}</span>
                   </div>
-                  <ProgressBar pct={(row.score / row.max) * 100} color="#3b82f6" height={5} />
+                  <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-hover)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color, borderRadius: '3px', transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }} />
+                  </div>
                 </div>
               ))}
             </div>

@@ -34,18 +34,22 @@ export async function POST(req: Request) {
       .populate('Product_Reference', 'Type SubType SubSubType');
     if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
 
+    console.log(`[WhatsApp Followup] Processing Lead: ${leadId}`);
+
     // Deduplication: only send once per day
     const today = new Date();
     const todayStr = today.toDateString();
     const lastSent = lead.Followup_Alert?.Last_WA_Sent_Date;
     if (lastSent && new Date(lastSent).toDateString() === todayStr) {
+      console.log(`[WhatsApp Followup] Already sent today for Lead: ${leadId}`);
       return NextResponse.json({ message: 'Lead follow-up WhatsApp already sent today.' }, { status: 200 });
     }
 
-    // Update tracking
-    if (!lead.Followup_Alert) (lead as any).Followup_Alert = {};
-    lead.Followup_Alert!.Last_WA_Sent_Date = today;
-    await lead.save();
+    // Update tracking - use findByIdAndUpdate to avoid saving populated fields
+    await Lead.findByIdAndUpdate(leadId, {
+      $set: { 'Followup_Alert.Last_WA_Sent_Date': today }
+    });
+    console.log(`[WhatsApp Followup] Tracking updated for Lead: ${leadId}`);
 
     // Fetch admin WhatsApp from Global Settings
     const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });

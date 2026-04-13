@@ -26,6 +26,17 @@ export async function PATCH(
             { new: true, runValidators: true }
         );
         if (!updatedQuo) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
+
+        // --- REAL-TIME CLEANUP CHECK ---
+        // If we just reached 4+ pending follow-ups, auto-reject
+        if (updatedQuo.Quotation_Status !== 'Approved' && updatedQuo.Quotation_Status !== 'Rejected' && updatedQuo.Quotation_Status !== 'Converted') {
+            const pendingCount = updatedQuo.Follow_Ups.filter(f => f.Outcome === 'Pending').length;
+            if (pendingCount >= 4) {
+                updatedQuo.Quotation_Status = 'Rejected';
+                updatedQuo.Cancel_Reason = "System: Auto-rejected after reaching 4 unsuccessful follow-up attempts.";
+                await updatedQuo.save();
+            }
+        }
         return NextResponse.json(updatedQuo);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

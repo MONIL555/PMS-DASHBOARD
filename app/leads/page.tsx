@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers, addLeadFollowUp } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
@@ -104,6 +104,7 @@ const Leads = () => {
     Remarks: '',
     Outcome: 'Pending'
   });
+  const alertedIds = useRef<Set<string>>(new Set());
 
   const openConvertModal = (lead: any) => {
     setSelectedLead(lead);
@@ -225,12 +226,16 @@ const Leads = () => {
         if (diffDays >= 3) shouldAlert = true;
       }
 
-      if (shouldAlert) {
+      if (shouldAlert && !alertedIds.current.has(lead._id)) {
+        // Mark as alerted to prevent redundant calls in the same session
+        alertedIds.current.add(lead._id);
+
         // Check if already sent today via trackable fields
         const wasSentWA = lead.Followup_Alert?.Last_WA_Sent_Date && new Date(lead.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr;
         const wasSentEmail = lead.Followup_Alert?.Last_Email_Sent_Date && new Date(lead.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr;
 
         if (!wasSentWA) {
+          console.log(`[Alert] Triggering WA follow-up for Lead: ${lead.Lead_ID}`);
           fetch('/api/whatsapp/lead-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -239,6 +244,7 @@ const Leads = () => {
         }
 
         if (!wasSentEmail) {
+          console.log(`[Alert] Triggering Email follow-up for Lead: ${lead.Lead_ID}`);
           fetch('/api/email/lead-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

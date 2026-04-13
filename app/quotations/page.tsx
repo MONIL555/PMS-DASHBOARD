@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProducts } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
@@ -63,6 +63,7 @@ const Quotations = () => {
     Remarks: '',
     Outcome: 'Pending'
   });
+  const alertedIds = useRef<Set<string>>(new Set());
 
   const [convertData, setConvertData] = useState({
     Client_Reference: '',
@@ -264,10 +265,7 @@ const Quotations = () => {
 
   // Proactive Quotation Follow-up Alert Check
   useEffect(() => {
-    if (!quotations || quotations.length === 0) return;
-
     const today = new Date();
-    const triggeredIds = new Set<string>();
 
     quotations.forEach((qtn: any) => {
       // Only check active quotations (Sent / Follow-up)
@@ -293,10 +291,12 @@ const Quotations = () => {
         if (daysSinceFollowUp >= 3) shouldAlert = true;
       }
 
-      if (shouldAlert && !triggeredIds.has(qtn._id)) {
-        triggeredIds.add(qtn._id);
+      if (shouldAlert && !alertedIds.current.has(qtn._id)) {
+        // Mark as alerted for this session to stop the spamming
+        alertedIds.current.add(qtn._id);
 
         // Fire-and-forget: WhatsApp
+        console.log(`[Alert] Triggering WA follow-up for Quotation: ${qtn.Quotation_ID}`);
         fetch('/api/whatsapp/quotation-followup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -304,6 +304,7 @@ const Quotations = () => {
         }).catch(err => console.error('Failed to trigger WA follow-up', err));
 
         // Fire-and-forget: Email
+        console.log(`[Alert] Triggering Email follow-up for Quotation: ${qtn.Quotation_ID}`);
         fetch('/api/email/quotation-followup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

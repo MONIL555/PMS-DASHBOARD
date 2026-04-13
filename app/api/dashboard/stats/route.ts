@@ -6,6 +6,7 @@ import Project from '@/models/Project';
 import Ticket from '@/models/Ticket';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
+import { autoCleanupStaleItems } from '@/lib/cleanup';
 
 // --- UTILITIES (Ported from mainController.js) ---
 
@@ -90,6 +91,7 @@ const formatActivities = (leads: any[], quotes: any[], projs: any[], tickets: an
 export async function GET(request: Request) {
     try {
         await connectDB();
+        await autoCleanupStaleItems();
         const auth = await verifyPermission(PERMISSIONS.DASHBOARD_VIEW);
         if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 

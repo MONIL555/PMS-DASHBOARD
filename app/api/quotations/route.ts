@@ -6,10 +6,12 @@ import Client from '@/models/Client';
 import Product from '@/models/Product';
 import { verifyPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/permissions';
+import { autoCleanupStaleItems } from '@/lib/cleanup';
 
 export async function GET(request: Request) {
   try {
     await connectDB();
+    await autoCleanupStaleItems();
     const auth = await verifyPermission(PERMISSIONS.QUOTATIONS_VIEW);
     if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
@@ -122,37 +124,7 @@ export async function GET(request: Request) {
             .limit(limit);
     }
 
-    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    let needsRefresh = false;
-    for (const q of quotations) {
-        if (q.Quotation_Status === 'Sent' && new Date(q.Quotation_Date) < tenDaysAgo) {
-            q.Quotation_Status = 'Follow-up';
-            await q.save();
-            needsRefresh = true;
-        }
-    }
-
-    const finalQuotations = needsRefresh ? (
-        sortBy.startsWith('Company') ? await Quotation.aggregate([
-            { $match: filter },
-            {
-                $lookup: { from: 'clients', localField: 'Client_Reference', foreignField: '_id', as: 'Client_Reference' }
-            },
-            { $unwind: { path: '$Client_Reference', preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: { from: 'products', localField: 'Product_Reference', foreignField: '_id', as: 'Product_Reference' }
-            },
-            { $unwind: { path: '$Product_Reference', preserveNullAndEmptyArrays: true } },
-            { $sort: { 'Client_Reference.Company_Name': sortBy === 'Company-A-Z' ? 1 : -1 } },
-            { $skip: (page - 1) * limit },
-            { $limit: limit }
-        ]) : await Quotation.find(filter)
-          .populate('Client_Reference')
-          .populate('Product_Reference')
-          .sort(sortOption)
-          .skip((page - 1) * limit)
-          .limit(limit)
-    ) : quotations;
+    const finalQuotations = quotations;
 
     const statusBaseFilter = { ...filter };
     delete statusBaseFilter.Quotation_Status;

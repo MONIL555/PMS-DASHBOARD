@@ -222,6 +222,111 @@ export async function GET(request: Request) {
             return `${(curr >= prev ? '+' : '')}${((curr - prev) / prev * 100).toFixed(1)}%`;
         };
 
+        // ── CARD BREAKDOWN AGGREGATIONS ──
+        const leadDateMatch = isFY ? { Inquiry_Date: dateFilter } : {};
+        const quoteDateMatch = isFY ? { Quotation_Date: dateFilter } : {};
+        const projDateMatch = isFY ? { "Start_Details.Start_Date": dateFilter } : {};
+        const ticketDateMatch = isFY ? { Raised_Date_Time: dateFilter } : {};
+
+        const [
+            leadFollowupAgg, leadAvgConvAgg,
+            quoteStatusAgg, quotePipelineValueAgg,
+            projPipelineAgg, projPhaseDetailAgg, projHighPriorityCount, projOverdueCount, projTotalCostingAgg,
+            ticketAllStatusAgg, ticketOpenPriorityAgg, ticketAvgResolutionAgg
+        ] = await Promise.all([
+            // Lead: count with follow-ups and pending follow-ups
+            Lead.aggregate([
+                { $match: leadDateMatch },
+                { $project: {
+                    hasFollowUps: { $gt: [{ $size: { $ifNull: ["$Follow_Ups", []] } }, 0] },
+                    hasPendingFU: { $gt: [{ $size: { $filter: { input: { $ifNull: ["$Follow_Ups", []] }, as: "fu", cond: { $eq: ["$$fu.Outcome", "Pending"] } } } }, 0] }
+                }},
+                { $group: { _id: null, withFollowUps: { $sum: { $cond: ["$hasFollowUps", 1, 0] } }, pendingFollowUps: { $sum: { $cond: ["$hasPendingFU", 1, 0] } } } }
+            ]),
+            // Lead: avg days to convert (Inquiry_Date → Lead_Status_Date_Time for Converted)
+            Lead.aggregate([
+                { $match: { ...leadDateMatch, Lead_Status: 'Converted', Lead_Status_Date_Time: { $exists: true } } },
+                { $project: { days: { $divide: [{ $subtract: ["$Lead_Status_Date_Time", "$Inquiry_Date"] }, 86400000] } } },
+                { $group: { _id: null, avg: { $avg: "$days" } } }
+            ]),
+            // Quotation: status breakdown
+            Quotation.aggregate([
+                { $match: quoteDateMatch },
+                { $group: { _id: "$Quotation_Status", count: { $sum: 1 } } }
+            ]),
+            // Quotation: pipeline value (non-Rejected)
+            Quotation.aggregate([
+                { $match: { ...quoteDateMatch, Quotation_Status: { $nin: ['Rejected'] } } },
+                { $group: { _id: null, total: { $sum: "$Commercial" }, avg: { $avg: "$Commercial" }, withFollowUps: { $sum: { $cond: [{ $gt: [{ $size: { $ifNull: ["$Follow_Ups", []] } }, 0] }, 1, 0] } } } }
+            ]),
+            // Project: pipeline status breakdown
+            Project.aggregate([
+                { $match: projDateMatch },
+                { $group: { _id: "$Pipeline_Status", count: { $sum: 1 } } }
+            ]),
+            // Project: phase detail (calculated from UAT/Deployment/Delivery fields)
+            Project.aggregate([
+                { $match: { ...projDateMatch } },
+                { $project: {
+                    phase: { $switch: { branches: [
+                        { case: { $eq: ["$Delivery.Delivery_Status", "Delivered"] }, then: "Go-Live" },
+                        { case: { $eq: ["$Deployment.Deployment_Status", "Success"] }, then: "Delivery" },
+                        { case: { $eq: ["$UAT.UAT_Status", "Approved"] }, then: "Deployment" }
+                    ], default: "UAT" } }
+                }},
+                { $group: { _id: "$phase", count: { $sum: 1 } } }
+            ]),
+            // Project: high priority count
+            Project.countDocuments({ ...projDateMatch, Priority: 'High' }),
+            // Project: overdue count (any status past End_Date AND Go-Live not configured)
+            Project.countDocuments({ 
+                ...projDateMatch, 
+                Pipeline_Status: { $ne: 'Closed' },
+                'Start_Details.End_Date': { $lt: new Date(), $exists: true },
+                'Go_Live.GoLive_Date': { $exists: false }
+            }),
+            // Project: total costing for active
+            Project.aggregate([
+                { $match: { ...projDateMatch, Pipeline_Status: 'Active' } },
+                { $group: { _id: null, total: { $sum: "$Start_Details.Costing" } } }
+            ]),
+            // Ticket: ALL status breakdown (including closed)
+            Ticket.aggregate([
+                { $match: ticketDateMatch },
+                { $group: { _id: "$Status", count: { $sum: 1 } } }
+            ]),
+            // Ticket: open priority breakdown
+            Ticket.aggregate([
+                { $match: { ...ticketDateMatch, Status: { $ne: 'Closed' } } },
+                { $group: { _id: "$Priority", count: { $sum: 1 } } }
+            ]),
+            // Ticket: avg resolution time (Raised → Action_Taken for Closed)
+            Ticket.aggregate([
+                { $match: { ...ticketDateMatch, Status: 'Closed', Action_Taken_DT: { $exists: true } } },
+                { $project: { days: { $divide: [{ $subtract: ["$Action_Taken_DT", "$Raised_Date_Time"] }, 86400000] } } },
+                { $group: { _id: null, avg: { $avg: "$days" } } }
+            ])
+        ]);
+
+        // Build breakdown objects
+        const leadStatusMap: Record<string, number> = {};
+        leadStats.forEach((s: any) => { leadStatusMap[s._id || 'Unknown'] = s.count; });
+
+        const quoteStatusMap: Record<string, number> = {};
+        quoteStatusAgg.forEach((s: any) => { quoteStatusMap[s._id || 'Unknown'] = s.count; });
+
+        const projPipelineMap: Record<string, number> = {};
+        projPipelineAgg.forEach((s: any) => { projPipelineMap[s._id || 'Active'] = s.count; });
+
+        const projPhaseMap: Record<string, number> = {};
+        projPhaseDetailAgg.forEach((s: any) => { projPhaseMap[s._id] = s.count; });
+
+        const ticketStatusMap: Record<string, number> = {};
+        ticketAllStatusAgg.forEach((s: any) => { ticketStatusMap[s._id || 'Open'] = s.count; });
+
+        const ticketPriorityMap: Record<string, number> = {};
+        ticketOpenPriorityAgg.forEach((s: any) => { ticketPriorityMap[s._id || 'Medium'] = s.count; });
+
         return NextResponse.json({
             stats: { 
                 totalLeads: leadCount, 
@@ -239,6 +344,47 @@ export async function GET(request: Request) {
                 totalConvertedQuotesRate: calculateRate(totalConvertedCurrent, totalConvertedPrev),
                 avgQuoteValue: quoteCount > 0 ? (totalConvertedCurrent / quoteCount) : 0,
                 avgProjectValue: activeProjCount > 0 ? (currentTotal / activeProjCount) : 0
+            },
+            // Card Breakdowns
+            leadBreakdown: {
+                new: leadStatusMap['New'] || 0,
+                inProgress: leadStatusMap['In Progress'] || 0,
+                converted: leadStatusMap['Converted'] || 0,
+                cancelled: leadStatusMap['Cancelled'] || 0,
+                withFollowUps: leadFollowupAgg[0]?.withFollowUps || 0,
+                pendingFollowUps: leadFollowupAgg[0]?.pendingFollowUps || 0,
+                avgDaysToConvert: leadAvgConvAgg[0]?.avg ? Math.round(leadAvgConvAgg[0].avg) : 0
+            },
+            quotationBreakdown: {
+                sent: quoteStatusMap['Sent'] || 0,
+                followUp: quoteStatusMap['Follow-up'] || 0,
+                approved: quoteStatusMap['Approved'] || 0,
+                rejected: quoteStatusMap['Rejected'] || 0,
+                converted: quoteStatusMap['Converted'] || 0,
+                pipelineValue: quotePipelineValueAgg[0]?.total || 0,
+                avgQuoteValue: quotePipelineValueAgg[0]?.avg ? Math.round(quotePipelineValueAgg[0].avg) : 0,
+                withFollowUps: quotePipelineValueAgg[0]?.withFollowUps || 0
+            },
+            projectBreakdown: {
+                active: projPipelineMap['Active'] || 0,
+                onHold: projPipelineMap['On Hold'] || 0,
+                closed: projPipelineMap['Closed'] || 0,
+                highPriority: projHighPriorityCount,
+                uatPhase: projPhaseMap['UAT'] || 0,
+                deploymentPhase: projPhaseMap['Deployment'] || 0,
+                deliveryPhase: projPhaseMap['Delivery'] || 0,
+                goLivePhase: projPhaseMap['Go-Live'] || 0,
+                totalCosting: projTotalCostingAgg[0]?.total || 0,
+                overdue: projOverdueCount
+            },
+            ticketBreakdown: {
+                open: ticketStatusMap['Open'] || 0,
+                inProgress: ticketStatusMap['In_Progress'] || 0,
+                closed: ticketStatusMap['Closed'] || 0,
+                highPriority: ticketPriorityMap['High'] || 0,
+                mediumPriority: ticketPriorityMap['Medium'] || 0,
+                lowPriority: ticketPriorityMap['Low'] || 0,
+                avgResolutionDays: ticketAvgResolutionAgg[0]?.avg ? Math.round(ticketAvgResolutionAgg[0].avg) : 0
             },
             leadStatusDist: leadStats.map((s: any) => ({ name: s._id || 'Unknown', value: s.count })),
             projectPhaseDist: projectPhases.map((p: any) => ({ name: p._id || 'Not Started', value: p.count })),

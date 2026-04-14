@@ -264,63 +264,8 @@ const Quotations = () => {
   }, [currentPage, debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
 
   // Proactive Quotation Follow-up Alert Check
-  useEffect(() => {
-    const today = new Date();
-
-    quotations.forEach((qtn: any) => {
-      // Only check active quotations (Sent / Follow-up)
-      if (!['Sent', 'Follow-up'].includes(qtn.Quotation_Status)) return;
-      if (!qtn.Followup_Notification) return;
-
-      const hasFollowUps = qtn.Follow_Ups && qtn.Follow_Ups.length > 0;
-      const lastPending = hasFollowUps
-        ? [...qtn.Follow_Ups].reverse().find((f: any) => f.Outcome === 'Pending')
-        : null;
-
-      let shouldAlert = false;
-
-      if (!hasFollowUps) {
-        // No follow-ups: alert 5 days after quotation creation
-        const createdAt = new Date(qtn.Quotation_Date || qtn.createdAt);
-        const daysSinceCreation = Math.ceil((today.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysSinceCreation >= 5) shouldAlert = true;
-      } else if (lastPending) {
-        // Has pending follow-up: alert 3 days after it
-        const followUpDate = new Date(lastPending.Followup_Date);
-        const daysSinceFollowUp = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysSinceFollowUp >= 3) shouldAlert = true;
-      }
-
-      if (shouldAlert && !alertedIds.current.has(qtn._id)) {
-        // Mark as alerted for this session to stop the spamming
-        alertedIds.current.add(qtn._id);
-
-        // Cross-channel synchronization: If either channel was sent today, no further notifications are triggered
-        const todayStr = today.toDateString();
-        const alreadyAlertedToday = 
-          (qtn.Followup_Alert?.Last_WA_Sent_Date && new Date(qtn.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
-          (qtn.Followup_Alert?.Last_Email_Sent_Date && new Date(qtn.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
-
-        if (!alreadyAlertedToday) {
-          console.log(`[Alert] Triggering synchronized follow-up for Quotation: ${qtn.Quotation_ID}`);
-
-          // Fire-and-forget: WhatsApp
-          fetch('/api/whatsapp/quotation-followup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quotationId: qtn._id })
-          }).catch(err => console.error('Failed to trigger WA follow-up', err));
-
-          // Fire-and-forget: Email
-          fetch('/api/email/quotation-followup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quotationId: qtn._id })
-          }).catch(err => console.error('Failed to trigger email follow-up', err));
-        }
-      }
-    });
-  }, [quotations]);
+  // Automated follow-up alerts are now handled by the centralized cron job (/api/cron/dispatch-all)
+  // this prevents redundant notifications when multiple admins view the quotations page.
 
   useEffect(() => {
     if (selectedQuotation) {

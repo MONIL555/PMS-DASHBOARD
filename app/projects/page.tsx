@@ -32,10 +32,12 @@ const Projects = () => {
   const [error, setError] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [phaseFilter, setPhaseFilter] = useState('All');
-  const [pipelineFilter, setPipelineFilter] = useState('All');
+  const [phaseFilter, setPhaseFilter] = useState(searchParams.get('phase') || 'All');
+  const [pipelineFilter, setPipelineFilter] = useState(searchParams.get('pipeline') || 'All');
   const [sortBy, setSortBy] = useState('Newest');
   const [personFilter, setPersonFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState(searchParams.get('priority') || 'All');
+  const [overdueFilter, setOverdueFilter] = useState(searchParams.get('overdue') === 'true');
 
   // Initialize from search params
   const initialStartDate = searchParams.get('startDate') || '';
@@ -169,6 +171,8 @@ const Projects = () => {
         phase: phaseFilter,
         pipeline: pipelineFilter,
         person: personFilter,
+        priority: priorityFilter,
+        overdue: overdueFilter ? 'true' : undefined,
         sortBy: sortBy,
         startDate,
         endDate
@@ -248,11 +252,11 @@ const Projects = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter, dateRange, customStartDate, customEndDate]);
+  }, [debouncedSearch, phaseFilter, pipelineFilter, personFilter, priorityFilter, overdueFilter, sortBy, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     loadData();
-  }, [currentPage, debouncedSearch, phaseFilter, sortBy, personFilter, pipelineFilter, dateRange, customStartDate, customEndDate]);
+  }, [debouncedSearch, phaseFilter, pipelineFilter, personFilter, priorityFilter, overdueFilter, sortBy, dateRange, customStartDate, customEndDate, currentPage]);
 
   const handlePhaseAdvance = async (prj: any, currentPhase: string) => {
     setUpdating(true);
@@ -513,20 +517,20 @@ const Projects = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '1rem', 
+      <div className="page-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
         padding: '0.25rem 0',
         gap: '1.25rem',
         minHeight: '48px'
       }}>
         {/* Left: Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div style={{ 
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-            padding: '0.45rem', 
+          <div style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            padding: '0.45rem',
             borderRadius: '10px',
             color: '#3b82f6',
             display: 'flex',
@@ -535,11 +539,11 @@ const Projects = () => {
           }}>
             <Briefcase size={20} strokeWidth={2.5} />
           </div>
-          <h1 className="page-title" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 800, 
-            color: 'var(--text-primary)', 
-            margin: 0, 
+          <h1 className="page-title" style={{
+            fontSize: '1.5rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: 0,
             letterSpacing: '-0.025em',
             whiteSpace: 'nowrap'
           }}>Projects</h1>
@@ -559,25 +563,42 @@ const Projects = () => {
         </div>
 
         {/* Middle-Right: Stats Filters */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.4rem', 
-          backgroundColor: '#f8fafc', 
-          padding: '0.25rem', 
+        <div style={{
+          display: 'flex',
+          gap: '0.4rem',
+          backgroundColor: '#f8fafc',
+          padding: '0.25rem',
           borderRadius: '10px',
           border: '1px solid var(--border-color)',
           alignItems: 'center',
           flexShrink: 0
         }}>
+          <div
+            onClick={() => setPhaseFilter('All')}
+            style={{
+              padding: '0.35rem 0.6rem',
+              cursor: 'pointer',
+              borderRadius: '8px',
+              backgroundColor: phaseFilter === 'All' ? 'white' : 'transparent',
+              boxShadow: phaseFilter === 'All' ? '0 2px 4px rgba(0, 0, 0, 0.05)' : 'none',
+              border: phaseFilter === 'All' ? '1px solid var(--border-color)' : '1px solid transparent',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            All Phases
+          </div>
           {[
-            { label: 'UAT', key: 'UAT Phase', count: phaseCountsOutput.UAT, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <Target size={14} /> },
-            { label: 'Deployment', key: 'Deployment Phase', count: phaseCountsOutput.Deployment, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Rocket size={14} /> },
-            { label: 'Delivery', key: 'Delivery Phase', count: phaseCountsOutput.Delivery, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Package size={14} /> },
-            { label: 'Go-Live', key: 'Go-Live Config', count: phaseCountsOutput.GoLive, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <PlayCircle size={14} /> }
+            { label: 'UAT', key: 'UAT', count: phaseCountsOutput.UAT, color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.1)', icon: <Target size={14} /> },
+            { label: 'Deployment', key: 'Deployment', count: phaseCountsOutput.Deployment, color: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.1)', icon: <Rocket size={14} /> },
+            { label: 'Delivery', key: 'Delivery', count: phaseCountsOutput.Delivery, color: '#10b981', bgColor: 'rgba(16, 185, 129, 0.1)', icon: <Package size={14} /> },
+            { label: 'Go-Live', key: 'GoLive', count: phaseCountsOutput.GoLive, color: '#6366f1', bgColor: 'rgba(99, 102, 241, 0.1)', icon: <PlayCircle size={14} /> }
           ].map((block) => (
             <div
               key={block.key}
-              onClick={() => setPhaseFilter(phaseFilter === block.key ? 'All' : block.key)}
+              onClick={() => setPhaseFilter(block.key)}
               style={{
                 padding: '0.35rem 0.6rem',
                 display: 'flex',
@@ -612,33 +633,54 @@ const Projects = () => {
           ))}
         </div>
 
-        {/* Right: Primary Action */}
-        {hasPermission(PERMISSIONS.PROJECTS_CREATE) && (
-          <button
-            onClick={() => {
-              setIsAddModalOpen(true);
-              loadQuotations();
-              loadLeads();
-            }}
-            className="btn btn-primary"
-            style={{ 
-              height: '36px',
-              padding: '0 1rem', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
-              fontSize: '0.85rem',
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.4rem',
-              boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
-              transition: 'all 0.2s ease',
-              flexShrink: 0
-            }}
-          >
-            <Plus size={16} />
-            Add Project
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          {/*{overdueFilter && (
+            <button
+              onClick={() => setOverdueFilter(false)}
+              className="btn btn-secondary"
+              style={{ padding: '0 0.75rem', height: '36px', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '8px' }}
+            >
+              <X size={14} /> Clear Overdue
+            </button>
+          )}*/}
+          {priorityFilter !== 'All' && (
+            <button
+              onClick={() => setPriorityFilter('All')}
+              className="btn btn-secondary"
+              style={{ padding: '0 0.75rem', height: '36px', fontSize: '0.75rem', borderColor: '#ef4444', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.35rem', borderRadius: '8px' }}
+            >
+              <X size={14} /> Clear Priority: {priorityFilter}
+            </button>
+          )}
+
+          {/* Right: Primary Action */}
+          {hasPermission(PERMISSIONS.PROJECTS_CREATE) && (
+            <button
+              onClick={() => {
+                setIsAddModalOpen(true);
+                loadQuotations();
+                loadLeads();
+              }}
+              className="btn btn-primary"
+              style={{
+                height: '36px',
+                padding: '0 1rem',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+            >
+              <Plus size={16} />
+              Add Project
+            </button>
+          )}
+        </div>
       </div>
 
 

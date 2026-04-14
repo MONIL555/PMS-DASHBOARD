@@ -15,6 +15,19 @@ import DateInput from '@/components/DateInput';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 
+// Helper: divide annual amount by payment schedule cycle
+const getCycleAmount = (amount: number, schedule: string) => {
+  if (!amount || amount <= 0) return amount || 0;
+  switch (schedule) {
+    case 'Monthly': return Math.round(amount / 12);
+    case 'Quarterly': return Math.round(amount / 4);
+    case 'Annually':
+    case 'Yearly':
+    case 'One Time':
+    default: return amount;
+  }
+};
+
 const ProjectDetails = () => {
   const { id } = useParams() as { id: string };
   const router = useRouter();
@@ -100,7 +113,9 @@ const ProjectDetails = () => {
   });
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'details' | 'hold' | 'termination'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'hold' | 'billing' | 'termination'>('details');
+  const [billingEntries, setBillingEntries] = useState<any[]>([]);
+  const [loadingBilling, setLoadingBilling] = useState(false);
 
   const loadProject = async () => {
     try {
@@ -137,178 +152,129 @@ const ProjectDetails = () => {
     const paidCycles = (svc.Payment_History || []).map((ph: any) => new Date(ph.Cycle_Date).toDateString());
 
     // Advance until we find a date that is NOT in the paid history
-    // We limit to 120 cycles (10 years) to prevent infinite loops if something is wrong
+    // We limit to 12 cycles (1 year) to prevent infinite loops and 2037 projections
     let iterations = 0;
-    while (paidCycles.includes(nextBilling.toDateString()) && iterations < 120) {
+    while (paidCycles.includes(nextBilling.toDateString()) && iterations < 12) {
       nextBilling.setMonth(nextBilling.getMonth() + monthsInterval);
       iterations++;
     }
 
+    // Only return if it's within 12 months of the anchor (consistency with calendar API)
+    const mDiff = (nextBilling.getFullYear() - baseDate.getFullYear()) * 12 + (nextBilling.getMonth() - baseDate.getMonth());
+    if (mDiff >= 12 && svc.Payment_Terms !== 'One Time') return null;
+
     return nextBilling;
   };
 
-  // Proactive Reminder Check on Load
-  useEffect(() => {
-    if (project?.External_Services?.length) {
-      const now = new Date();
+  // --- BILLING LEDGER LOGIC ---
+  const generateLedger = () => {
+    if (!project) return;
+    setLoadingBilling(true);
+    const schedule: any[] = [];
+    const today = new Date();
+
+    // 1. Project Costing (Go-Live) Schedule
+    if (project.Go_Live?.GoLive_Date && project.Go_Live?.Payment_Schedule) {
+      const anchor = new Date(project.Go_Live.GoLive_Date);
+      const scheduleType = project.Go_Live.Payment_Schedule;
+      const monthsInterval = (scheduleType === 'Monthly') ? 1 : (scheduleType === 'Quarterly' ? 3 : 12);
+      const maxInstallments = (scheduleType === 'Monthly') ? 12 : (scheduleType === 'Quarterly' ? 4 : 1);
+
+      for (let i = 0; i < (scheduleType === 'One Time' ? 1 : maxInstallments); i++) {
+        const cycleDate = new Date(anchor);
+        cycleDate.setMonth(anchor.getMonth() + (i * monthsInterval));
+        
+        const payment = project.Go_Live.Payment_History?.find(
+          (p: any) => new Date(p.Cycle_Date).toDateString() === cycleDate.toDateString()
+        );
+
+        schedule.push({
+          id: `golive-${i}`,
+          type: 'Go-Live',
+          source: 'Project Costing',
+          cycleDate,
+          amount: getCycleAmount(project.Start_Details?.Costing || 0, scheduleType),
+          status: payment ? 'Collected' : (cycleDate < today ? 'Overdue' : 'Pending'),
+          paymentInfo: payment
+        });
+        if (scheduleType === 'One Time') break;
+      }
+    }
+
+    // 2. External Services Schedule
+    if (project.External_Services?.length) {
       project.External_Services.forEach((svc: any) => {
-        if (!svc.Reminder?.Enabled) return;
+        const anchor = new Date(svc.Cycle_Anchor_Date || svc.Status_Date || svc.Inquiry_Date);
+        const scheduleType = svc.Payment_Terms;
+        const monthsInterval = (scheduleType === 'Quarterly') ? 3 : (scheduleType === 'Annually' || scheduleType === 'Yearly') ? 12 : 1;
+        const maxInstallments = (scheduleType === 'Monthly') ? 12 : (scheduleType === 'Quarterly' ? 4 : 1);
 
-        const nextBilling = getNextBilling(svc);
-        if (!nextBilling) return;
+        for (let i = 0; i < (scheduleType === 'One Time' ? 1 : maxInstallments); i++) {
+          const cycleDate = new Date(anchor);
+          cycleDate.setMonth(anchor.getMonth() + (i * monthsInterval));
 
-        const notifyDays = svc.Reminder.Notify_Before?.match(/\d+/) ? parseInt(svc.Reminder.Notify_Before.match(/\d+/)[0]) : 3;
-        const reminderDate = new Date(nextBilling);
-        reminderDate.setDate(reminderDate.getDate() - notifyDays);
+          const payment = svc.Payment_History?.find(
+            (p: any) => new Date(p.Cycle_Date).toDateString() === cycleDate.toDateString()
+          );
 
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const reminderDay = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate());
-        const daysSinceReminder = Math.floor((today.getTime() - reminderDay.getTime()) / (1000 * 60 * 60 * 24));
-
-        let isTriggered = false;
-        if (svc.Billing_Status !== 'Received') {
-          if (svc.Reminder?.Notify_Before === 'Custom Date') {
-            isTriggered = now.getTime() >= reminderDate.getTime();
-          } else if (svc.Payment_Terms === 'One Time') {
-            isTriggered = daysSinceReminder >= 0 && daysSinceReminder % 2 === 0;
-          } else {
-            isTriggered = now >= reminderDate && now <= nextBilling;
-          }
-        }
-
-        if (isTriggered) {
-          const isOneTime = svc.Payment_Terms === 'One Time';
-          const alreadySent = isOneTime
-            ? (svc.Reminder.Last_WA_Sent_Date && new Date(svc.Reminder.Last_WA_Sent_Date).toDateString() === today.toDateString()) ||
-              (svc.Reminder.Last_Email_Sent_Date && new Date(svc.Reminder.Last_Email_Sent_Date).toDateString() === today.toDateString())
-            : (svc.Reminder.Last_WA_Sent_Billing_Date && new Date(svc.Reminder.Last_WA_Sent_Billing_Date).getTime() === nextBilling.getTime()) ||
-              (svc.Reminder.Last_Email_Sent_Billing_Date && new Date(svc.Reminder.Last_Email_Sent_Billing_Date).getTime() === nextBilling.getTime());
-
-          if (!alreadySent) {
-            console.log(`[Alert] Triggering synchronized billing reminder for Project: ${project.Project_ID}, Service: ${svc.Service_Name}`);
-
-            // Trigger the WhatsApp background processing
-            fetch('/api/whatsapp/remind', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                projectId: project._id,
-                serviceId: svc._id,
-                currentDateIso: today.toISOString(),
-                nextBillingIso: nextBilling.toISOString(),
-                isOneTime: svc.Payment_Terms === 'One Time'
-              })
-            }).catch(err => console.error('Failed to trigger WA reminder', err));
-
-            // Trigger the Email background processing
-            fetch('/api/email/remind', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                projectId: project._id,
-                serviceId: svc._id,
-                currentDateIso: today.toISOString(),
-                nextBillingIso: nextBilling.toISOString(),
-                isOneTime: svc.Payment_Terms === 'One Time'
-              })
-            }).catch(err => console.error('Failed to trigger email reminder', err));
-          }
+          schedule.push({
+            id: `service-${svc._id}-${i}`,
+            type: 'Service',
+            serviceId: svc._id,
+            source: svc.Service_Name,
+            cycleDate,
+            amount: getCycleAmount(svc.Amount, scheduleType),
+            status: payment ? 'Collected' : (cycleDate < today ? 'Overdue' : 'Pending'),
+            paymentInfo: payment
+          });
+          if (scheduleType === 'One Time') break;
         }
       });
     }
-  }, [project]);
 
-  // Proactive Project Deadline Alert Check on Load
+    // Sort by Date
+    schedule.sort((a, b) => a.cycleDate.getTime() - b.cycleDate.getTime());
+    setBillingEntries(schedule);
+    setLoadingBilling(false);
+  };
+
   useEffect(() => {
-    if (!project || project.Pipeline_Status !== 'Active') return;
-    const endDate = project.Start_Details?.End_Date;
-    if (!endDate) return;
-
-    const now = new Date();
-    const deadline = new Date(endDate);
-    const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Trigger alert if deadline is within 3 days (or already passed)
-    if (daysLeft <= 3) {
-      const todayStr = now.toDateString();
-      const alreadySent = (project.Deadline_Alert?.Last_WA_Sent_Date && new Date(project.Deadline_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
-                         (project.Deadline_Alert?.Last_Email_Sent_Date && new Date(project.Deadline_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
-
-      if (!alreadySent) {
-        console.log(`[Alert] Triggering synchronized deadline alert for Project: ${project.Project_ID}`);
-
-        // Fire-and-forget: WhatsApp deadline alert
-        fetch('/api/whatsapp/deadline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId: project._id })
-        }).catch(err => console.error('Failed to trigger WA deadline alert', err));
-
-        // Fire-and-forget: Email deadline alert
-        fetch('/api/email/deadline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projectId: project._id })
-        }).catch(err => console.error('Failed to trigger email deadline alert', err));
-      }
+    if (activeTab === 'billing' && project) {
+      generateLedger();
     }
-  }, [project]);
+  }, [activeTab, project]);
 
-  // Proactive Go-Live Renewal Reminder Check on Load
-  useEffect(() => {
-    if (!project || project.Pipeline_Status !== 'Active') return;
-    const goLive = project.Go_Live;
-    if (!goLive?.GoLive_Date || !goLive?.Renewal_Rate || !goLive?.Payment_Schedule) return;
+  const handleManualCollect = async (entry: any) => {
+    if (!confirm(`Mark ${entry.source} installment for ${formatDateDDMMYYYY(entry.cycleDate)} as collected?`)) return;
 
-    const today = new Date();
-    const anchorDate = new Date(goLive.GoLive_Date);
-    let nextRenewal = new Date(anchorDate);
-
-    // Calculate next renewal date based on Payment_Schedule
-    if (goLive.Payment_Schedule === 'One Time') {
-      nextRenewal = new Date(anchorDate);
-    } else {
-      const monthsPerCycle = goLive.Payment_Schedule === 'Monthly' ? 1
-        : goLive.Payment_Schedule === 'Quarterly' ? 3 : 12;
-
-      // Advance from anchor until we find the next future date
-      while (nextRenewal <= today) {
-        nextRenewal.setMonth(nextRenewal.getMonth() + monthsPerCycle);
-      }
-    }
-
-    const daysLeft = Math.ceil((nextRenewal.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Trigger if renewal is within 5 days
-    if (daysLeft <= 5) {
-      const alreadySent = (project.Go_Live.Renewal_Reminder?.Last_WA_Sent_Billing_Date && new Date(project.Go_Live.Renewal_Reminder.Last_WA_Sent_Billing_Date).getTime() === nextRenewal.getTime()) ||
-                         (project.Go_Live.Renewal_Reminder?.Last_Email_Sent_Billing_Date && new Date(project.Go_Live.Renewal_Reminder.Last_Email_Sent_Billing_Date).getTime() === nextRenewal.getTime());
-
-      if (!alreadySent) {
-        console.log(`[Alert] Triggering synchronized project costing reminder for Project: ${project.Project_ID}`);
-        
-        const payload = {
+    try {
+      const res = await fetch('/api/projects/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           projectId: project._id,
-          currentDateIso: today.toISOString(),
-          nextBillingIso: nextRenewal.toISOString()
-        };
+          type: entry.type,
+          serviceId: entry.serviceId,
+          cycleDate: entry.cycleDate.toISOString(),
+          amount: entry.amount,
+          collectedBy: 'Admin'
+        })
+      });
 
-        // Fire-and-forget: WhatsApp renewal alert (Calculated costing)
-        fetch('/api/whatsapp/renewal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(err => console.error('Failed to trigger WA costing reminder', err));
-
-        // Fire-and-forget: Email renewal alert (Calculated costing)
-        fetch('/api/email/renewal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(err => console.error('Failed to trigger email costing reminder', err));
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Payment recorded');
+        loadProject(); 
+      } else {
+        toast.error(data.error);
       }
+    } catch (err) {
+      toast.error('Failed to record payment');
     }
-  }, [project]);
+  };
+
+  // Automated billing, deadline, and costing alerts are now handled by the centralized cron job (/api/cron/dispatch-all)
+  // this prevents redundant notifications when multiple admins view the project details page.
 
   const getProjectPhase = (prj: any) => {
     if (prj.Delivery?.Delivery_Status === 'Delivered') return 'Go-Live Config';
@@ -700,14 +666,6 @@ const ProjectDetails = () => {
             <span className={`badge ${detailBadge}`} style={{ fontSize: '1rem', padding: '0.4rem 0.75rem', borderRadius: '0.5rem', fontWeight: 700 }}>{currentPhase}</span>
           </div>
         </div>
-        {/* Displaying predefine line to say the project is on hold */}
-        {/*{project.Pipeline_Status === 'On Hold' && (
-          <div style={{ background: 'white', padding: '1rem', borderRadius: '0.75rem', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.03)', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
-              <h3 style={{ color: 'var(--warning-color)', textAlign: 'center' }}>Project is On Hold...</h3>
-            </div>
-          </div>
-        )}*/}
         {/* Visual Phase Tracker */}
         {project.Pipeline_Status !== 'Closed' && (
           <div style={{ background: 'white', padding: '1rem', borderRadius: '0.75rem', boxShadow: '0 2px 4px -1px rgba(0,0,0,0.03)' }}>
@@ -738,47 +696,138 @@ const ProjectDetails = () => {
         )}
       </div>
 
-      {/* Tabs */}
-      {(project.Hold_History?.length > 0 || (project.Pipeline_Status === 'Closed' && project.Termination?.Reason)) && (
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+      {/* Consolidated Project Tabs */}
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem', overflowX: 'auto' }}>
+        <button
+          onClick={() => setActiveTab('details')}
+          style={{
+            background: activeTab === 'details' ? 'rgba(99,102,241,0.1)' : 'transparent',
+            color: activeTab === 'details' ? 'var(--primary-color)' : 'var(--text-secondary)',
+            border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
+            cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
+          }}
+        >
+          Project Details
+        </button>
+
+        {/* Show Billing Ledger if Go-Live is set or External Services exist */}
+        {(project.Go_Live?.GoLive_Date || project.External_Services?.length > 0) && (
           <button
-            onClick={() => setActiveTab('details')}
+            onClick={() => setActiveTab('billing')}
             style={{
-              background: activeTab === 'details' ? 'rgba(99,102,241,0.1)' : 'transparent',
-              color: activeTab === 'details' ? 'var(--primary-color)' : 'var(--text-secondary)',
+              background: activeTab === 'billing' ? 'rgba(16,185,129,0.1)' : 'transparent',
+              color: activeTab === 'billing' ? '#10b981' : 'var(--text-secondary)',
               border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
-              cursor: 'pointer', transition: 'all 0.2s'
+              cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
             }}
           >
-            Project Details
+            Billing Ledger
           </button>
+        )}
 
-          {project.Hold_History?.length > 0 && (
-            <button
-              onClick={() => setActiveTab('hold')}
-              style={{
-                background: activeTab === 'hold' ? 'rgba(245,158,11,0.1)' : 'transparent',
-                color: activeTab === 'hold' ? '#d97706' : 'var(--text-secondary)',
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
-                cursor: 'pointer', transition: 'all 0.2s'
-              }}
-            >
-              Hold History
-            </button>
-          )}
+        {project.Hold_History?.length > 0 && (
+          <button
+            onClick={() => setActiveTab('hold')}
+            style={{
+              background: activeTab === 'hold' ? 'rgba(245,158,11,0.1)' : 'transparent',
+              color: activeTab === 'hold' ? '#d97706' : 'var(--text-secondary)',
+              border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
+              cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
+            }}
+          >
+            Hold History
+          </button>
+        )}
 
-          {project.Pipeline_Status === 'Closed' && project.Termination?.Reason && (
-            <button
-              onClick={() => setActiveTab('termination')}
-              style={{
-                background: activeTab === 'termination' ? 'rgba(239,68,68,0.1)' : 'transparent',
-                color: activeTab === 'termination' ? '#dc2626' : 'var(--text-secondary)',
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
-                cursor: 'pointer', transition: 'all 0.2s'
-              }}
-            >
-              Project Termination
-            </button>
+        {project.Pipeline_Status === 'Closed' && project.Termination?.Reason && (
+          <button
+            onClick={() => setActiveTab('termination')}
+            style={{
+              background: activeTab === 'termination' ? 'rgba(239,68,68,0.1)' : 'transparent',
+              color: activeTab === 'termination' ? '#dc2626' : 'var(--text-secondary)',
+              border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.9rem',
+              cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
+            }}
+          >
+            Project Termination
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'billing' && (
+        <div style={{ background: 'white', borderRadius: '1rem', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Billing Ledger & Installments</h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+              Showing schedule for next 12 months
+            </div>
+          </div>
+
+          {loadingBilling ? (
+            <div style={{ padding: '3rem', textAlign: 'center' }}><Loader2 className="animate-spin mx-auto text-indigo-500" size={32} /></div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '2px solid rgba(0,0,0,0.03)' }}>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Cycle Date</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Source / Service</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {billingEntries.map((entry) => (
+                    <tr key={entry.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.02)', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.01)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                      <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {formatDateDDMMYYYY(entry.cycleDate)}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>{entry.source}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{entry.type}</div>
+                      </td>
+                      <td style={{ padding: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        ₹{entry.amount.toLocaleString('en-IN')}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span className={`badge ${entry.status === 'Collected' ? 'badge-green' : entry.status === 'Overdue' ? 'badge-red' : 'badge-yellow'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem' }}>
+                          {entry.status}
+                        </span>
+                        {entry.paymentInfo && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                            Coll: {formatDateDDMMYYYY(entry.paymentInfo.Collected_At)}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        {entry.status !== 'Collected' && (
+                          <button
+                            onClick={() => handleManualCollect(entry)}
+                            style={{
+                              padding: '0.35rem 0.75rem', borderRadius: '0.4rem', background: '#10b981', color: 'white',
+                              border: 'none', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                              boxShadow: '0 2px 4px rgba(16,184,129,0.2)'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(16,184,129,0.3)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 4px rgba(16,184,129,0.2)'; }}
+                          >
+                            Mark Collected
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {billingEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No billing schedule found for this project.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

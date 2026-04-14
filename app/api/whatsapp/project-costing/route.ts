@@ -39,17 +39,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Payment already collected for this costing cycle. Skipping notification.' }, { status: 200 });
     }
 
-    // Deduplication: check if already sent for this billing cycle (Cross-channel synchronized)
+    // Deduplication: check if already sent for this billing cycle
     const lastSentWA = project.Go_Live?.Renewal_Reminder?.Last_WA_Sent_Billing_Date;
     const lastSentEmail = project.Go_Live?.Renewal_Reminder?.Last_Email_Sent_Billing_Date;
     
     if (lastSentWA && new Date(lastSentWA).getTime() === nextBillingDate.getTime()) {
-      console.log(`[WhatsApp Costing] Already sent for this cycle (WA) for Project: ${projectId}`);
-      return NextResponse.json({ message: 'Costing WhatsApp already sent for this cycle.' }, { status: 200 });
+      return NextResponse.json({ message: 'Project costing WhatsApp already sent for this cycle.' }, { status: 200 });
     }
     if (lastSentEmail && new Date(lastSentEmail).getTime() === nextBillingDate.getTime()) {
-      console.log(`[WhatsApp Costing] Already sent for this cycle (Email) for Project: ${projectId}`);
-      return NextResponse.json({ message: 'Costing Email already sent for this cycle. Skipping WhatsApp.' }, { status: 200 });
+      return NextResponse.json({ message: 'Project costing Email already sent for this cycle. Skipping WhatsApp.' }, { status: 200 });
     }
 
     // Update tracking
@@ -59,22 +57,20 @@ export async function POST(req: Request) {
     project.Go_Live.Renewal_Reminder!.Last_WA_Sent_Date = currentDate;
     await project.save();
 
-    // Logic: Calculate Installment Amount from Start_Details.Costing
+    // Logic: Calculate Installment Amount (Match ES pattern)
     const totalCosting = project.Start_Details?.Costing || 0;
-    const schedule = project.Go_Live?.Payment_Schedule || 'Yearly';
+    const schedule = project.Go_Live?.Payment_Schedule || 'Annually';
     let installmentAmount = totalCosting;
 
     if (schedule === 'Monthly') installmentAmount = totalCosting / 12;
     else if (schedule === 'Quarterly') installmentAmount = totalCosting / 4;
-    // For Yearly/One Time, use full Costing as requested
 
     // Fetch admin WhatsApp from Global Settings
     const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
     const internalNumber = globalSettings?.Admin_WhatsApp || '';
 
     const clientRef: any = project.Client_Reference;
-    const daysLeft = Math.ceil((nextBillingDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
-
+    
     const messageText = `*💸 Project Costing Payment Reminder:*
 Project: ${project.Project_ID} - ${project.Project_Name}
 Client: ${clientRef?.Company_Name || clientRef?.Client_Name || 'N/A'}

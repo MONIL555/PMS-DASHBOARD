@@ -108,9 +108,9 @@ export async function GET(request: Request) {
         });
 
         // 3. Service Billings (External Services)
-        const activeProjects = await Project.find({
-            Pipeline_Status: { $in: ['Active', 'On Hold'] }
-        }).populate('Client_Reference', 'Company_Name Client_Name').lean();
+        const activeProjects = await Project.find({})
+            .populate('Client_Reference', 'Company_Name Client_Name')
+            .lean();
 
         activeProjects.forEach((p: any) => {
             // --- SERVICE BILLINGS ---
@@ -144,7 +144,7 @@ export async function GET(request: Request) {
                                     nextBilling.setFullYear(currentYear);
                                     nextBilling.setMonth(currentMonth);
                                 }
-                            } else if (svc.Payment_Terms === 'Annually') {
+                            } else if (svc.Payment_Terms === 'Annually' || svc.Payment_Terms === 'Yearly') {
                                 if (mDiff === 0) {
                                     isValidOccurrence = true;
                                     nextBilling.setFullYear(currentYear);
@@ -185,13 +185,11 @@ export async function GET(request: Request) {
 
             // --- PROJECT COSTING (Go-Live Renewals) ---
             const goLive = p.Go_Live;
-            if (goLive?.GoLive_Date && goLive?.Renewal_Rate && goLive?.Payment_Schedule) {
+            if (goLive?.GoLive_Date && goLive?.Payment_Schedule) {
                 const anchorDate = new Date(goLive.GoLive_Date);
-
                 let nextBilling: Date | null = null;
 
                 if (goLive.Payment_Schedule === 'One Time') {
-                    // One-time: show only in the anchor month
                     if (anchorDate >= startOfMonth && anchorDate <= endOfMonth) {
                         nextBilling = anchorDate;
                     }
@@ -211,8 +209,8 @@ export async function GET(request: Request) {
                                 nextBilling.setFullYear(currentYear);
                                 nextBilling.setMonth(currentMonth);
                             }
-                        } else if (goLive.Payment_Schedule === 'Yearly') {
-                            if (mDiff === 0) {
+                        } else if (goLive.Payment_Schedule === 'Annually' || goLive.Payment_Schedule === 'Yearly') {
+                            if (mDiff % 12 === 0) {
                                 isValidOccurrence = true;
                                 nextBilling.setFullYear(currentYear);
                             }
@@ -221,15 +219,12 @@ export async function GET(request: Request) {
 
                     if (!isValidOccurrence) {
                         nextBilling = null;
-                    } else {
-                        if (nextBilling?.getMonth() !== currentMonth) {
-                            nextBilling = new Date(currentYear, currentMonth + 1, 0);
-                        }
+                    } else if (nextBilling?.getMonth() !== currentMonth) {
+                        nextBilling = new Date(currentYear, currentMonth + 1, 0);
                     }
                 }
 
                 if (nextBilling) {
-                    // Check if this renewal cycle is already paid
                     const isPaid = (goLive.Payment_History || []).some((ph: any) =>
                         new Date(ph.Cycle_Date).getTime() === nextBilling!.getTime()
                     );

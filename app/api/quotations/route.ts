@@ -34,6 +34,8 @@ export async function GET(request: Request) {
             filter.Quotation_Status = { $in: ['Rejected', 'Cancelled'] };
         } else if (status === 'Exclude-Converted') {
             filter.Quotation_Status = { $ne: 'Converted' };
+        } else if (status === 'Needs-Action') {
+            filter.Quotation_Status = { $in: ['Sent', 'Follow-up'] };
         } else {
             filter.Quotation_Status = status;
         }

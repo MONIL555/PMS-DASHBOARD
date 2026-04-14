@@ -40,17 +40,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Payment already collected for this costing cycle. Skipping notification.' }, { status: 200 });
     }
 
-    // Deduplication: check if already sent for this billing cycle (Cross-channel synchronized)
+    // Deduplication: check if already sent for this billing cycle 
     const lastSentEmail = project.Go_Live?.Renewal_Reminder?.Last_Email_Sent_Billing_Date;
     const lastSentWA = project.Go_Live?.Renewal_Reminder?.Last_WA_Sent_Billing_Date;
     
     if (lastSentEmail && new Date(lastSentEmail).getTime() === nextBillingDate.getTime()) {
-      console.log(`[Email Costing] Already sent for this cycle (Email) for Project: ${projectId}`);
-      return NextResponse.json({ message: 'Costing email already sent for this cycle.' }, { status: 200 });
+      return NextResponse.json({ message: 'Project costing email already sent for this cycle.' }, { status: 200 });
     }
     if (lastSentWA && new Date(lastSentWA).getTime() === nextBillingDate.getTime()) {
-      console.log(`[Email Costing] Already sent for this cycle (WA) for Project: ${projectId}`);
-      return NextResponse.json({ message: 'Costing WhatsApp already sent for this cycle. Skipping Email.' }, { status: 200 });
+      return NextResponse.json({ message: 'Project costing WhatsApp already sent for this cycle. Skipping Email.' }, { status: 200 });
     }
 
     // Update tracking
@@ -60,9 +58,9 @@ export async function POST(req: Request) {
     project.Go_Live.Renewal_Reminder!.Last_Email_Sent_Date = currentDate;
     await project.save();
 
-    // Logic: Calculate Installment Amount from Start_Details.Costing
+    // Logic: Calculate Installment Amount (Match ES pattern)
     const totalCosting = project.Start_Details?.Costing || 0;
-    const schedule = project.Go_Live?.Payment_Schedule || 'Yearly';
+    const schedule = project.Go_Live?.Payment_Schedule || 'Annually';
     let installmentAmount = totalCosting;
 
     if (schedule === 'Monthly') installmentAmount = totalCosting / 12;
@@ -75,19 +73,19 @@ export async function POST(req: Request) {
     const clientRef: any = project.Client_Reference;
     const daysLeft = Math.ceil((nextBillingDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    const subject = `💸 Project Costing Payment Reminder: ${project.Project_Name} (${schedule})`;
+    const subject = `💸 Project Costing Reminder: ${project.Project_Name} (${schedule})`;
     const htmlBody = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f8fafc; border-radius: 12px;">
-        <div style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); padding: 20px 24px; border-radius: 10px 10px 0 0; color: white;">
+        <div style="background: linear-gradient(135deg, #6366f1, #4f46e5); padding: 20px 24px; border-radius: 10px 10px 0 0; color: white;">
           <h2 style="margin: 0; font-size: 18px; font-weight: 700;">💸 Project Costing Reminder</h2>
         </div>
         <div style="background: white; padding: 24px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; border-top: none;">
           <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #334155;">
             <tr><td style="padding: 8px 0; font-weight: 600; width: 140px;">Project:</td><td>${project.Project_ID} — ${project.Project_Name}</td></tr>
             <tr><td style="padding: 8px 0; font-weight: 600;">Client:</td><td>${clientRef?.Company_Name || clientRef?.Client_Name || 'N/A'}</td></tr>
-            <tr><td style="padding: 8px 0; font-weight: 600;">Installment:</td><td style="font-weight: 700; color: #8b5cf6;">₹${Math.round(installmentAmount).toLocaleString()} (${schedule})</td></tr>
+            <tr><td style="padding: 8px 0; font-weight: 600;">Installment:</td><td style="font-weight: 700; color: #6366f1;">₹${Math.round(installmentAmount).toLocaleString()} (${schedule})</td></tr>
             <tr><td style="padding: 8px 0; font-weight: 600;">Due Date:</td><td style="font-weight: 700; color: ${daysLeft <= 3 ? '#dc2626' : '#059669'};">${nextBillingDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td></tr>
-            <tr><td style="padding: 8px 0; font-weight: 600;">Status:</td><td>${project.Pipeline_Status}</td></tr>
+            <tr><td style="padding: 8px 0; font-weight: 600;">Project Status:</td><td>${project.Pipeline_Status}</td></tr>
           </table>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
           <p style="font-size: 12px; color: #94a3b8; margin: 0;">This is an automated notification from PMS.</p>

@@ -24,6 +24,8 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get('sortBy') || 'Newest';
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const priority = searchParams.get('priority') || 'All';
+    const overdue = searchParams.get('overdue') === 'true';
 
     const filter: any = {};
 
@@ -48,17 +50,29 @@ export async function GET(request: Request) {
         }
     }
 
-    // Phase Filter (Computed)
+    // Overdue Filter (past End_Date AND Go-Live not configured)
+    if (overdue) {
+        filter['Start_Details.End_Date'] = { $lt: new Date(), $exists: true };
+        filter['Go_Live.GoLive_Date'] = { $exists: false };
+        filter.Pipeline_Status = { $ne: 'Closed' };
+    }
+
+    // Priority Filter
+    if (priority !== 'All') {
+        filter.Priority = priority;
+    }
+
+    // Phase Filter (Computed - Aligned with statusCounts logic)
     if (phase !== 'All') {
-        if (phase === 'Go-Live Config') {
+        if (phase === 'GoLive') {
             filter['Delivery.Delivery_Status'] = 'Delivered';
-        } else if (phase === 'Delivery Phase') {
+        } else if (phase === 'Delivery') {
             filter['Deployment.Deployment_Status'] = 'Success';
             filter['Delivery.Delivery_Status'] = { $ne: 'Delivered' };
-        } else if (phase === 'Deployment Phase') {
+        } else if (phase === 'Deployment') {
             filter['UAT.UAT_Status'] = 'Approved';
             filter['Deployment.Deployment_Status'] = { $ne: 'Success' };
-        } else if (phase === 'UAT Phase') {
+        } else if (phase === 'UAT') {
             filter['UAT.UAT_Status'] = { $ne: 'Approved' };
         }
     }
@@ -146,10 +160,10 @@ export async function GET(request: Request) {
         'On Hold': await Project.countDocuments({ ...statusBaseFilter, Pipeline_Status: 'On Hold' }),
         Closed: await Project.countDocuments({ ...statusBaseFilter, Pipeline_Status: 'Closed' }),
         phaseCounts: {
-            UAT: await Project.countDocuments({ ...countFilter, 'UAT.UAT_Status': { $ne: 'Approved' } }),
-            Deployment: await Project.countDocuments({ ...countFilter, 'UAT.UAT_Status': 'Approved', 'Deployment.Deployment_Status': { $ne: 'Success' } }),
-            Delivery: await Project.countDocuments({ ...countFilter, 'Deployment.Deployment_Status': 'Success', 'Delivery.Delivery_Status': { $ne: 'Delivered' } }),
-            GoLive: await Project.countDocuments({ ...countFilter, 'Delivery.Delivery_Status': 'Delivered' })
+            UAT: await Project.countDocuments({ ...statusBaseFilter, 'UAT.UAT_Status': { $ne: 'Approved' } }),
+            Deployment: await Project.countDocuments({ ...statusBaseFilter, 'UAT.UAT_Status': 'Approved', 'Deployment.Deployment_Status': { $ne: 'Success' } }),
+            Delivery: await Project.countDocuments({ ...statusBaseFilter, 'Deployment.Deployment_Status': 'Success', 'Delivery.Delivery_Status': { $ne: 'Delivered' } }),
+            GoLive: await Project.countDocuments({ ...statusBaseFilter, 'Delivery.Delivery_Status': 'Delivered' })
         }
     };
 

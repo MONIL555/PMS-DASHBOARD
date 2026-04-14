@@ -31,8 +31,8 @@ const Tickets = () => {
   const [error, setError] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
+  const [priorityFilter, setPriorityFilter] = useState(searchParams.get('priority') || 'All');
   const [sortBy, setSortBy] = useState('Newest');
 
   // Initialize from search params
@@ -463,7 +463,59 @@ const Tickets = () => {
               </th>
               <th>Status</th>
               <th>Raised By</th>
-              <th onClick={() => toggleSort('Date')} style={{ cursor: 'pointer' }}>Date {getSortIcon('Date')}</th>
+              <th
+                onClick={() => dateRange === 'All' && toggleSort('Date')}
+                style={{ cursor: dateRange === 'All' ? 'pointer' : 'default', userSelect: 'none', minWidth: '180px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {dateRange === 'All' && getSortIcon('Date')}
+                  <div onClick={(e) => e.stopPropagation()} style={{ flex: 1 }}>
+                    <select
+                      className="premium-table-filter"
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--primary-color)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        outline: 'none',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.025em',
+                        width: '100%',
+                        padding: 0
+                      }}
+                    >
+                      <option value="All" style={{ color: '#333' }}>Date Raised</option>
+                      <option value="7days" style={{ color: '#333' }}>Last 7 Days</option>
+                      <option value="30days" style={{ color: '#333' }}>Last 30 Days</option>
+                      <option value="thisMonth" style={{ color: '#333' }}>This Month</option>
+                      <option value="thisYear" style={{ color: '#333' }}>This Year</option>
+                      <option value="custom" style={{ color: '#333' }}>Custom Range</option>
+                    </select>
+                    {dateRange === 'custom' && (
+                      <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                        <input
+                          type="date"
+                          className="premium-compact-input"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>

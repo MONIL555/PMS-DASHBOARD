@@ -8,7 +8,8 @@ import {
   Check, ChevronDown, Target, Activity, Layers, UserCheck, AlertTriangle,
   CheckCircle2, IndianRupee, Zap, GitCompare, ListChecks, TrendingDown,
   Minus, RefreshCw, ExternalLink, Info, Moon, Sun, Search, X, Star, Award,
-  Printer,
+  Printer, MessageCircle, Send, ThumbsUp, XCircle, Timer, Shield, Flame,
+  Pause, CheckSquare,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -441,6 +442,12 @@ const Dashboard = () => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
+  const currentFY = useMemo(() => {
+    if (!selectedFY || selectedFY === 'all') return { start: '', end: '' };
+    const [startYear, endYear] = selectedFY.split('-').map(Number);
+    return { start: `${startYear}-04-01`, end: `${endYear}-03-31` };
+  }, [selectedFY]);
+
   /* velocity & health (Top of component) */
   const revenueVelocity = useMemo(() => {
     if (!data?.trends || data.trends.length < 6) return null;
@@ -522,51 +529,207 @@ const Dashboard = () => {
   /* ══════════════════════════════════════════════════════════ */
   const sections: Array<{ id: string; component: React.ReactNode }> = [];
 
-  /* ── STAT CARDS ── */
-  const statsCards = [
-    { title: 'Total Leads', cat: 'Leads', val: data.stats.totalLeads, icon: Users, color: '#3b82f6', iconBg: '#eff6ff', rate: data.stats.leadGrowth || `${data.conversionRates.leadToQuote}%`, rlabel: data.stats.leadGrowth ? 'vs prev. FY' : 'lead→quote', vel: leadVelocity, path: '/leads' },
-    { title: 'Quotations', cat: 'Quotations', val: data.stats.totalQuotations, icon: FileText, color: '#f59e0b', iconBg: '#fffbeb', rate: data.stats.quoteGrowth || `${data.conversionRates.quoteToProject}%`, rlabel: data.stats.quoteGrowth ? 'vs prev. FY' : 'quote→proj', vel: null, path: '/quotations' },
-    { title: 'Projects', cat: 'Projects', val: data.stats.totalActiveProjects, icon: Briefcase, color: '#10b981', iconBg: '#f0fdf4', rate: data.stats.activeProjectsGrowth || `${data.conversionRates.avgCompletionTime}d`, rlabel: data.stats.activeProjectsGrowth ? 'vs prev. FY' : 'avg duration', vel: revenueVelocity, path: '/projects' },
-    { title: 'Open Tickets', cat: 'Tickets', val: data.stats.totalOpenTickets, icon: TicketIcon, color: '#ef4444', iconBg: '#fef2f2', rate: 'Support', rlabel: 'Queue', vel: null, path: '/tickets' },
-  ].filter(c => filters.includes(c.cat));
+  /* ── HELPER: clickable metric row ── */
+  const MetricRow = ({ icon: Icon, label, value, color, onClick, isCurrency = false }: { icon: any; label: string; value: number | string; color: string; onClick?: () => void; isCurrency?: boolean }) => (
+    <div
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.35rem',
+        borderRadius: '6px', cursor: onClick ? 'pointer' : 'default',
+        transition: 'background 0.15s', minWidth: 0, overflow: 'hidden'
+      }}
+      onMouseEnter={onClick ? (e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'; } : undefined}
+      onMouseLeave={onClick ? (e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; } : undefined}
+    >
+      <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={10} style={{ color }} />
+      </div>
+      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{label}</span>
+      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+        {isCurrency ? `₹${typeof value === 'number' ? value.toLocaleString() : value}` : typeof value === 'number' ? value.toLocaleString() : value}
+      </span>
+    </div>
+  );
 
-  if (statsCards.length > 0) {
+  /* ── HELPER: navigate with FY dates ── */
+  const navTo = (path: string, extra: Record<string, string> = {}) => {
+    const { startDate, endDate } = getFYDates(selectedFY);
+    const p = new URLSearchParams();
+    if (startDate) p.set('startDate', startDate);
+    if (endDate) p.set('endDate', endDate);
+    Object.entries(extra).forEach(([k, v]) => p.set(k, v));
+    router.push(`${path}?${p.toString()}`);
+  };
+
+  /* ── STAT CARDS (Enhanced BI Panels) ── */
+  const lb = data.leadBreakdown;
+  const qb = data.quotationBreakdown;
+  const pb = data.projectBreakdown;
+  const tb = data.ticketBreakdown;
+
+  const biCards: Array<{ id: string; cat: string; component: React.ReactNode }> = [];
+
+  /* Card section style helpers for uniform layout */
+  const cardStyle: React.CSSProperties = { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 };
+  const headerStyle: React.CSSProperties = { padding: '0.85rem 1rem 0.6rem', cursor: 'pointer' };
+  const dividerStyle: React.CSSProperties = { height: '1px', background: 'var(--border-color)', margin: '0 0.75rem' };
+  const gridSectionStyle = (cols: number): React.CSSProperties => ({ padding: '0.4rem 0.5rem', display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '0.1rem' });
+  const insightStyle: React.CSSProperties = { borderTop: '1px solid var(--border-color)', padding: '0.4rem 0.5rem', marginTop: 'auto' };
+  const blobStyle = (color: string): React.CSSProperties => ({ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none' as const });
+  const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' };
+  const titleStyle: React.CSSProperties = { fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
+  const bigNumStyle: React.CSSProperties = { fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: '0.25rem', fontVariantNumeric: 'tabular-nums' };
+  const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.45rem', borderRadius: '10px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+
+  if (hasLeads && lb) {
+    const needsAction = lb.new + lb.inProgress;
+    biCards.push({
+      id: 'lead-card', cat: 'Leads', component: (
+        <div className="premium-card db-stat-card" style={cardStyle}>
+          <div style={headerStyle} onClick={() => navTo('/leads')}>
+            <div style={blobStyle('#3b82f6')} />
+            <div style={titleRowStyle}>
+              <p style={titleStyle}>Total Leads</p>
+              <div style={iconBoxStyle('#eff6ff', '#3b82f6')}><Users size={16} /></div>
+            </div>
+            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalLeads} ready={countersReady} /></p>
+            {leadVelocity != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(leadVelocity) >= 0 ? '#16a34a' : '#dc2626' }}>
+                <Zap size={9} />{Number(leadVelocity) >= 0 ? '+' : ''}{leadVelocity}% velocity
+              </div>
+            )}
+          </div>
+          <div style={dividerStyle} />
+          <div style={gridSectionStyle(2)}>
+            <MetricRow icon={Zap} label="New" value={lb.new} color="#3b82f6" onClick={() => navTo('/leads', { status: 'New' })} />
+            <MetricRow icon={Clock} label="In Progress" value={lb.inProgress} color="#f59e0b" onClick={() => navTo('/leads', { status: 'In Progress' })} />
+            <MetricRow icon={CheckCircle2} label="Converted" value={lb.converted} color="#10b981" onClick={() => navTo('/leads', { status: 'Converted' })} />
+            <MetricRow icon={XCircle} label="Cancelled" value={lb.cancelled} color="#ef4444" onClick={() => navTo('/leads', { status: 'Cancelled' })} />
+          </div>
+          <div style={insightStyle}>
+            <MetricRow icon={AlertTriangle} label="Needs Action" value={needsAction} color="#f97316" onClick={() => navTo('/leads', { status: 'Needs-Action' })} />
+            {/*<MetricRow icon={GitCompare} label="Conversion Rate" value={`${data.conversionRates.leadToQuote}%`} color="#8b5cf6" />*/}
+          </div>
+        </div>
+      )
+    });
+  }
+
+  if (hasQuotations && qb) {
+    biCards.push({
+      id: 'quote-card', cat: 'Quotations', component: (
+        <div className="premium-card db-stat-card" style={cardStyle}>
+          <div style={headerStyle} onClick={() => navTo('/quotations')}>
+            <div style={blobStyle('#f59e0b')} />
+            <div style={titleRowStyle}>
+              <p style={titleStyle}>Quotations</p>
+              <div style={iconBoxStyle('#fffbeb', '#f59e0b')}><FileText size={16} /></div>
+            </div>
+            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalQuotations} ready={countersReady} /></p>
+            {data.stats.quoteGrowth && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: data.stats.quoteGrowth.startsWith('-') ? '#dc2626' : '#16a34a' }}>
+                {data.stats.quoteGrowth.startsWith('-') ? <ArrowDownRight size={9} /> : <ArrowUpRight size={9} />}{data.stats.quoteGrowth} vs prev. FY
+              </div>
+            )}
+          </div>
+          <div style={dividerStyle} />
+          <div style={gridSectionStyle(2)}>
+            <MetricRow icon={Send} label="Sent" value={qb.sent} color="#3b82f6" onClick={() => navTo('/quotations', { status: 'Sent' })} />
+            <MetricRow icon={MessageCircle} label="Follow-up" value={qb.followUp} color="#f59e0b" onClick={() => navTo('/quotations', { status: 'Follow-up' })} />
+            <MetricRow icon={ThumbsUp} label="Approved" value={qb.approved} color="#10b981" onClick={() => navTo('/quotations', { status: 'Approved' })} />
+            <MetricRow icon={XCircle} label="Rejected" value={qb.rejected} color="#ef4444" onClick={() => navTo('/quotations', { status: 'Rejected' })} />
+            <MetricRow icon={CheckCircle2} label="Converted" value={qb.converted} color="#22c55e" onClick={() => navTo('/quotations', { status: 'Converted' })} />
+          </div>
+          <div style={insightStyle}>
+            <MetricRow icon={AlertTriangle} label="Needs Action" value={qb.sent + qb.followUp} color="#f97316" onClick={() => navTo('/quotations', { status: 'Needs-Action' })} />
+            <MetricRow icon={IndianRupee} label="Pipeline Value" value={qb.pipelineValue} color="#8b5cf6" isCurrency />
+            {/*<MetricRow icon={Target} label="Avg Quote Value" value={qb.avgQuoteValue} color="#06b6d4" isCurrency />*/}
+          </div>
+        </div>
+      )
+    });
+  }
+
+  if (hasProjects && pb) {
+    biCards.push({
+      id: 'proj-card', cat: 'Projects', component: (
+        <div className="premium-card db-stat-card" style={cardStyle}>
+          <div style={headerStyle} onClick={() => navTo('/projects')}>
+            <div style={blobStyle('#10b981')} />
+            <div style={titleRowStyle}>
+              <p style={titleStyle}>Projects</p>
+              <div style={iconBoxStyle('#f0fdf4', '#10b981')}><Briefcase size={16} /></div>
+            </div>
+            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalActiveProjects} ready={countersReady} /></p>
+            {revenueVelocity != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(revenueVelocity) >= 0 ? '#16a34a' : '#dc2626' }}>
+                <Zap size={9} />{Number(revenueVelocity) >= 0 ? '+' : ''}{revenueVelocity}% velocity
+              </div>
+            )}
+          </div>
+          <div style={dividerStyle} />
+          <div style={gridSectionStyle(3)}>
+            <MetricRow icon={CheckCircle2} label="Active" value={pb.active} color="#10b981" onClick={() => navTo('/projects', { pipeline: 'Active' })} />
+            <MetricRow icon={Pause} label="On Hold" value={pb.onHold} color="#f59e0b" onClick={() => navTo('/projects', { pipeline: 'On Hold' })} />
+            <MetricRow icon={XCircle} label="Closed" value={pb.closed} color="#ef4444" onClick={() => navTo('/projects', { pipeline: 'Closed' })} />
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-color)', ...gridSectionStyle(2) }}>
+            <MetricRow icon={Target} label="UAT" value={pb.uatPhase} color="#f59e0b" onClick={() => navTo('/projects', { phase: 'UAT' })} />
+            <MetricRow icon={Layers} label="Deploy" value={pb.deploymentPhase} color="#3b82f6" onClick={() => navTo('/projects', { phase: 'Deployment' })} />
+            <MetricRow icon={CheckSquare} label="Delivery" value={pb.deliveryPhase} color="#10b981" onClick={() => navTo('/projects', { phase: 'Delivery' })} />
+            <MetricRow icon={Zap} label="Go-Live" value={pb.goLivePhase} color="#8b5cf6" onClick={() => navTo('/projects', { phase: 'GoLive' })} />
+          </div>
+          <div style={insightStyle}>
+            <MetricRow icon={IndianRupee} label="Active Value" value={pb.totalCosting} color="#10b981" isCurrency />
+            {pb.overdue > 0 && <MetricRow icon={AlertTriangle} label="Overdue" value={pb.overdue} color="#ef4444" onClick={() => navTo('/projects', { overdue: 'true' })} />}
+            {pb.highPriority > 0 && <MetricRow icon={Flame} label="High Priority" value={pb.highPriority} color="#f97316" onClick={() => navTo('/projects', { priority: 'High' })} />}
+          </div>
+        </div>
+      )
+    });
+  }
+
+  if (hasTickets && tb) {
+    const totalTickets = tb.open + tb.inProgress + tb.closed;
+    biCards.push({
+      id: 'ticket-card', cat: 'Tickets', component: (
+        <div className="premium-card db-stat-card" style={cardStyle}>
+          <div style={headerStyle} onClick={() => navTo('/tickets')}>
+            <div style={blobStyle('#ef4444')} />
+            <div style={titleRowStyle}>
+              <p style={titleStyle}>Support Tickets</p>
+              <div style={iconBoxStyle('#fef2f2', '#ef4444')}><TicketIcon size={16} /></div>
+            </div>
+            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalOpenTickets} ready={countersReady} /></p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Open Queue
+            </div>
+          </div>
+          <div style={dividerStyle} />
+          <div style={gridSectionStyle(3)}>
+            <MetricRow icon={Clock} label="Open" value={tb.open} color="#f59e0b" onClick={() => navTo('/tickets', { status: 'Open' })} />
+            <MetricRow icon={Zap} label="In Prog" value={tb.inProgress} color="#3b82f6" onClick={() => navTo('/tickets', { status: 'In_Progress' })} />
+            <MetricRow icon={CheckCircle2} label="Closed" value={tb.closed} color="#10b981" onClick={() => navTo('/tickets', { status: 'Closed' })} />
+          </div>
+          <div style={{ borderTop: '1px solid var(--border-color)', ...gridSectionStyle(3) }}>
+            <MetricRow icon={Flame} label="High" value={tb.highPriority} color="#ef4444" onClick={() => navTo('/tickets', { priority: 'High' })} />
+            <MetricRow icon={Shield} label="Medium" value={tb.mediumPriority} color="#f59e0b" onClick={() => navTo('/tickets', { priority: 'Medium' })} />
+            <MetricRow icon={Minus} label="Low" value={tb.lowPriority} color="#94a3b8" onClick={() => navTo('/tickets', { priority: 'Low' })} />
+          </div>
+          <div style={insightStyle}>
+            <MetricRow icon={Timer} label="Avg Resolution" value={tb.avgResolutionDays ? `${tb.avgResolutionDays}d` : '—'} color="#06b6d4" />
+            <MetricRow icon={ListChecks} label="Total Tickets" value={totalTickets} color="#64748b" onClick={() => navTo('/tickets')} />
+          </div>
+        </div>
+      )
+    });
+  }
+
+  if (biCards.length > 0) {
     sections.push({
       id: 'stats', component: (
         <div className="db-grid-4">
-          {statsCards.map((stat, i) => (
-            <div key={i} className="premium-card db-stat-card" onClick={() => {
-              const { startDate, endDate } = getFYDates(selectedFY);
-              const p = new URLSearchParams();
-              if (startDate) p.append('startDate', startDate);
-              if (endDate) p.append('endDate', endDate);
-              if (stat.cat === 'Leads' || stat.cat === 'Quotations') p.append('status', 'Exclude-Converted');
-              router.push(`${stat.path}?${p.toString()}`);
-            }}>
-              {/* background blob */}
-              <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: stat.color, opacity: 0.06, pointerEvents: 'none' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>{stat.title}</p>
-                <div style={{ background: stat.iconBg, padding: '0.5rem', borderRadius: '10px', color: stat.color, transition: 'transform 0.2s' }}><stat.icon size={18} /></div>
-              </div>
-              <p style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: '0.4rem', fontVariantNumeric: 'tabular-nums' }}>
-                <AnimatedNum value={stat.val} ready={countersReady} />
-              </p>
-              {stat.vel != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.4rem', fontSize: '0.65rem', fontWeight: 700, color: Number(stat.vel) >= 0 ? '#16a34a' : '#dc2626' }}>
-                  <Zap size={10} />{Number(stat.vel) >= 0 ? '+' : ''}{stat.vel}% velocity (3-mo)
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {stat.rate && (stat.rate.startsWith('+') || stat.rate.startsWith('-'))
-                  ? stat.rate.startsWith('-') ? <ArrowDownRight size={13} style={{ color: '#ef4444' }} /> : <ArrowUpRight size={13} style={{ color: '#10b981' }} />
-                  : null}
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: stat.rate?.startsWith('-') ? '#ef4444' : '#10b981' }}>{stat.rate}</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{stat.rlabel}</span>
-              </div>
-              <ExternalLink size={12} style={{ position: 'absolute', bottom: '1rem', right: '1rem', color: '#e2e8f0', transition: 'color 0.15s' }} />
-            </div>
-          ))}
+          {biCards.map(card => <div key={card.id} style={{ minWidth: 0 }}>{card.component}</div>)}
         </div>
       )
     });

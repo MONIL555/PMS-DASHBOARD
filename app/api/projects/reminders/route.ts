@@ -41,7 +41,6 @@ export async function GET(request: Request) {
 
     // Find all active projects with external services that have reminders enabled
     const projects = await Project.find({
-      Pipeline_Status: { $in: ['Active', 'On Hold'] },
       'External_Services.Reminder.Enabled': true
     })
       .populate('Client_Reference', 'Company_Name Client_Name')

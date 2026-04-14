@@ -50,6 +50,12 @@
   max-height: fit-content;
 }
 
+/* When premium-card is inside a stretch grid, allow it to grow */
+.db-grid-4 > div > .premium-card.db-stat-card {
+  max-height: none;
+  height: 100%;
+}
+
 .premium-card:hover {
   /*transform: translateY(-5px);*/
   box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.08);
@@ -472,8 +478,9 @@ tr:hover td {
 /* ── GRID HELPERS ── */
 .db-grid-4 {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
+  align-items: stretch;
 }
 
 .db-grid-3 {
@@ -746,6 +753,8 @@ tr:hover td {
   position: relative;
   overflow: hidden;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── DARK THEME ── */

@@ -61,7 +61,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
         flexDirection: 'column',
         height: '100vh',
         overflow: 'hidden',
-        position: 'relative'
+        position: 'relative',
+        minWidth: 0
       }}>
         {/* Mobile Header */}
         {isMobile && (
@@ -163,6 +164,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           flex: 1,
           padding: '1rem',
           overflowY: 'auto',
+          overflowX: 'hidden',
           backgroundColor: 'var(--bg-color)',
           width: '100%'
         }}>

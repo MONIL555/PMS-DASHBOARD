@@ -197,63 +197,8 @@ const Leads = () => {
   }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
 
   // --- AUTOMATED LEAD FOLLOW-UP ALERTS ---
-  useEffect(() => {
-    if (loading || fetchingLeads || leads.length === 0) return;
-
-    // We only alert for 'New' or 'In Progress' leads that have notifications enabled
-    const eligibleLeads = leads.filter(l => 
-      (l.Lead_Status === 'New' || l.Lead_Status === 'In Progress') && 
-      l.Followup_Notification !== false
-    );
-
-    eligibleLeads.forEach(lead => {
-      const now = new Date();
-      const todayStr = now.toDateString();
-      let shouldAlert = false;
-
-      const pendingFollowUps = lead.Follow_Ups?.filter((f: any) => f.Outcome === 'Pending') || [];
-      
-      if (pendingFollowUps.length === 0) {
-        // Rule 1: No follow-ups yet - alert 5 days after inquiry
-        const inquiryDate = new Date(lead.Inquiry_Date);
-        const diffDays = Math.floor((now.getTime() - inquiryDate.getTime()) / (1000 * 3600 * 24));
-        if (diffDays >= 5) shouldAlert = true;
-      } else {
-        // Rule 2: Pending follow-up - alert 3 days after last pending follow-up
-        const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
-        const fuDate = new Date(lastFU.Followup_Date);
-        const diffDays = Math.floor((now.getTime() - fuDate.getTime()) / (1000 * 3600 * 24));
-        if (diffDays >= 3) shouldAlert = true;
-      }
-
-      if (shouldAlert && !alertedIds.current.has(lead._id)) {
-        // Mark as alerted to prevent redundant calls in the same session
-        alertedIds.current.add(lead._id);
-
-        // Cross-channel synchronization: If either channel was sent today, no further notifications are triggered
-        const alreadyAlertedToday = 
-          (lead.Followup_Alert?.Last_WA_Sent_Date && new Date(lead.Followup_Alert.Last_WA_Sent_Date).toDateString() === todayStr) ||
-          (lead.Followup_Alert?.Last_Email_Sent_Date && new Date(lead.Followup_Alert.Last_Email_Sent_Date).toDateString() === todayStr);
-
-        if (!alreadyAlertedToday) {
-          console.log(`[Alert] Triggering synchronized follow-up for Lead: ${lead.Lead_ID}`);
-          
-          // Trigger both if enabled, but record-keeping will prevent double firing on next load
-          fetch('/api/whatsapp/lead-followup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leadId: lead._id })
-          }).catch(console.error);
-
-          fetch('/api/email/lead-followup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leadId: lead._id })
-          }).catch(console.error);
-        }
-      }
-    });
-  }, [leads, loading, fetchingLeads]);
+  // Automated follow-up alerts are now handled by the centralized cron job (/api/cron/dispatch-all)
+  // this prevents redundant notifications when multiple admins view the leads page.
 
   const handleFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();

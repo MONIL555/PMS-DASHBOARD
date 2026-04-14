@@ -160,6 +160,8 @@ export const fetchProjects = async (params: any = {}) => {
   if (params.person) query.append('person', params.person);
   if (params.startDate) query.append('startDate', params.startDate);
   if (params.endDate) query.append('endDate', params.endDate);
+  if (params.priority) query.append('priority', params.priority);
+  if (params.overdue) query.append('overdue', params.overdue);
   if (params.sortBy) query.append('sortBy', params.sortBy);
 
   const res = await fetch(`${API_URL}/projects?${query.toString()}`);

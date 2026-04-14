@@ -40,6 +40,8 @@ export async function GET(request: Request) {
     if (status !== 'All') {
       if (status === 'Exclude-Converted') {
         filter.Lead_Status = { $ne: 'Converted' };
+      } else if (status === 'Needs-Action') {
+        filter.Lead_Status = { $in: ['New', 'In Progress'] };
       } else {
         filter.Lead_Status = status;
       }

@@ -57,13 +57,15 @@ const DashboardSkeleton = () => (
     </div>
     <div className="db-grid-4" style={{ marginBottom: '1.5rem' }}>
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="premium-card" style={{ padding: '1.75rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div className="db-skeleton" style={{ height: '1rem', width: '8rem', borderRadius: '4px' }} />
-            <div className="db-skeleton" style={{ height: '3.2rem', width: '3.2rem', borderRadius: '10px' }} />
+        <div key={i} className="premium-card" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="db-skeleton" style={{ height: '0.8rem', width: '6rem', borderRadius: '4px' }} />
+              <div className="db-skeleton" style={{ height: '1.8rem', width: '3rem', borderRadius: '6px' }} />
+            </div>
+            <div className="db-skeleton" style={{ height: '2.5rem', width: '2.5rem', borderRadius: '8px' }} />
           </div>
-          <div className="db-skeleton" style={{ height: '3rem', width: '6rem', borderRadius: '6px', marginBottom: '1rem' }} />
-          <div className="db-skeleton" style={{ height: '1rem', width: '12rem', borderRadius: '4px' }} />
+          <div className="db-skeleton" style={{ height: '0.8rem', width: '8rem', borderRadius: '4px' }} />
         </div>
       ))}
     </div>
@@ -576,10 +578,10 @@ const Dashboard = () => {
   const gridSectionStyle = (cols: number): React.CSSProperties => ({ padding: '0.4rem 0.5rem', display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '0.1rem' });
   const insightStyle: React.CSSProperties = { borderTop: '1px solid var(--border-color)', padding: '0.4rem 0.5rem', marginTop: 'auto' };
   const blobStyle = (color: string): React.CSSProperties => ({ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none' as const });
-  const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' };
-  const titleStyle: React.CSSProperties = { fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
-  const bigNumStyle: React.CSSProperties = { fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: '0.25rem', fontVariantNumeric: 'tabular-nums' };
-  const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.45rem', borderRadius: '10px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+  const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' };
+  const titleStyle: React.CSSProperties = { fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
+  const bigNumStyle: React.CSSProperties = { fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, margin: 0, fontVariantNumeric: 'tabular-nums' };
+  const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.4rem', borderRadius: '8px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
 
   if (hasLeads && lb) {
     const needsAction = lb.new + lb.inProgress;
@@ -589,12 +591,14 @@ const Dashboard = () => {
           <div style={headerStyle} onClick={() => navTo('/leads')}>
             <div style={blobStyle('#3b82f6')} />
             <div style={titleRowStyle}>
-              <p style={titleStyle}>Total Leads</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <p style={titleStyle}>Leads</p>
+                <p style={bigNumStyle}><AnimatedNum value={data.stats.totalLeads} ready={countersReady} /></p>
+              </div>
               <div style={iconBoxStyle('#eff6ff', '#3b82f6')}><Users size={16} /></div>
             </div>
-            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalLeads} ready={countersReady} /></p>
             {leadVelocity != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(leadVelocity) >= 0 ? '#16a34a' : '#dc2626' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(leadVelocity) >= 0 ? '#16a34a' : '#dc2626', marginTop: '-0.15rem' }}>
                 <Zap size={9} />{Number(leadVelocity) >= 0 ? '+' : ''}{leadVelocity}% velocity
               </div>
             )}
@@ -622,12 +626,14 @@ const Dashboard = () => {
           <div style={headerStyle} onClick={() => navTo('/quotations')}>
             <div style={blobStyle('#f59e0b')} />
             <div style={titleRowStyle}>
-              <p style={titleStyle}>Quotations</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <p style={titleStyle}>Quotations</p>
+                <p style={bigNumStyle}><AnimatedNum value={data.stats.totalQuotations} ready={countersReady} /></p>
+              </div>
               <div style={iconBoxStyle('#fffbeb', '#f59e0b')}><FileText size={16} /></div>
             </div>
-            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalQuotations} ready={countersReady} /></p>
             {data.stats.quoteGrowth && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: data.stats.quoteGrowth.startsWith('-') ? '#dc2626' : '#16a34a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: data.stats.quoteGrowth.startsWith('-') ? '#dc2626' : '#16a34a', marginTop: '-0.15rem' }}>
                 {data.stats.quoteGrowth.startsWith('-') ? <ArrowDownRight size={9} /> : <ArrowUpRight size={9} />}{data.stats.quoteGrowth} vs prev. FY
               </div>
             )}
@@ -657,12 +663,14 @@ const Dashboard = () => {
           <div style={headerStyle} onClick={() => navTo('/projects')}>
             <div style={blobStyle('#10b981')} />
             <div style={titleRowStyle}>
-              <p style={titleStyle}>Projects</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <p style={titleStyle}>Projects</p>
+                <p style={bigNumStyle}><AnimatedNum value={data.stats.totalActiveProjects} ready={countersReady} /></p>
+              </div>
               <div style={iconBoxStyle('#f0fdf4', '#10b981')}><Briefcase size={16} /></div>
             </div>
-            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalActiveProjects} ready={countersReady} /></p>
             {revenueVelocity != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(revenueVelocity) >= 0 ? '#16a34a' : '#dc2626' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(revenueVelocity) >= 0 ? '#16a34a' : '#dc2626', marginTop: '-0.15rem' }}>
                 <Zap size={9} />{Number(revenueVelocity) >= 0 ? '+' : ''}{revenueVelocity}% velocity
               </div>
             )}
@@ -697,11 +705,13 @@ const Dashboard = () => {
           <div style={headerStyle} onClick={() => navTo('/tickets')}>
             <div style={blobStyle('#ef4444')} />
             <div style={titleRowStyle}>
-              <p style={titleStyle}>Support Tickets</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <p style={titleStyle}>Tickets</p>
+                <p style={bigNumStyle}><AnimatedNum value={data.stats.totalOpenTickets} ready={countersReady} /></p>
+              </div>
               <div style={iconBoxStyle('#fef2f2', '#ef4444')}><TicketIcon size={16} /></div>
             </div>
-            <p style={bigNumStyle}><AnimatedNum value={data.stats.totalOpenTickets} ready={countersReady} /></p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '-0.15rem' }}>
               Open Queue
             </div>
           </div>

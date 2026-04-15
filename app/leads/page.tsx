@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { fetchLeads, convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers, addLeadFollowUp } from '@/utils/api';
+import { convertLeadToQuotation, cancelItem, createLead, updateLeadDetails, fetchProducts, fetchLeadSources, fetchUsers, addLeadFollowUp } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import { X, ArrowRight, Loader2, Search, Zap, CheckCircle, XCircle, Users, ArrowUpDown, ChevronUp, ChevronDown, Plus, MessageCircle } from 'lucide-react';
@@ -16,19 +16,14 @@ import { PERMISSIONS } from '@/lib/permissions';
 import { formatPhoneNumber } from '@/utils/countries';
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { useLeadsQuery } from '@/hooks/useLeadsQuery';
 
 const Leads = () => {
-  const [leads, setLeads] = useState<any[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({ New: 0, 'In Progress': 0, Converted: 0, Cancelled: 0 });
   const [products, setProducts] = useState<any[]>([]);
   const [sources, setSources] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
-  const [loading, setLoading] = useState(true);
-  const [fetchingLeads, setFetchingLeads] = useState(false);
-  const [error, setError] = useState('');
 
   // --- NUQS STATE MANAGEMENT ---
   const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
@@ -43,6 +38,18 @@ const Leads = () => {
   const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
 
   const ITEMS_PER_PAGE = 20;
+
+  // --- TANSTACK QUERY ---
+  const { leads, totalItems, statusCounts, isLoading: loading, isFetching: fetchingLeads, error: queryError, refetch } = useLeadsQuery({
+    page: currentPage,
+    search: searchTerm,
+    status: statusFilter,
+    assignedUser: assignedUserFilter,
+    sortBy,
+    dateRange,
+    customStartDate,
+    customEndDate,
+  });
 
   // ... other state ...
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
@@ -150,65 +157,11 @@ const Leads = () => {
       setSources(sourcesData.sources);
       setUsers(usersData.users);
     } catch (err: any) {
-      setError(err.message);
+      toast.error('Error loading initial data: ' + err.message);
     }
   };
 
-  // --- ABORT CONTROLLER FETCH LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchLeadsData = async () => {
-      setFetchingLeads(true);
-      try {
-        let startDate: string | undefined;
-        let endDate: string | undefined;
-        const now = new Date();
-        if (dateRange === '7days') {
-          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === '30days') {
-          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisMonth') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisYear') {
-          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-          startDate = customStartDate; endDate = customEndDate;
-        }
-
-        const result = await fetchLeads({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: searchTerm,
-          status: statusFilter,
-          assignedUser: assignedUserFilter !== 'All' ? assignedUserFilter : undefined,
-          sortBy: sortBy,
-          startDate,
-          endDate
-        });
-
-        // If the request was cancelled by a newer one, ignore the response
-        if (controller.signal.aborted) return;
-
-        setLeads(result.leads);
-        setTotalItems(result.totalItems);
-        setStatusCounts(result.statusCounts);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        toast.error('Error fetching leads: ' + err.message);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFetchingLeads(false);
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchLeadsData();
-
-    // Cancel the old fetch when dependencies change
-    return () => controller.abort();
-  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter, searchTerm]);
+  // AbortController logic replaced by TanStack Query (useLeadsQuery hook)
 
   useEffect(() => {
     loadInitialData();
@@ -235,8 +188,8 @@ const Leads = () => {
         setSelectedDetailLead(updated);
       }
 
-      // Trigger a refresh (since dependencies don't change, we toggle page to force it, or just let user refresh. Ideally you'd have a refresh trigger state, but for now we maintain current logic)
-      setLeads(prev => prev.map(l => l._id === updated._id ? updated : l));
+      // Trigger a refresh via TanStack Query
+      refetch();
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -266,7 +219,7 @@ const Leads = () => {
       await convertLeadToQuotation(selectedLead._id, convertData);
       setSelectedLead(null);
       toast.success('Lead converted to Quotation successfully!');
-      setCurrentPage(1); // Force refresh
+      refetch();
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -283,7 +236,7 @@ const Leads = () => {
       await cancelItem('lead', selectedCancelLead._id, cancelReason);
       setSelectedCancelLead(null);
       toast.success('Lead cancelled and archived.');
-      setCurrentPage(1); // Force refresh
+      refetch();
     } catch (err: any) {
       toast.error('Error canceling lead: ' + err.message);
     } finally {
@@ -404,7 +357,7 @@ const Leads = () => {
       }
       handleAddModalClose();
 
-      setCurrentPage(1); // Trigger fetch via state dependency
+      refetch(); // Trigger refresh via TanStack Query
 
       if (statusChangedToCancel && originalLead) {
         setSelectedCancelLead(originalLead);
@@ -427,7 +380,7 @@ const Leads = () => {
       <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading leads...</p>
     </div>
   );
-  if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
+  if (queryError) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {(queryError as Error).message}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 

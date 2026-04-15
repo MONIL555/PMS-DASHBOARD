@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchCancelledItems } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { Archive, Search, Users, FileText, Briefcase, Ticket, X, ChevronUp, ChevronDown, ArrowUpDown, Loader2 } from 'lucide-react';
 import Pagination from '@/components/Pagination';
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { useArchivesQuery } from '@/hooks/useArchivesQuery';
 
 const CancelledItems = () => {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetching, setFetching] = useState(false);
-  const [error, setError] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
   // --- NUQS STATE MANAGEMENT ---
@@ -27,15 +23,18 @@ const CancelledItems = () => {
   const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
 
   const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
-  const [totalItems, setTotalItems] = useState(0);
-
-  const [statusCounts, setStatusCounts] = useState({
-    Lead: 0,
-    Quotation: 0,
-    Project: 0,
-    Ticket: 0
-  });
   const ITEMS_PER_PAGE = 20;
+
+  // --- TANSTACK QUERY ---
+  const { archives: items, totalItems, statusCounts, isLoading: loading, isFetching: fetching, error: queryError } = useArchivesQuery({
+    page: currentPage,
+    search: searchTerm,
+    type: typeFilter,
+    sortBy,
+    dateRange,
+    customStartDate,
+    customEndDate,
+  });
 
   // --- SEARCH DEBOUNCE LOGIC ---
   useEffect(() => {
@@ -55,57 +54,7 @@ const CancelledItems = () => {
     }
   }, [customStartDate, dateRange, setDateRange]);
 
-  // --- ABORT CONTROLLER FETCH LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadData = async () => {
-      setFetching(true);
-      try {
-        let startDate: string | undefined;
-        let endDate: string | undefined;
-        const now = new Date();
-        if (dateRange === '7days') {
-          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === '30days') {
-          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisMonth') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisYear') {
-          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-          startDate = customStartDate; endDate = customEndDate;
-        }
-
-        const response = await fetchCancelledItems({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: searchTerm,
-          type: typeFilter,
-          sortBy: sortBy,
-          startDate,
-          endDate
-        });
-
-        if (controller.signal.aborted) return;
-
-        setItems(response.archives);
-        setTotalItems(response.totalItems);
-        setStatusCounts(response.statusCounts);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        setError(err.message);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFetching(false);
-          setLoading(false);
-        }
-      }
-    };
-
-    loadData();
-    return () => controller.abort();
-  }, [currentPage, searchTerm, typeFilter, sortBy, dateRange, customStartDate, customEndDate]);
+  // AbortController logic replaced by TanStack Query (useArchivesQuery hook)
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
@@ -141,7 +90,7 @@ const CancelledItems = () => {
     </div>
   );
 
-  if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500 m-8">Error: {error}</div>;
+  if (queryError) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500 m-8">Error: {(queryError as Error).message}</div>;
 
   return (
     <div className="page-container">

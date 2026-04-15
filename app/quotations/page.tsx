@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { fetchQuotations, convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProducts } from '@/utils/api';
+import { convertQuotationToProject, cancelItem, updateQuotationDetails, addQuotationFollowUp, fetchLeads, createQuotation, fetchProducts } from '@/utils/api';
 import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import { X, ArrowRight, Loader2, MessageCircle, Search, FileText, CheckCircle, XCircle, CircleFadingPlus, MessageSquare, ArrowBigRightDashIcon, Plus } from 'lucide-react';
@@ -15,17 +15,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { useQuotationsQuery } from '@/hooks/useQuotationsQuery';
 
 const Quotations = () => {
-  const [quotations, setQuotations] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
-  const [loading, setLoading] = useState(true);
-  const [fetchingQuotations, setFetchingQuotations] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
-  const [error, setError] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- NUQS STATE MANAGEMENT ---
   const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
@@ -38,16 +34,19 @@ const Quotations = () => {
   const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
   const [sortBy, setSortBy] = useQueryState('sort', parseAsString.withDefault('Newest'));
   const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
-
-  const [totalItems, setTotalItems] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({
-    Sent: 0,
-    'Follow-up': 0,
-    Approved: 0,
-    Rejected: 0,
-    Converted: 0
-  });
   const ITEMS_PER_PAGE = 20;
+
+  // --- TANSTACK QUERY ---
+  const { quotations, totalItems, statusCounts, isLoading: loading, isFetching: fetchingQuotations, error: queryError, refetch } = useQuotationsQuery({
+    page: currentPage,
+    search: searchTerm,
+    status: statusFilter,
+    sortBy,
+    commRange,
+    dateRange,
+    customStartDate,
+    customEndDate,
+  });
 
   // ... other state ...
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
@@ -147,71 +146,7 @@ const Quotations = () => {
     }
   }, [customStartDate, dateRange, setDateRange]);
 
-  // --- ABORT CONTROLLER FETCH LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchQuotationsData = async () => {
-      setFetchingQuotations(true);
-      try {
-        let minComm: number | undefined;
-        let maxComm: number | undefined;
-        if (commRange === '0-25k') { minComm = 0; maxComm = 25000; }
-        else if (commRange === '25k-50k') { minComm = 25000; maxComm = 50000; }
-        else if (commRange === '50k-100k') { minComm = 50000; maxComm = 100000; }
-        else if (commRange === '100k-500k') { minComm = 100000; maxComm = 500000; }
-        else if (commRange === '500k+') { minComm = 500000; }
-
-        let startDate: string | undefined;
-        let endDate: string | undefined;
-        const now = new Date();
-        if (dateRange === '7days') {
-          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === '30days') {
-          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisMonth') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisYear') {
-          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-          startDate = customStartDate; endDate = customEndDate;
-        }
-
-        const result = await fetchQuotations({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: searchTerm,
-          status: statusFilter,
-          sortBy: sortBy,
-          minComm,
-          maxComm,
-          startDate,
-          endDate
-        });
-
-        if (controller.signal.aborted) return;
-
-        setQuotations(result.quotations);
-        setTotalItems(result.totalItems);
-        setStatusCounts(result.statusCounts);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        setError(err.message);
-        toast.error('Error fetching quotations: ' + err.message);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFetchingQuotations(false);
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchQuotationsData();
-
-    return () => controller.abort();
-  }, [currentPage, searchTerm, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate, refreshTrigger]);
-
-  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
+  // AbortController logic replaced by TanStack Query (useQuotationsQuery hook)
 
   const handleClientSelect = (client: any) => {
     if (isAddModalOpen) {
@@ -301,7 +236,7 @@ const Quotations = () => {
       await convertQuotationToProject(selectedQuotation._id, convertData);
       setSelectedQuotation(null);
       toast.success('Quotation converted to Project successfully!');
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -318,7 +253,7 @@ const Quotations = () => {
       await cancelItem('quotation', selectedCancelQuotation._id, cancelReason);
       setSelectedCancelQuotation(null);
       toast.success('Quotation rejected and archived.');
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error canceling quotation: ' + err.message);
     } finally {
@@ -347,7 +282,7 @@ const Quotations = () => {
       const savedRemarks = followUpData.Remarks;
       setFollowUpData({ Remarks: '', Outcome: 'Pending' });
       toast.success('Follow-up recorded successfully!');
-      triggerRefresh();
+      refetch();
 
       if (isConverted) {
         setSelectedQuotation(quoteToConvert);
@@ -415,7 +350,7 @@ const Quotations = () => {
       const response = await updateQuotationDetails(editQuotationId, dataToUpdate);
       toast.success('Quotation updated successfully!');
       handleEditModalClose();
-      triggerRefresh();
+      refetch();
 
       if (statusChangedToReject && originalQuotation) {
         setSelectedCancelQuotation(originalQuotation);
@@ -495,7 +430,7 @@ const Quotations = () => {
       await createQuotation(dataToSubmit);
       toast.success('Quotation added successfully!');
       handleAddModalClose();
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error adding quotation: ' + err.message);
     } finally {
@@ -509,7 +444,7 @@ const Quotations = () => {
       <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading quotations...</p>
     </div>
   );
-  if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
+  if (queryError) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {(queryError as Error).message}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const paginatedQuotations = quotations;
@@ -793,10 +728,11 @@ const Quotations = () => {
                 <td><span className="font-semibold text-primary">{qtn.Quotation_ID}</span></td>
                 <td>{qtn.Client_Reference?.Company_Name || qtn.Lead_ID?.Client_Reference?.Company_Name || qtn.Client_Info || 'Unknown Lead'}</td>
                 <td>
-                  <div style={{ fontSize: '0.85rem' }}>
+                  <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'row' }}>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
                       {[qtn.Product_Reference?.Type, qtn.Product_Reference?.SubType].filter(Boolean).join(' / ')}
                     </div>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>&nbsp;/&nbsp;</span>
                     <div style={{ fontWeight: 600, color: 'var(--primary-color)' }}>
                       {qtn.Product_Reference?.SubSubType || qtn.Product_Reference?.SubType || qtn.Product_Reference?.Type || '-'}
                     </div>

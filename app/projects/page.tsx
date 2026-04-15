@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchProjects, createProject, fetchQuotations, fetchProducts, fetchLeads } from '@/utils/api';
+import { createProject, fetchQuotations, fetchProducts, fetchLeads } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import {
@@ -18,19 +18,15 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { useQueryState, parseAsString, parseAsInteger, parseAsBoolean } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { useProjectsQuery } from '@/hooks/useProjectsQuery';
 
 const Projects = () => {
   const router = useRouter();
-  const [projects, setProjects] = useState<any[]>([]);
   const [quotations, setQuotations] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [linkType, setLinkType] = useState<'Quotation' | 'Lead'>('Quotation');
   const { hasPermission } = usePermissions();
-  const [loading, setLoading] = useState(true);
-  const [fetchingProjects, setFetchingProjects] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
-  const [error, setError] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- NUQS STATE MANAGEMENT ---
   const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
@@ -47,13 +43,22 @@ const Projects = () => {
   const [customStartDate, setCustomStartDate] = useQueryState('startDate', parseAsString.withDefault(''));
   const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
   const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
-
-  const [assignedPersons, setAssignedPersons] = useState<string[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [statusCounts, setStatusCounts] = useState<any>({
-    Active: 0, 'On Hold': 0, Closed: 0, phaseCounts: { UAT: 0, Deployment: 0, Delivery: 0, GoLive: 0 }
-  });
   const ITEMS_PER_PAGE = 20;
+
+  // --- TANSTACK QUERY ---
+  const { projects, totalItems, statusCounts, assignedPersons, isLoading: loading, isFetching: fetchingProjects, error: queryError, refetch } = useProjectsQuery({
+    page: currentPage,
+    search: searchTerm,
+    phase: phaseFilter,
+    pipeline: pipelineFilter,
+    person: personFilter,
+    priority: priorityFilter,
+    overdue: overdueFilter,
+    sortBy,
+    dateRange,
+    customStartDate,
+    customEndDate,
+  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -85,65 +90,6 @@ const Projects = () => {
   useEffect(() => {
     if (customStartDate && dateRange !== 'custom') setDateRange('custom');
   }, [customStartDate, dateRange, setDateRange]);
-
-  // --- ABORT CONTROLLER FETCH LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadData = async () => {
-      setFetchingProjects(true);
-      try {
-        let startDate: string | undefined;
-        let endDate: string | undefined;
-        const now = new Date();
-        if (dateRange === '7days') {
-          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === '30days') {
-          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisMonth') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisYear') {
-          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-          startDate = customStartDate; endDate = customEndDate;
-        }
-
-        const projectsResponse = await fetchProjects({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: searchTerm,
-          phase: phaseFilter,
-          pipeline: pipelineFilter,
-          person: personFilter,
-          priority: priorityFilter,
-          overdue: overdueFilter ? 'true' : undefined,
-          sortBy: sortBy,
-          startDate,
-          endDate
-        });
-
-        if (controller.signal.aborted) return;
-
-        setProjects(projectsResponse.projects);
-        setTotalItems(projectsResponse.totalItems);
-        setStatusCounts(projectsResponse.statusCounts);
-        setAssignedPersons(projectsResponse.assignedPersons || []);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        setError(err.message);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFetchingProjects(false);
-          setLoading(false);
-        }
-      }
-    };
-
-    loadData();
-    return () => controller.abort();
-  }, [searchTerm, phaseFilter, pipelineFilter, personFilter, priorityFilter, overdueFilter, sortBy, dateRange, customStartDate, customEndDate, currentPage, refreshTrigger]);
-
-  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   const handleClientSelect = (client: any) => {
     if (isAddModalOpen) {
@@ -226,7 +172,7 @@ const Projects = () => {
       setIsAddModalOpen(false);
       setIsNewClient(false);
       setNewClientData({ Company_Name: '', Company_No: '', Client_Name: '', Contact_Number: '', Email: '', Location: '', Description: '' });
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error creating project: ' + err.message);
     } finally {
@@ -248,8 +194,10 @@ const Projects = () => {
     </div>
   );
 
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const phaseCountsOutput = statusCounts.phaseCounts || { UAT: 0, Deployment: 0, Delivery: 0, GoLive: 0 };
+  if (queryError) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500 m-8">Error loading projects.</div>;
+
+  const totalPages = Math.ceil((totalItems || 0) / ITEMS_PER_PAGE);
+  const phaseCountsOutput = statusCounts?.phaseCounts || { UAT: 0, Deployment: 0, Delivery: 0, GoLive: 0 };
 
   const toggleSort = (column: string) => {
     if (column === 'ID') setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
@@ -371,10 +319,10 @@ const Projects = () => {
                     style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', fontWeight: 700, cursor: 'pointer', outline: 'none', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.025em', width: '100%', padding: 0 }}
                   >
                     <option value="All" style={{ color: '#333' }}>All Staff</option>
-                    {Array.from(new Set(assignedPersons.map(p => {
-                      const trimmed = p?.trim() || 'Unassigned';
-                      return trimmed.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-                    }))).sort().map(person => (
+                    {(Array.from(new Set((assignedPersons || []).map((p: any) => {
+                      const trimmed = (p || '').trim() || 'Unassigned';
+                      return trimmed.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                    }))) as string[]).sort().map((person: string) => (
                       <option key={person} value={person} style={{ color: '#333' }}>{person}</option>
                     ))}
                   </select>
@@ -428,7 +376,7 @@ const Projects = () => {
             </tr>
           </thead>
           <tbody style={{ opacity: fetchingProjects ? 0.6 : 1, transition: 'opacity 0.2s ease-in-out' }}>
-            {projects.map((prj: any) => {
+            {(projects || []).map((prj: any) => {
               const currentPhase = getProjectPhase(prj);
               let badgeColor = 'badge-gray';
               if (currentPhase === 'Delivery Phase') badgeColor = 'badge-green';
@@ -452,7 +400,7 @@ const Projects = () => {
                 </tr>
               );
             })}
-            {projects.length === 0 && (
+            {(!projects || projects.length === 0) && (
               <tr><td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>{fetchingProjects ? 'Updating projects...' : 'No projects found matching your search.'}</td></tr>
             )}
           </tbody>
@@ -462,7 +410,7 @@ const Projects = () => {
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        totalItems={totalItems}
+        totalItems={totalItems || 0}
         itemsPerPage={ITEMS_PER_PAGE}
         onPageChange={setCurrentPage}
         itemName="projects"

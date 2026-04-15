@@ -3,6 +3,7 @@ import "./globals.css";
 import Layout from "@/components/Layout";
 import { OptionsProvider } from "@/context/OptionsContext";
 import { AuthProvider } from "@/context/AuthContext";
+import QueryProvider from "@/context/QueryProvider";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -20,8 +21,10 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <OptionsProvider>
-            <Layout>{children}</Layout>
-            <Toaster position="top-right" />
+            <QueryProvider>
+              <Layout>{children}</Layout>
+              <Toaster position="top-right" />
+            </QueryProvider>
           </OptionsProvider>
         </AuthProvider>
       </body>

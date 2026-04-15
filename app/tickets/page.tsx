@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchTickets, cancelItem, updateTicketDetails, createTicket, fetchProjects } from '@/utils/api';
+import { cancelItem, updateTicketDetails, createTicket, fetchProjects } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { useOptions } from '@/context/OptionsContext';
 import { Loader2, X, Search, Ticket, Clock, CheckCircle, Plus } from 'lucide-react';
@@ -11,6 +11,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { useTicketsQuery } from '@/hooks/useTicketsQuery';
 
 /**
  * Tickets Page
@@ -23,14 +24,9 @@ const Tickets = () => {
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
-  const [tickets, setTickets] = useState<any[]>([]);
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
-  const [loading, setLoading] = useState(true);
-  const [fetchingTickets, setFetchingTickets] = useState(false);
-  const [error, setError] = useState('');
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // --- NUQS STATE MANAGEMENT ---
   const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
@@ -45,14 +41,19 @@ const Tickets = () => {
   const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
 
   const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
-  const [totalItems, setTotalItems] = useState(0);
-
-  const [statusCounts, setStatusCounts] = useState({
-    In_Progress: 0,
-    Open: 0,
-    Closed: 0
-  });
   const ITEMS_PER_PAGE = 20;
+
+  // --- TANSTACK QUERY ---
+  const { tickets, totalItems, statusCounts, isLoading: loading, isFetching: fetchingTickets, error: queryError, refetch } = useTicketsQuery({
+    page: currentPage,
+    search: searchTerm,
+    status: statusFilter,
+    priority: priorityFilter,
+    sortBy,
+    dateRange,
+    customStartDate,
+    customEndDate,
+  });
 
   // Modals state
   const [selectedCancelTicket, setSelectedCancelTicket] = useState<any | null>(null);
@@ -93,60 +94,7 @@ const Tickets = () => {
     }
   }, [customStartDate, dateRange, setDateRange]);
 
-  // --- ABORT CONTROLLER FETCH LOGIC ---
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadData = async () => {
-      setFetchingTickets(true);
-      try {
-        let startDate: string | undefined;
-        let endDate: string | undefined;
-        const now = new Date();
-        if (dateRange === '7days') {
-          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === '30days') {
-          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisMonth') {
-          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'thisYear') {
-          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
-        } else if (dateRange === 'custom') {
-          startDate = customStartDate; endDate = customEndDate;
-        }
-
-        const response = await fetchTickets({
-          page: currentPage,
-          limit: ITEMS_PER_PAGE,
-          search: searchTerm,
-          status: statusFilter,
-          priority: priorityFilter,
-          sortBy: sortBy,
-          startDate,
-          endDate
-        });
-
-        if (controller.signal.aborted) return;
-
-        setTickets(response.tickets);
-        setTotalItems(response.totalItems);
-        setStatusCounts(response.statusCounts);
-      } catch (err: any) {
-        if (controller.signal.aborted) return;
-        setError(err.message);
-      } finally {
-        if (!controller.signal.aborted) {
-          setFetchingTickets(false);
-          setLoading(false);
-        }
-      }
-    };
-
-    loadData();
-    return () => controller.abort();
-  }, [currentPage, searchTerm, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate, refreshTrigger]);
-
-  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
+  // AbortController logic replaced by TanStack Query (useTicketsQuery hook)
 
   const loadProjectsData = async () => {
     try {
@@ -166,7 +114,7 @@ const Tickets = () => {
       await cancelItem('ticket', selectedCancelTicket._id, cancelReason);
       setSelectedCancelTicket(null);
       toast.success('Ticket cancelled and archived.');
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error canceling ticket: ' + err.message);
     } finally {
@@ -215,7 +163,7 @@ const Tickets = () => {
       await updateTicketDetails(editTicketId, dataToSubmit);
       toast.success('Ticket updated successfully!');
       handleEditModalClose();
-      triggerRefresh();
+      refetch();
 
       if (statusChangedToCancel && originalTicket) {
         setSelectedCancelTicket(originalTicket);
@@ -249,7 +197,7 @@ const Tickets = () => {
         Project_ID: '', Title: '', Description: '', Priority: 'Medium', Status: 'Open',
         Raised_By: '', Assigned_To: '', Company_Name: '', Raised_Date_Time: getLocalISOString()
       });
-      triggerRefresh();
+      refetch();
     } catch (err: any) {
       toast.error('Error creating ticket: ' + err.message);
     } finally {
@@ -258,7 +206,7 @@ const Tickets = () => {
   };
 
   if (loading) return <div className="p-8 flex items-center gap-2"><Loader2 className="animate-spin" /> Loading tickets...</div>;
-  if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
+  if (queryError) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {(queryError as Error).message}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 

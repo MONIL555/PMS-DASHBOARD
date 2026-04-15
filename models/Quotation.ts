@@ -20,6 +20,7 @@ export interface IQuotation extends Document {
   Followup_Notification: boolean;
   Follow_Ups: Array<{
     Followup_Date: Date;
+    Next_Followup_Date?: Date;
     Remarks: string;
     Outcome: 'Converted' | 'Cancelled' | 'Pending';
   }>;
@@ -98,6 +99,7 @@ const QuotationSchema = new Schema<IQuotation, IQuotationModel>({
   // PAIRED FOLLOW-UPS: Every quotation tracks its own negotiation history
   Follow_Ups: [{
     Followup_Date: { type: Date, default: Date.now },
+    Next_Followup_Date: { type: Date },
     Remarks: { type: String, trim: true },
     Outcome: {
       type: String,

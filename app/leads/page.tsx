@@ -108,7 +108,8 @@ const Leads = () => {
   const [followingUp, setFollowingUp] = useState(false);
   const [followUpData, setFollowUpData] = useState({
     Remarks: '',
-    Outcome: 'Pending'
+    Outcome: 'Pending',
+    Next_Followup_Date: ''
   });
 
   // --- SEARCH DEBOUNCE LOGIC ---
@@ -180,7 +181,7 @@ const Leads = () => {
     try {
       const updated = await addLeadFollowUp(selectedFollowUpLead._id, followUpData);
       setSelectedFollowUpLead(null);
-      setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+      setFollowUpData({ Remarks: '', Outcome: 'Pending', Next_Followup_Date: '' });
       toast.success('Follow-up recorded successfully!');
 
       // Update details view if open
@@ -803,7 +804,7 @@ const Leads = () => {
                       style={{ padding: '0.5rem 1rem', color: '#0369a1', borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#f0f9ff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                       onClick={() => {
                         setSelectedFollowUpLead(selectedDetailLead);
-                        setFollowUpData({ Remarks: '', Outcome: 'Pending' });
+                        setFollowUpData({ Remarks: '', Outcome: 'Pending', Next_Followup_Date: '' });
                         setSelectedDetailLead(null);
                       }}
                     >
@@ -1211,6 +1212,16 @@ const Leads = () => {
                   value={followUpData.Remarks}
                   onChange={e => setFollowUpData({ ...followUpData, Remarks: e.target.value })}
                   placeholder="Summarize the client interaction, next steps, or discussion points..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Next Follow-up Date (Optional)</label>
+                <DateInput
+                  className="form-input"
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
+                  value={followUpData.Next_Followup_Date}
+                  onChange={(val: any) => setFollowUpData({ ...followUpData, Next_Followup_Date: val })}
                 />
               </div>
 

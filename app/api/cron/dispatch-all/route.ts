@@ -44,9 +44,17 @@ export async function GET(req: Request) {
         const days = Math.ceil((today.getTime() - createDate.getTime()) / (1000 * 60 * 60 * 24));
         if (days >= 5) shouldAlert = true;
       } else if (lastPending) {
-        const followUpDate = new Date(lastPending.Followup_Date);
-        const days = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (days >= 3) shouldAlert = true;
+        if (lastPending.Next_Followup_Date) {
+          const nextDate = new Date(lastPending.Next_Followup_Date);
+          nextDate.setHours(0,0,0,0);
+          const todayStart = new Date(today);
+          todayStart.setHours(0,0,0,0);
+          if (todayStart.getTime() >= nextDate.getTime()) shouldAlert = true;
+        } else {
+          const followUpDate = new Date(lastPending.Followup_Date);
+          const days = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (days >= 3) shouldAlert = true;
+        }
       }
 
       if (shouldAlert) {
@@ -68,9 +76,17 @@ export async function GET(req: Request) {
         const days = Math.ceil((today.getTime() - createDate.getTime()) / (1000 * 60 * 60 * 24));
         if (days >= 5) shouldAlert = true;
       } else if (lastPending) {
-        const followUpDate = new Date(lastPending.Followup_Date);
-        const days = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (days >= 3) shouldAlert = true;
+        if (lastPending.Next_Followup_Date) {
+          const nextDate = new Date(lastPending.Next_Followup_Date);
+          nextDate.setHours(0,0,0,0);
+          const todayStart = new Date(today);
+          todayStart.setHours(0,0,0,0);
+          if (todayStart.getTime() >= nextDate.getTime()) shouldAlert = true;
+        } else {
+          const followUpDate = new Date(lastPending.Followup_Date);
+          const days = Math.ceil((today.getTime() - followUpDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (days >= 3) shouldAlert = true;
+        }
       }
 
       if (shouldAlert) {

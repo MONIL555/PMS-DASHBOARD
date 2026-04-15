@@ -52,8 +52,12 @@ export async function GET(request: Request) {
                 const pendingFollowUps = q.Follow_Ups.filter((f: any) => f.Outcome === 'Pending');
                 if (pendingFollowUps.length > 0) {
                     const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
-                    dueDate = new Date(lastFU.Followup_Date);
-                    dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                    if (lastFU.Next_Followup_Date) {
+                        dueDate = new Date(lastFU.Next_Followup_Date);
+                    } else {
+                        dueDate = new Date(lastFU.Followup_Date);
+                        dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                    }
                 }
             } else {
                 // Rule: 5 days after quotation creation if no follow-ups recorded
@@ -85,8 +89,12 @@ export async function GET(request: Request) {
                 const pendingFollowUps = l.Follow_Ups.filter((f: any) => f.Outcome === 'Pending');
                 if (pendingFollowUps.length > 0) {
                     const lastFU = pendingFollowUps[pendingFollowUps.length - 1];
-                    dueDate = new Date(lastFU.Followup_Date);
-                    dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                    if (lastFU.Next_Followup_Date) {
+                        dueDate = new Date(lastFU.Next_Followup_Date);
+                    } else {
+                        dueDate = new Date(lastFU.Followup_Date);
+                        dueDate.setDate(dueDate.getDate() + 3); // 3 days after last pending interaction
+                    }
                 }
             } else {
                 // Rule: 5 days after lead inquiry if no follow-ups recorded

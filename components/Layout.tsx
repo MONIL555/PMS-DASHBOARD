@@ -97,6 +97,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
         )}
 
         {/* Payment Reminder Banner */}
+        {/*
         {!remindersDismissed && reminders.length > 0 && (
           <div style={{
             background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
@@ -159,6 +160,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </div>
           </div>
         )}
+        */}
 
         <main style={{
           flex: 1,

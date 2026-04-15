@@ -20,6 +20,7 @@ export interface ILead extends Document {
   };
   Follow_Ups: Array<{
     Followup_Date: Date;
+    Next_Followup_Date?: Date;
     Remarks: string;
     Outcome: 'Converted' | 'Cancelled' | 'Pending';
   }>;
@@ -76,6 +77,7 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
   },
   Follow_Ups: [{
     Followup_Date: { type: Date, default: Date.now },
+    Next_Followup_Date: { type: Date },
     Remarks: { type: String, trim: true },
     Outcome: {
       type: String,

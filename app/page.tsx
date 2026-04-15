@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react';
 import {
   Users, FileText, Briefcase, Ticket as TicketIcon, TrendingUp, Clock,
   PieChart as PieChartIcon, Calendar, ArrowUpRight, ArrowDownRight,
@@ -11,11 +11,13 @@ import {
   Printer, MessageCircle, Send, ThumbsUp, XCircle, Timer, Shield, Flame,
   Pause, CheckSquare,
 } from 'lucide-react';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area, ComposedChart, Line,
   ReferenceLine, RadialBarChart, RadialBar,
 } from 'recharts';
+import { useQueryState, parseAsString, parseAsArrayOf } from 'nuqs';
 import { fetchDashboardStats } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -197,7 +199,7 @@ const DashboardCalendar = () => {
   const [popupDay, setPopupDay] = useState<number | null>(null);
   const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
   const [markingPayment, setMarkingPayment] = useState<string | null>(null);
-  const [calView, setCalView] = useState<'calendar' | 'list'>('calendar');
+  const [calView, setCalView] = useQueryState('calView', parseAsString.withDefault('calendar'));
   const calendarPopupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -396,7 +398,7 @@ const DashboardCalendar = () => {
 
 /* ─── MAIN DASHBOARD ─────────────────────────────────────── */
 /* ══════════════════════════════════════════════════════════ */
-const Dashboard = () => {
+const DashboardContent = () => {
   const getCurrentFY = () => {
     const t = new Date(); const y = t.getFullYear();
     return t.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
@@ -404,8 +406,13 @@ const Dashboard = () => {
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedFY, setSelectedFY] = useState(getCurrentFY());
-  const [filters, setFilters] = useState(['Leads', 'Quotations', 'Projects', 'Tickets']);
+
+  // Using nuqs for state management
+  const [selectedFY, setSelectedFY] = useQueryState('fy', parseAsString.withDefault(getCurrentFY()));
+  const [filters, setFilters] = useQueryState('filters', parseAsArrayOf(parseAsString).withDefault(['Leads', 'Quotations', 'Projects', 'Tickets']));
+  const [activitySearch, setActivitySearch] = useQueryState('q', parseAsString.withDefault(''));
+  const [activityTab, setActivityTab] = useQueryState('tab', parseAsString.withDefault('All'));
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -422,13 +429,14 @@ const Dashboard = () => {
   }, [isFilterOpen]);
 
   const [darkMode, setDarkMode] = useState(false);
-  const [activitySearch, setActivitySearch] = useState('');
-  const [activityTab, setActivityTab] = useState<'All' | 'Lead' | 'Quotation' | 'Project' | 'Ticket'>('All');
   const [countersReady, setCountersReady] = useState(false);
   const router = useRouter();
 
   const toggleFilter = (f: string) =>
-    setFilters(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+    setFilters(prev => {
+      const current = prev || [];
+      return current.includes(f) ? current.filter(x => x !== f) : [...current, f];
+    });
 
   const load = useCallback(() => {
     setLoading(true); setCountersReady(false);
@@ -527,7 +535,7 @@ const Dashboard = () => {
 
 
   /* ══════════════════════════════════════════════════════════ */
-  /*  BUILD SECTIONS                                           */
+  /* BUILD SECTIONS                                           */
   /* ══════════════════════════════════════════════════════════ */
   const sections: Array<{ id: string; component: React.ReactNode }> = [];
 
@@ -1329,7 +1337,7 @@ const Dashboard = () => {
   });
 
   /* ══════════════════════════════════════════════════════════ */
-  /*  MAIN RENDER                                              */
+  /* MAIN RENDER                                              */
   /* ══════════════════════════════════════════════════════════ */
   return (
     <div style={{ maxWidth: '160rem', margin: '0 auto' }}>
@@ -1344,15 +1352,6 @@ const Dashboard = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* dark mode 
-          <button onClick={() => setDarkMode(d => !d)} className="db-icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'}>
-            {darkMode ? <Sun size={15} /> : <Moon size={15} />}
-          </button>*/}
-          {/* print 
-          <button onClick={() => window.print()} className="db-icon-btn" title="Print / Export PDF">
-            <Printer size={15} />
-          </button>*/}
-
           {/* filter */}
           <div ref={filterRef} style={{ position: 'relative' }}>
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="db-filter-btn">
@@ -1425,25 +1424,16 @@ const Dashboard = () => {
         <Info size={11} />
         <span>Data refreshes on page load · FY runs April – March · All values in INR (₹)</span>
       </div>
-
-      {/* QUICK ACTIONS FAB 
-      <div className="db-fab db-no-print">
-        {[
-          { lbl: 'New Lead', icon: Users, color: '#3b82f6', path: '/leads/new' },
-          { lbl: 'New Quotation', icon: FileText, color: '#f59e0b', path: '/quotations/new' },
-          { lbl: 'New Project', icon: Briefcase, color: '#10b981', path: '/projects/new' },
-          { lbl: 'New Ticket', icon: TicketIcon, color: '#ef4444', path: '/tickets/new' },
-        ].map((action, i) => (
-          <button key={i} onClick={() => router.push(action.path)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.1rem', borderRadius: '20px', border: 'none', background: action.color, color: 'white', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, boxShadow: `0 4px 14px ${action.color}55`, transition: 'all 0.2s', fontFamily: 'inherit' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 20px ${action.color}66`; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 14px ${action.color}55`; }}>
-            <action.icon size={13} />{action.lbl}
-          </button>
-        ))}
-      </div>*/}
     </div>
   );
 };
 
-export default Dashboard;
+export default function Dashboard() {
+  return (
+    <NuqsAdapter>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent />
+      </Suspense>
+    </NuqsAdapter>
+  );
+}

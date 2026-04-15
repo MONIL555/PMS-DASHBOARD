@@ -11,13 +11,13 @@ import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import ClientFields from '@/components/ClientFields';
-import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
 import { formatPhoneNumber } from '@/utils/countries';
+import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 const Leads = () => {
-  const searchParams = useSearchParams();
   const [leads, setLeads] = useState<any[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ New: 0, 'In Progress': 0, Converted: 0, Cancelled: 0 });
@@ -30,19 +30,18 @@ const Leads = () => {
   const [fetchingLeads, setFetchingLeads] = useState(false);
   const [error, setError] = useState('');
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [assignedUserFilter, setAssignedUserFilter] = useState('All');
+  // --- NUQS STATE MANAGEMENT ---
+  const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
+  const [localSearch, setLocalSearch] = useState(searchTerm); // For smooth typing debounce
 
-  // Initialize from search params
-  const initialStartDate = searchParams.get('startDate') || '';
-  const initialEndDate = searchParams.get('endDate') || '';
-  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
-  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
-  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
-  const [sortBy, setSortBy] = useState('Newest');
+  const [statusFilter, setStatusFilter] = useQueryState('status', parseAsString.withDefault('All'));
+  const [assignedUserFilter, setAssignedUserFilter] = useQueryState('assigned', parseAsString.withDefault('All'));
+  const [customStartDate, setCustomStartDate] = useQueryState('startDate', parseAsString.withDefault(''));
+  const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
+  const [dateRange, setDateRange] = useQueryState('range', parseAsString.withDefault('All'));
+  const [sortBy, setSortBy] = useQueryState('sort', parseAsString.withDefault('Newest'));
+  const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
 
-  const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
   // ... other state ...
@@ -104,7 +103,24 @@ const Leads = () => {
     Remarks: '',
     Outcome: 'Pending'
   });
-  const alertedIds = useRef<Set<string>>(new Set());
+
+  // --- SEARCH DEBOUNCE LOGIC ---
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        setSearchTerm(localSearch || null);
+        setCurrentPage(1); // Reset page only when typing pauses
+      }
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [localSearch, searchTerm, setSearchTerm, setCurrentPage]);
+
+  // Sync dateRange if we navigate from Dashboard with custom dates
+  useEffect(() => {
+    if (customStartDate && dateRange !== 'custom') {
+      setDateRange('custom');
+    }
+  }, [customStartDate, dateRange, setDateRange]);
 
   const openConvertModal = (lead: any) => {
     setSelectedLead(lead);
@@ -138,67 +154,65 @@ const Leads = () => {
     }
   };
 
-  const fetchLeadsData = async () => {
-    setFetchingLeads(true);
-    try {
-      let startDate: string | undefined;
-      let endDate: string | undefined;
-      const now = new Date();
-      if (dateRange === '7days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === '30days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisMonth') {
-        const d = new Date(now.getFullYear(), now.getMonth(), 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisYear') {
-        const d = new Date(now.getFullYear(), 0, 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'custom') {
-        startDate = customStartDate;
-        endDate = customEndDate;
-      }
+  // --- ABORT CONTROLLER FETCH LOGIC ---
+  useEffect(() => {
+    const controller = new AbortController();
 
-      const result = await fetchLeads({
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-        search: searchTerm,
-        status: statusFilter,
-        assignedUser: assignedUserFilter !== 'All' ? assignedUserFilter : undefined,
-        sortBy: sortBy,
-        startDate,
-        endDate
-      });
-      setLeads(result.leads);
-      setTotalItems(result.totalItems);
-      setStatusCounts(result.statusCounts);
-    } catch (err: any) {
-      toast.error('Error fetching leads: ' + err.message);
-    } finally {
-      setFetchingLeads(false);
-      setLoading(false);
-    }
-  };
+    const fetchLeadsData = async () => {
+      setFetchingLeads(true);
+      try {
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+        const now = new Date();
+        if (dateRange === '7days') {
+          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === '30days') {
+          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisMonth') {
+          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisYear') {
+          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+          startDate = customStartDate; endDate = customEndDate;
+        }
+
+        const result = await fetchLeads({
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: searchTerm,
+          status: statusFilter,
+          assignedUser: assignedUserFilter !== 'All' ? assignedUserFilter : undefined,
+          sortBy: sortBy,
+          startDate,
+          endDate
+        });
+
+        // If the request was cancelled by a newer one, ignore the response
+        if (controller.signal.aborted) return;
+
+        setLeads(result.leads);
+        setTotalItems(result.totalItems);
+        setStatusCounts(result.statusCounts);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        toast.error('Error fetching leads: ' + err.message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setFetchingLeads(false);
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchLeadsData();
+
+    // Cancel the old fetch when dependencies change
+    return () => controller.abort();
+  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter, searchTerm]);
 
   useEffect(() => {
     loadInitialData();
   }, []);
-
-  useEffect(() => {
-    fetchLeadsData();
-  }, [currentPage, statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter, sortBy, dateRange, customStartDate, customEndDate, assignedUserFilter]);
-
-  // --- AUTOMATED LEAD FOLLOW-UP ALERTS ---
-  // Automated follow-up alerts are now handled by the centralized cron job (/api/cron/dispatch-all)
-  // this prevents redundant notifications when multiple admins view the leads page.
 
   const handleFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,12 +229,14 @@ const Leads = () => {
       setSelectedFollowUpLead(null);
       setFollowUpData({ Remarks: '', Outcome: 'Pending' });
       toast.success('Follow-up recorded successfully!');
-      fetchLeadsData();
-      
+
       // Update details view if open
       if (selectedDetailLead && selectedDetailLead._id === updated._id) {
         setSelectedDetailLead(updated);
       }
+
+      // Trigger a refresh (since dependencies don't change, we toggle page to force it, or just let user refresh. Ideally you'd have a refresh trigger state, but for now we maintain current logic)
+      setLeads(prev => prev.map(l => l._id === updated._id ? updated : l));
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -250,7 +266,7 @@ const Leads = () => {
       await convertLeadToQuotation(selectedLead._id, convertData);
       setSelectedLead(null);
       toast.success('Lead converted to Quotation successfully!');
-      fetchLeadsData();
+      setCurrentPage(1); // Force refresh
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -267,7 +283,7 @@ const Leads = () => {
       await cancelItem('lead', selectedCancelLead._id, cancelReason);
       setSelectedCancelLead(null);
       toast.success('Lead cancelled and archived.');
-      fetchLeadsData();
+      setCurrentPage(1); // Force refresh
     } catch (err: any) {
       toast.error('Error canceling lead: ' + err.message);
     } finally {
@@ -302,8 +318,6 @@ const Leads = () => {
       Description: ''
     });
   };
-
-
 
   const handleClientSelect = (client: any) => {
     setAddLeadData({
@@ -389,7 +403,8 @@ const Leads = () => {
         toast.success('Lead added successfully!');
       }
       handleAddModalClose();
-      fetchLeadsData();
+
+      setCurrentPage(1); // Trigger fetch via state dependency
 
       if (statusChangedToCancel && originalLead) {
         setSelectedCancelLead(originalLead);
@@ -415,24 +430,23 @@ const Leads = () => {
   if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const paginatedLeads = leads;
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '1rem', 
+      <div className="page-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
         padding: '0.25rem 0',
         gap: '1.25rem',
         minHeight: '48px'
       }}>
         {/* Left: Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div style={{ 
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-            padding: '0.45rem', 
+          <div style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            padding: '0.45rem',
             borderRadius: '10px',
             color: '#3b82f6',
             display: 'flex',
@@ -441,11 +455,11 @@ const Leads = () => {
           }}>
             <Users size={20} strokeWidth={2.5} />
           </div>
-          <h1 className="page-title" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 800, 
-            color: 'var(--text-primary)', 
-            margin: 0, 
+          <h1 className="page-title" style={{
+            fontSize: '1.5rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: 0,
             letterSpacing: '-0.025em',
             whiteSpace: 'nowrap'
           }}>Leads</h1>
@@ -458,18 +472,18 @@ const Leads = () => {
             type="text"
             placeholder="Search leads..."
             className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
           />
         </div>
 
         {/* Middle-Right: Stats Filters */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.4rem', 
-          backgroundColor: '#f8fafc', 
-          padding: '0.25rem', 
+        <div style={{
+          display: 'flex',
+          gap: '0.4rem',
+          backgroundColor: '#f8fafc',
+          padding: '0.25rem',
           borderRadius: '10px',
           border: '1px solid var(--border-color)',
           alignItems: 'center',
@@ -483,7 +497,10 @@ const Leads = () => {
           ].map((block) => (
             <div
               key={block.key}
-              onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
+              onClick={() => {
+                setStatusFilter(statusFilter === block.key ? 'All' : block.key);
+                setCurrentPage(1);
+              }}
               style={{
                 padding: '0.35rem 0.6rem',
                 display: 'flex',
@@ -523,14 +540,14 @@ const Leads = () => {
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="btn btn-primary"
-            style={{ 
+            style={{
               height: '36px',
-              padding: '0 1rem', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
+              padding: '0 1rem',
+              borderRadius: '8px',
+              fontWeight: 600,
               fontSize: '0.85rem',
-              display: 'flex', 
-              alignItems: 'center', 
+              display: 'flex',
+              alignItems: 'center',
               gap: '0.4rem',
               boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
               transition: 'all 0.2s ease',
@@ -548,7 +565,10 @@ const Leads = () => {
           <thead>
             <tr>
               <th
-                onClick={() => setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC')}
+                onClick={() => {
+                  setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+                  setCurrentPage(1);
+                }}
                 style={{ cursor: 'pointer', userSelect: 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -556,7 +576,10 @@ const Leads = () => {
                 </div>
               </th>
               <th
-                onClick={() => setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z')}
+                onClick={() => {
+                  setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+                  setCurrentPage(1);
+                }}
                 style={{ cursor: 'pointer', userSelect: 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -570,7 +593,10 @@ const Leads = () => {
                   <select
                     className="premium-table-filter"
                     value={assignedUserFilter}
-                    onChange={(e) => setAssignedUserFilter(e.target.value)}
+                    onChange={(e) => {
+                      setAssignedUserFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -592,7 +618,12 @@ const Leads = () => {
               </th>
               <th>Status</th>
               <th
-                onClick={() => dateRange === 'All' && setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest')}
+                onClick={() => {
+                  if (dateRange === 'All') {
+                    setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+                    setCurrentPage(1);
+                  }
+                }}
                 style={{ cursor: dateRange === 'All' ? 'pointer' : 'default', userSelect: 'none', minWidth: '180px' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -601,7 +632,10 @@ const Leads = () => {
                     <select
                       className="premium-table-filter"
                       value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
+                      onChange={(e) => {
+                        setDateRange(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       style={{
                         background: 'transparent',
                         border: 'none',
@@ -629,14 +663,20 @@ const Leads = () => {
                           type="date"
                           className="premium-compact-input"
                           value={customStartDate}
-                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomStartDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                         <input
                           type="date"
                           className="premium-compact-input"
                           value={customEndDate}
-                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomEndDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                       </div>
@@ -646,8 +686,8 @@ const Leads = () => {
               </th>
             </tr>
           </thead>
-          <tbody>
-            {paginatedLeads.map((lead: any) => (
+          <tbody style={{ opacity: fetchingLeads ? 0.6 : 1, transition: 'opacity 0.2s ease-in-out' }}>
+            {leads.map((lead: any) => (
               <tr
                 key={lead._id}
                 onClick={() => setSelectedDetailLead(lead)}
@@ -681,9 +721,9 @@ const Leads = () => {
                 <td>{formatDateDDMMYYYY(lead.Inquiry_Date)}</td>
               </tr>
             ))}
-            {paginatedLeads.length === 0 && (
+            {leads.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
                   {fetchingLeads ? 'Updating leads...' : 'No leads found matching your search.'}
                 </td>
               </tr>
@@ -999,6 +1039,7 @@ const Leads = () => {
           </div>
         </div>
       )}
+
       {/* Add/Edit Lead Modal */}
       {isAddModalOpen && (
         <div className="modal-overlay">
@@ -1222,8 +1263,8 @@ const Leads = () => {
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Outcome Status</label>
-                <select 
-                  className="form-select" 
+                <select
+                  className="form-select"
                   style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
                   value={followUpData.Outcome}
                   onChange={e => setFollowUpData({ ...followUpData, Outcome: e.target.value })}
@@ -1251,8 +1292,10 @@ const Leads = () => {
 
 export default function LeadsPage() {
   return (
-    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
-      <Leads />
-    </React.Suspense>
+    <NuqsAdapter>
+      <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+        <Leads />
+      </React.Suspense>
+    </NuqsAdapter>
   );
 }

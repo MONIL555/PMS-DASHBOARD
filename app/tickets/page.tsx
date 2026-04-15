@@ -7,9 +7,10 @@ import { useOptions } from '@/context/OptionsContext';
 import { Loader2, X, Search, Ticket, Clock, CheckCircle, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
-import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 /**
  * Tickets Page
@@ -22,29 +23,30 @@ const Tickets = () => {
     return new Date(now.getTime() - tzoffset).toISOString().slice(0, 16);
   };
 
-  const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<any[]>([]);
   const [projectsList, setProjectsList] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
+  const [fetchingTickets, setFetchingTickets] = useState(false);
   const [error, setError] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [priorityFilter, setPriorityFilter] = useState(searchParams.get('priority') || 'All');
-  const [sortBy, setSortBy] = useState('Newest');
+  // --- NUQS STATE MANAGEMENT ---
+  const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
+  const [localSearch, setLocalSearch] = useState(searchTerm || ''); // Local debounce state
 
-  // Initialize from search params
-  const initialStartDate = searchParams.get('startDate') || '';
-  const initialEndDate = searchParams.get('endDate') || '';
-  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
-  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
-  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
+  const [statusFilter, setStatusFilter] = useQueryState('status', parseAsString.withDefault('All'));
+  const [priorityFilter, setPriorityFilter] = useQueryState('priority', parseAsString.withDefault('All'));
+  const [sortBy, setSortBy] = useQueryState('sort', parseAsString.withDefault('Newest'));
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [dateRange, setDateRange] = useQueryState('range', parseAsString.withDefault('All'));
+  const [customStartDate, setCustomStartDate] = useQueryState('startDate', parseAsString.withDefault(''));
+  const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
+
+  const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
   const [totalItems, setTotalItems] = useState(0);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   const [statusCounts, setStatusCounts] = useState({
     In_Progress: 0,
     Open: 0,
@@ -52,6 +54,7 @@ const Tickets = () => {
   });
   const ITEMS_PER_PAGE = 20;
 
+  // Modals state
   const [selectedCancelTicket, setSelectedCancelTicket] = useState<any | null>(null);
   const [selectedDetailTicket, setSelectedDetailTicket] = useState<any | null>(null);
   const [canceling, setCanceling] = useState(false);
@@ -61,74 +64,89 @@ const Tickets = () => {
   const [editTicketId, setEditTicketId] = useState<string | null>(null);
   const [editingTicket, setEditingTicket] = useState(false);
   const [editTicketData, setEditTicketData] = useState({
-    Title: '',
-    Description: '',
-    Priority: 'Medium',
-    Status: 'In_Progress',
-    Action_Taken_DT: '',
-    Raised_By: '',
-    Assigned_To: '',
-    Company_Name: '',
-    Raised_Date_Time: ''
+    Title: '', Description: '', Priority: 'Medium', Status: 'In_Progress',
+    Action_Taken_DT: '', Raised_By: '', Assigned_To: '', Company_Name: '', Raised_Date_Time: ''
   });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addTicketData, setAddTicketData] = useState({
-    Project_ID: '',
-    Title: '',
-    Description: '',
-    Priority: 'Medium',
-    Status: 'Open',
-    Raised_By: '',
-    Assigned_To: '',
-    Company_Name: '',
-    Raised_Date_Time: getLocalISOString()
+    Project_ID: '', Title: '', Description: '', Priority: 'Medium', Status: 'Open',
+    Raised_By: '', Assigned_To: '', Company_Name: '', Raised_Date_Time: getLocalISOString()
   });
 
-  const loadData = async () => {
-    try {
-      let startDate: string | undefined;
-      let endDate: string | undefined;
-      const now = new Date();
-      if (dateRange === '7days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === '30days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisMonth') {
-        const d = new Date(now.getFullYear(), now.getMonth(), 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisYear') {
-        const d = new Date(now.getFullYear(), 0, 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'custom') {
-        startDate = customStartDate;
-        endDate = customEndDate;
+  // --- SEARCH DEBOUNCE LOGIC ---
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        setSearchTerm(localSearch || null);
+        setCurrentPage(1);
       }
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [localSearch, searchTerm, setSearchTerm, setCurrentPage]);
 
-      const response = await fetchTickets({
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-        search: debouncedSearch,
-        status: statusFilter,
-        priority: priorityFilter,
-        sortBy: sortBy,
-        startDate,
-        endDate
-      });
-      setTickets(response.tickets);
-      setTotalItems(response.totalItems);
-      setStatusCounts(response.statusCounts);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  // Sync dateRange if navigating with custom dates
+  useEffect(() => {
+    if (customStartDate && dateRange !== 'custom') {
+      setDateRange('custom');
     }
-  };
+  }, [customStartDate, dateRange, setDateRange]);
+
+  // --- ABORT CONTROLLER FETCH LOGIC ---
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadData = async () => {
+      setFetchingTickets(true);
+      try {
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+        const now = new Date();
+        if (dateRange === '7days') {
+          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === '30days') {
+          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisMonth') {
+          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisYear') {
+          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+          startDate = customStartDate; endDate = customEndDate;
+        }
+
+        const response = await fetchTickets({
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: searchTerm,
+          status: statusFilter,
+          priority: priorityFilter,
+          sortBy: sortBy,
+          startDate,
+          endDate
+        });
+
+        if (controller.signal.aborted) return;
+
+        setTickets(response.tickets);
+        setTotalItems(response.totalItems);
+        setStatusCounts(response.statusCounts);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        setError(err.message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setFetchingTickets(false);
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+    return () => controller.abort();
+  }, [currentPage, searchTerm, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate, refreshTrigger]);
+
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   const loadProjectsData = async () => {
     try {
@@ -139,21 +157,6 @@ const Tickets = () => {
     }
   };
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
-
-  useEffect(() => {
-    loadData();
-  }, [currentPage, debouncedSearch, statusFilter, priorityFilter, sortBy, dateRange, customStartDate, customEndDate]);
-
   const handleCancelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCancelTicket) return;
@@ -163,7 +166,7 @@ const Tickets = () => {
       await cancelItem('ticket', selectedCancelTicket._id, cancelReason);
       setSelectedCancelTicket(null);
       toast.success('Ticket cancelled and archived.');
-      loadData();
+      triggerRefresh();
     } catch (err: any) {
       toast.error('Error canceling ticket: ' + err.message);
     } finally {
@@ -175,15 +178,8 @@ const Tickets = () => {
     setIsEditModalOpen(false);
     setEditTicketId(null);
     setEditTicketData({
-      Title: '',
-      Description: '',
-      Priority: 'Medium',
-      Status: 'In_Progress',
-      Action_Taken_DT: '',
-      Raised_By: '',
-      Assigned_To: '',
-      Company_Name: '',
-      Raised_Date_Time: ''
+      Title: '', Description: '', Priority: 'Medium', Status: 'In_Progress',
+      Action_Taken_DT: '', Raised_By: '', Assigned_To: '', Company_Name: '', Raised_Date_Time: ''
     });
   };
 
@@ -203,10 +199,9 @@ const Tickets = () => {
     setEditingTicket(true);
 
     let statusChangedToCancel = false;
-    let originalTicket = null;
     let dataToSubmit = { ...editTicketData };
 
-    originalTicket = tickets.find((t: any) => t._id === editTicketId);
+    const originalTicket = tickets.find((t: any) => t._id === editTicketId);
     const originalStatus = originalTicket?.Status || 'In_Progress';
     const newStatus = editTicketData.Status;
     const isCanceling = newStatus === 'Closed';
@@ -220,7 +215,7 @@ const Tickets = () => {
       await updateTicketDetails(editTicketId, dataToSubmit);
       toast.success('Ticket updated successfully!');
       handleEditModalClose();
-      loadData();
+      triggerRefresh();
 
       if (statusChangedToCancel && originalTicket) {
         setSelectedCancelTicket(originalTicket);
@@ -251,17 +246,10 @@ const Tickets = () => {
       toast.success('Ticket created successfully!');
       setIsAddModalOpen(false);
       setAddTicketData({
-        Project_ID: '',
-        Title: '',
-        Description: '',
-        Priority: 'Medium',
-        Status: 'Open',
-        Raised_By: '',
-        Assigned_To: '',
-        Company_Name: '',
-        Raised_Date_Time: getLocalISOString()
+        Project_ID: '', Title: '', Description: '', Priority: 'Medium', Status: 'Open',
+        Raised_By: '', Assigned_To: '', Company_Name: '', Raised_Date_Time: getLocalISOString()
       });
-      loadData();
+      triggerRefresh();
     } catch (err: any) {
       toast.error('Error creating ticket: ' + err.message);
     } finally {
@@ -273,17 +261,12 @@ const Tickets = () => {
   if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const filteredTickets = tickets;
-  const paginatedTickets = tickets;
 
   const toggleSort = (column: string) => {
-    if (column === 'ID') {
-      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
-    } else if (column === 'Company') {
-      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
-    } else if (column === 'Date') {
-      setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
-    }
+    if (column === 'ID') setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    else if (column === 'Company') setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    else if (column === 'Date') setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+    setCurrentPage(1);
   };
 
   const getSortIcon = (column: string) => {
@@ -302,20 +285,20 @@ const Tickets = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '1rem', 
+      <div className="page-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
         padding: '0.25rem 0',
         gap: '1.25rem',
         minHeight: '48px'
       }}>
         {/* Left: Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div style={{ 
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-            padding: '0.45rem', 
+          <div style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            padding: '0.45rem',
             borderRadius: '10px',
             color: '#3b82f6',
             display: 'flex',
@@ -324,11 +307,11 @@ const Tickets = () => {
           }}>
             <Ticket size={20} strokeWidth={2.5} />
           </div>
-          <h1 className="page-title" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 800, 
-            color: 'var(--text-primary)', 
-            margin: 0, 
+          <h1 className="page-title" style={{
+            fontSize: '1.5rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: 0,
             letterSpacing: '-0.025em',
             whiteSpace: 'nowrap'
           }}>Tickets</h1>
@@ -341,18 +324,18 @@ const Tickets = () => {
             type="text"
             placeholder="Search tickets..."
             className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
           />
         </div>
 
         {/* Middle-Right: Stats Filters */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.4rem', 
-          backgroundColor: '#f8fafc', 
-          padding: '0.25rem', 
+        <div style={{
+          display: 'flex',
+          gap: '0.4rem',
+          backgroundColor: '#f8fafc',
+          padding: '0.25rem',
           borderRadius: '10px',
           border: '1px solid var(--border-color)',
           alignItems: 'center',
@@ -365,7 +348,10 @@ const Tickets = () => {
           ].map((block) => (
             <div
               key={block.key}
-              onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
+              onClick={() => {
+                setStatusFilter(statusFilter === block.key ? 'All' : block.key);
+                setCurrentPage(1);
+              }}
               style={{
                 padding: '0.35rem 0.6rem',
                 display: 'flex',
@@ -408,14 +394,14 @@ const Tickets = () => {
               loadProjectsData();
             }}
             className="btn btn-primary"
-            style={{ 
+            style={{
               height: '36px',
-              padding: '0 1rem', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
+              padding: '0 1rem',
+              borderRadius: '8px',
+              fontWeight: 600,
               fontSize: '0.85rem',
-              display: 'flex', 
-              alignItems: 'center', 
+              display: 'flex',
+              alignItems: 'center',
               gap: '0.4rem',
               boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
               transition: 'all 0.2s ease',
@@ -428,7 +414,6 @@ const Tickets = () => {
         )}
       </div>
 
-
       <div className="table-container">
         <table>
           <thead>
@@ -440,7 +425,10 @@ const Tickets = () => {
                 <select
                   className="premium-table-filter"
                   value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  onChange={(e) => {
+                    setPriorityFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   style={{
                     background: 'transparent',
                     border: 'none',
@@ -473,7 +461,10 @@ const Tickets = () => {
                     <select
                       className="premium-table-filter"
                       value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
+                      onChange={(e) => {
+                        setDateRange(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       style={{
                         background: 'transparent',
                         border: 'none',
@@ -501,14 +492,20 @@ const Tickets = () => {
                           type="date"
                           className="premium-compact-input"
                           value={customStartDate}
-                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomStartDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                         <input
                           type="date"
                           className="premium-compact-input"
                           value={customEndDate}
-                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomEndDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                       </div>
@@ -518,8 +515,8 @@ const Tickets = () => {
               </th>
             </tr>
           </thead>
-          <tbody>
-            {paginatedTickets.map((tkt: any) => (
+          <tbody style={{ opacity: fetchingTickets ? 0.6 : 1, transition: 'opacity 0.2s ease-in-out' }}>
+            {tickets.map((tkt: any) => (
               <tr key={tkt._id} onClick={() => setSelectedDetailTicket(tkt)} style={{ cursor: 'pointer' }}>
                 <td><span className="font-semibold text-primary">{tkt.Ticket_Number}</span></td>
                 <td className="font-medium">{tkt.Title}</td>
@@ -538,9 +535,11 @@ const Tickets = () => {
                 <td>{formatDateDDMMYYYY(tkt.Raised_Date_Time)}</td>
               </tr>
             ))}
-            {filteredTickets.length === 0 && (
+            {tickets.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>No tickets found matching your search.</td>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
+                  {fetchingTickets ? 'Updating tickets...' : 'No tickets found matching your search.'}
+                </td>
               </tr>
             )}
           </tbody>
@@ -583,7 +582,6 @@ const Tickets = () => {
                       {selectedDetailTicket.Priority}
                     </span>
                   </div>
-                  {/* Assigned To */}
                   <div><strong className="text-secondary">Assigned To:</strong> {selectedDetailTicket.Assigned_To || '-'}</div>
                 </div>
               </div>
@@ -767,7 +765,13 @@ const Tickets = () => {
                         return true;
                       }).map((status: string) => (
                         <option key={status} value={status}>{status.replace('_', ' ')}</option>
-                      ))}
+                      )) || (
+                          <>
+                            <option value="Open">Open</option>
+                            <option value="In_Progress">In Progress</option>
+                            {hasPermission(PERMISSIONS.TICKETS_DELETE) && <option value="Closed">Closed</option>}
+                          </>
+                        )}
                     </select>
                   </div>
                 </div>
@@ -843,6 +847,7 @@ const Tickets = () => {
           </div>
         </div>
       )}
+
       {/* Add Ticket Modal */}
       {isAddModalOpen && (
         <div className="modal-overlay">
@@ -999,8 +1004,10 @@ const Tickets = () => {
 
 export default function TicketsPage() {
   return (
-    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
-      <Tickets />
-    </React.Suspense>
+    <NuqsAdapter>
+      <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+        <Tickets />
+      </React.Suspense>
+    </NuqsAdapter>
   );
 }

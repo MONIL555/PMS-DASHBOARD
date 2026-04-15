@@ -11,35 +11,35 @@ import DateInput from '@/components/DateInput';
 import ClientAutocomplete from '@/components/ClientAutocomplete';
 import HierarchicalProductSelector from '@/components/HierarchicalProductSelector';
 import ClientFields from '@/components/ClientFields';
-import { useSearchParams } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { useQueryState, parseAsString, parseAsInteger } from 'nuqs';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 const Quotations = () => {
-  const searchParams = useSearchParams();
   const [quotations, setQuotations] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const { optionsMap } = useOptions();
   const { hasPermission } = usePermissions();
   const [loading, setLoading] = useState(true);
+  const [fetchingQuotations, setFetchingQuotations] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'All');
-  const [commRange, setCommRange] = useState('All');
+  // --- NUQS STATE MANAGEMENT ---
+  const [searchTerm, setSearchTerm] = useQueryState('q', parseAsString.withDefault(''));
+  const [localSearch, setLocalSearch] = useState(searchTerm); // For smooth typing debounce
 
-  // Initialize from search params
-  const initialStartDate = searchParams.get('startDate') || '';
-  const initialEndDate = searchParams.get('endDate') || '';
-  const [dateRange, setDateRange] = useState(initialStartDate ? 'custom' : 'All');
-  const [customStartDate, setCustomStartDate] = useState(initialStartDate);
-  const [customEndDate, setCustomEndDate] = useState(initialEndDate);
-  const [sortBy, setSortBy] = useState('Newest');
+  const [statusFilter, setStatusFilter] = useQueryState('status', parseAsString.withDefault('All'));
+  const [commRange, setCommRange] = useQueryState('comm', parseAsString.withDefault('All'));
+  const [dateRange, setDateRange] = useQueryState('range', parseAsString.withDefault('All'));
+  const [customStartDate, setCustomStartDate] = useQueryState('startDate', parseAsString.withDefault(''));
+  const [customEndDate, setCustomEndDate] = useQueryState('endDate', parseAsString.withDefault(''));
+  const [sortBy, setSortBy] = useQueryState('sort', parseAsString.withDefault('Newest'));
+  const [currentPage, setCurrentPage] = useQueryState('page', parseAsInteger.withDefault(1));
 
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusCounts, setStatusCounts] = useState({
     Sent: 0,
     'Follow-up': 0,
@@ -49,6 +49,7 @@ const Quotations = () => {
   });
   const ITEMS_PER_PAGE = 20;
 
+  // ... other state ...
   const [selectedQuotation, setSelectedQuotation] = useState<any | null>(null);
   const [selectedDetailQuotation, setSelectedDetailQuotation] = useState<any | null>(null);
   const [converting, setConverting] = useState(false);
@@ -63,7 +64,6 @@ const Quotations = () => {
     Remarks: '',
     Outcome: 'Pending'
   });
-  const alertedIds = useRef<Set<string>>(new Set());
 
   const [convertData, setConvertData] = useState({
     Client_Reference: '',
@@ -129,73 +129,96 @@ const Quotations = () => {
     Description: ''
   });
 
-  const loadData = async () => {
-    try {
-      let minComm: number | undefined;
-      let maxComm: number | undefined;
-      if (commRange === '0-25k') { minComm = 0; maxComm = 25000; }
-      else if (commRange === '25k-50k') { minComm = 25000; maxComm = 50000; }
-      else if (commRange === '50k-100k') { minComm = 50000; maxComm = 100000; }
-      else if (commRange === '100k-500k') { minComm = 100000; maxComm = 500000; }
-      else if (commRange === '500k+') { minComm = 500000; }
-
-      let startDate: string | undefined;
-      let endDate: string | undefined;
-      const now = new Date();
-      if (dateRange === '7days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === '30days') {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisMonth') {
-        const d = new Date(now.getFullYear(), now.getMonth(), 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'thisYear') {
-        const d = new Date(now.getFullYear(), 0, 1);
-        startDate = d.toISOString().split('T')[0];
-      } else if (dateRange === 'custom') {
-        startDate = customStartDate;
-        endDate = customEndDate;
+  // --- SEARCH DEBOUNCE LOGIC ---
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        setSearchTerm(localSearch || null);
+        setCurrentPage(1); // Reset page only when typing pauses
       }
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [localSearch, searchTerm, setSearchTerm, setCurrentPage]);
 
-      const quotationsResponse = await fetchQuotations({
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-        search: debouncedSearch,
-        status: statusFilter,
-        sortBy: sortBy,
-        minComm,
-        maxComm,
-        startDate,
-        endDate
-      });
-      setQuotations(quotationsResponse.quotations);
-      setTotalItems(quotationsResponse.totalItems);
-      setStatusCounts(quotationsResponse.statusCounts);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  // Sync dateRange if we navigate with custom dates
+  useEffect(() => {
+    if (customStartDate && dateRange !== 'custom') {
+      setDateRange('custom');
     }
-  };
+  }, [customStartDate, dateRange, setDateRange]);
 
+  // --- ABORT CONTROLLER FETCH LOGIC ---
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchQuotationsData = async () => {
+      setFetchingQuotations(true);
+      try {
+        let minComm: number | undefined;
+        let maxComm: number | undefined;
+        if (commRange === '0-25k') { minComm = 0; maxComm = 25000; }
+        else if (commRange === '25k-50k') { minComm = 25000; maxComm = 50000; }
+        else if (commRange === '50k-100k') { minComm = 50000; maxComm = 100000; }
+        else if (commRange === '100k-500k') { minComm = 100000; maxComm = 500000; }
+        else if (commRange === '500k+') { minComm = 500000; }
+
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+        const now = new Date();
+        if (dateRange === '7days') {
+          const d = new Date(); d.setDate(d.getDate() - 7); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === '30days') {
+          const d = new Date(); d.setDate(d.getDate() - 30); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisMonth') {
+          const d = new Date(now.getFullYear(), now.getMonth(), 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'thisYear') {
+          const d = new Date(now.getFullYear(), 0, 1); startDate = d.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+          startDate = customStartDate; endDate = customEndDate;
+        }
+
+        const result = await fetchQuotations({
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: searchTerm,
+          status: statusFilter,
+          sortBy: sortBy,
+          minComm,
+          maxComm,
+          startDate,
+          endDate
+        });
+
+        if (controller.signal.aborted) return;
+
+        setQuotations(result.quotations);
+        setTotalItems(result.totalItems);
+        setStatusCounts(result.statusCounts);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        setError(err.message);
+        toast.error('Error fetching quotations: ' + err.message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setFetchingQuotations(false);
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchQuotationsData();
+
+    return () => controller.abort();
+  }, [currentPage, searchTerm, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate, refreshTrigger]);
+
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   const handleClientSelect = (client: any) => {
-    // ... handles both add and edit
     if (isAddModalOpen) {
-      setAddQuotationData({
-        ...addQuotationData,
-        Client_Reference: client._id
-      });
+      setAddQuotationData({ ...addQuotationData, Client_Reference: client._id });
       setClientSearchName(client.Client_Name);
     } else if (isEditModalOpen) {
-      setEditQuotationData({
-        ...editQuotationData,
-        Client_Reference: client._id
-      });
+      setEditQuotationData({ ...editQuotationData, Client_Reference: client._id });
       setClientSearchName(client.Client_Name);
     }
     toast.success(`Client "${client.Client_Name}" selected!`);
@@ -203,26 +226,17 @@ const Quotations = () => {
 
   const handleProductSelect = (product: any) => {
     if (isAddModalOpen) {
-      setAddQuotationData({
-        ...addQuotationData,
-        Product_Reference: product._id
-      });
+      setAddQuotationData({ ...addQuotationData, Product_Reference: product._id });
       setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
     } else if (isEditModalOpen) {
-      setEditQuotationData({
-        ...editQuotationData,
-        Product_Reference: product._id
-      });
+      setEditQuotationData({ ...editQuotationData, Product_Reference: product._id });
       setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
     }
     toast.success(`Service "${product.SubSubType || product.SubType || product.Type}" selected!`);
   };
 
   const handleConvertProductSelect = (product: any) => {
-    setConvertData({
-      ...convertData,
-      Product_Reference: product._id
-    });
+    setConvertData({ ...convertData, Product_Reference: product._id });
     setProductSearchName([product.Type, product.SubType, product.SubSubType].filter(Boolean).join(' > '));
   };
 
@@ -247,25 +261,6 @@ const Quotations = () => {
     };
     loadProducts();
   }, []);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
-
-  useEffect(() => {
-    loadData();
-  }, [currentPage, debouncedSearch, statusFilter, sortBy, commRange, dateRange, customStartDate, customEndDate]);
-
-  // Proactive Quotation Follow-up Alert Check
-  // Automated follow-up alerts are now handled by the centralized cron job (/api/cron/dispatch-all)
-  // this prevents redundant notifications when multiple admins view the quotations page.
 
   useEffect(() => {
     if (selectedQuotation) {
@@ -306,7 +301,7 @@ const Quotations = () => {
       await convertQuotationToProject(selectedQuotation._id, convertData);
       setSelectedQuotation(null);
       toast.success('Quotation converted to Project successfully!');
-      loadData();
+      triggerRefresh();
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     } finally {
@@ -323,7 +318,7 @@ const Quotations = () => {
       await cancelItem('quotation', selectedCancelQuotation._id, cancelReason);
       setSelectedCancelQuotation(null);
       toast.success('Quotation rejected and archived.');
-      loadData();
+      triggerRefresh();
     } catch (err: any) {
       toast.error('Error canceling quotation: ' + err.message);
     } finally {
@@ -352,7 +347,7 @@ const Quotations = () => {
       const savedRemarks = followUpData.Remarks;
       setFollowUpData({ Remarks: '', Outcome: 'Pending' });
       toast.success('Follow-up recorded successfully!');
-      loadData();
+      triggerRefresh();
 
       if (isConverted) {
         setSelectedQuotation(quoteToConvert);
@@ -420,7 +415,7 @@ const Quotations = () => {
       const response = await updateQuotationDetails(editQuotationId, dataToUpdate);
       toast.success('Quotation updated successfully!');
       handleEditModalClose();
-      loadData();
+      triggerRefresh();
 
       if (statusChangedToReject && originalQuotation) {
         setSelectedCancelQuotation(originalQuotation);
@@ -500,7 +495,7 @@ const Quotations = () => {
       await createQuotation(dataToSubmit);
       toast.success('Quotation added successfully!');
       handleAddModalClose();
-      loadData();
+      triggerRefresh();
     } catch (err: any) {
       toast.error('Error adding quotation: ' + err.message);
     } finally {
@@ -517,9 +512,6 @@ const Quotations = () => {
   if (error) return <div className="text-secondary bg-red-900/20 p-4 rounded-lg text-red-500">Error: {error}</div>;
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-  // No client-side filtering needed anymore
-  const filteredQuotations = quotations;
   const paginatedQuotations = quotations;
 
   const overdueQuotations = quotations.filter((q: any) => {
@@ -537,13 +529,10 @@ const Quotations = () => {
   });
 
   const toggleSort = (column: string) => {
-    if (column === 'ID') {
-      setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
-    } else if (column === 'Company') {
-      setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
-    } else if (column === 'Date') {
-      setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
-    }
+    if (column === 'ID') setSortBy(sortBy === 'ID-ASC' ? 'ID-DESC' : 'ID-ASC');
+    else if (column === 'Company') setSortBy(sortBy === 'Company-A-Z' ? 'Company-Z-A' : 'Company-A-Z');
+    else if (column === 'Date') setSortBy(sortBy === 'Newest' ? 'Oldest' : 'Newest');
+    setCurrentPage(1);
   };
 
   const getSortIcon = (column: string) => {
@@ -562,20 +551,20 @@ const Quotations = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '1rem', 
+      <div className="page-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
         padding: '0.25rem 0',
         gap: '1.25rem',
         minHeight: '48px'
       }}>
         {/* Left: Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          <div style={{ 
-            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
-            padding: '0.45rem', 
+          <div style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            padding: '0.45rem',
             borderRadius: '10px',
             color: '#3b82f6',
             display: 'flex',
@@ -584,11 +573,11 @@ const Quotations = () => {
           }}>
             <FileText size={20} strokeWidth={2.5} />
           </div>
-          <h1 className="page-title" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 800, 
-            color: 'var(--text-primary)', 
-            margin: 0, 
+          <h1 className="page-title" style={{
+            fontSize: '1.5rem',
+            fontWeight: 800,
+            color: 'var(--text-primary)',
+            margin: 0,
             letterSpacing: '-0.025em',
             whiteSpace: 'nowrap'
           }}>Quotations</h1>
@@ -601,18 +590,18 @@ const Quotations = () => {
             type="text"
             placeholder="Search quotations..."
             className="premium-search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
           />
         </div>
 
         {/* Middle-Right: Stats Filters */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.3rem', 
-          backgroundColor: '#f8fafc', 
-          padding: '0.25rem', 
+        <div style={{
+          display: 'flex',
+          gap: '0.3rem',
+          backgroundColor: '#f8fafc',
+          padding: '0.25rem',
           borderRadius: '10px',
           border: '1px solid var(--border-color)',
           alignItems: 'center',
@@ -627,7 +616,10 @@ const Quotations = () => {
           ].map((block) => (
             <div
               key={block.key}
-              onClick={() => setStatusFilter(statusFilter === block.key ? 'All' : block.key)}
+              onClick={() => {
+                setStatusFilter(statusFilter === block.key ? 'All' : block.key);
+                setCurrentPage(1);
+              }}
               style={{
                 padding: '0.35rem 0.6rem',
                 display: 'flex',
@@ -670,14 +662,14 @@ const Quotations = () => {
               loadLeadsData();
             }}
             className="btn btn-primary"
-            style={{ 
+            style={{
               height: '36px',
-              padding: '0 1rem', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
+              padding: '0 1rem',
+              borderRadius: '8px',
+              fontWeight: 600,
               fontSize: '0.85rem',
-              display: 'flex', 
-              alignItems: 'center', 
+              display: 'flex',
+              alignItems: 'center',
               gap: '0.4rem',
               boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.25)',
               transition: 'all 0.2s ease',
@@ -690,7 +682,6 @@ const Quotations = () => {
         )}
       </div>
 
-
       <div className="table-container">
         <table>
           <thead>
@@ -702,7 +693,10 @@ const Quotations = () => {
                 <select
                   className="premium-table-filter"
                   value={commRange}
-                  onChange={(e) => setCommRange(e.target.value)}
+                  onChange={(e) => {
+                    setCommRange(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   onClick={(e) => e.stopPropagation()}
                   style={{
                     background: 'transparent',
@@ -735,7 +729,10 @@ const Quotations = () => {
                     <select
                       className="premium-table-filter"
                       value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
+                      onChange={(e) => {
+                        setDateRange(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       style={{
                         background: 'transparent',
                         border: 'none',
@@ -763,14 +760,20 @@ const Quotations = () => {
                           type="date"
                           className="premium-compact-input"
                           value={customStartDate}
-                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomStartDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                         <input
                           type="date"
                           className="premium-compact-input"
                           value={customEndDate}
-                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          onChange={(e) => {
+                            setCustomEndDate(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           style={{ fontSize: '0.65rem', padding: '2px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'white' }}
                         />
                       </div>
@@ -780,7 +783,7 @@ const Quotations = () => {
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody style={{ opacity: fetchingQuotations ? 0.6 : 1, transition: 'opacity 0.2s ease-in-out' }}>
             {paginatedQuotations.map((qtn: any) => (
               <tr
                 key={qtn._id}
@@ -818,10 +821,10 @@ const Quotations = () => {
                 </td>
               </tr>
             ))}
-            {filteredQuotations.length === 0 && (
+            {paginatedQuotations.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                  No quotations found matching your search.
+                  {fetchingQuotations ? 'Updating quotations...' : 'No quotations found matching your search.'}
                 </td>
               </tr>
             )}
@@ -880,7 +883,6 @@ const Quotations = () => {
                     </span>
                   </div>
                   <div><strong className="text-secondary">Letterhead:</strong> {selectedDetailQuotation.Letterhead || '-'}</div>
-                  {/*<div><strong className="text-secondary">Follow-up Notifications:</strong> {selectedDetailQuotation.Followup_Notification ? 'Enabled ✅' : 'Disabled ❌'}</div> */}
                 </div>
               </div>
             </div>
@@ -1079,8 +1081,6 @@ const Quotations = () => {
                   <input type="number" required className="form-input" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} value={convertData.Costing} onChange={e => setConvertData({ ...convertData, Costing: parseFloat(e.target.value) })} placeholder="Project cost" />
                 </div>
 
-
-
                 <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
                   <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Start Date</label>
                   <DateInput
@@ -1102,7 +1102,6 @@ const Quotations = () => {
                     onChange={val => setConvertData({ ...convertData, End_Date: val })}
                   />
                 </div>
-                {/* Fixed the mapping here for consistency if needed, but original was End_Date */}
               </div>
 
               <div className="modal-footer" style={{ marginTop: '1.5rem', paddingTop: '1rem' }}>
@@ -1154,6 +1153,7 @@ const Quotations = () => {
           </div>
         </div>
       )}
+
       {/* Follow-up Modal */}
       {selectedFollowUpQuotation && (
         <div className="modal-overlay">
@@ -1211,6 +1211,7 @@ const Quotations = () => {
           </div>
         </div>
       )}
+
       {/* Edit Modal */}
       {isEditModalOpen && (
         <div className="modal-overlay">
@@ -1498,8 +1499,10 @@ const Quotations = () => {
 
 export default function QuotationsPage() {
   return (
-    <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
-      <Quotations />
-    </React.Suspense>
+    <NuqsAdapter>
+      <React.Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%' }}></div></div>}>
+        <Quotations />
+      </React.Suspense>
+    </NuqsAdapter>
   );
 }

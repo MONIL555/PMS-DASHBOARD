@@ -7,8 +7,9 @@ import QueryProvider from "@/context/QueryProvider";
 import { Toaster } from "react-hot-toast";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import AppSidebar from "@/components/Sidebar";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   title: "PMS - Enterprise-grade Project Management System",
@@ -26,7 +27,9 @@ export default function RootLayout({
         <AuthProvider>
           <OptionsProvider>
             <QueryProvider>
-              <Layout>{children}</Layout>
+              <Layout>
+                {children}
+              </Layout>
               <Toaster position="top-right" />
             </QueryProvider>
           </OptionsProvider>

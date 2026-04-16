@@ -52,7 +52,7 @@ function useCountUp(target: number, duration = 800, trigger = true) {
 
 /* ─── SKELETON ───────────────────────────────────────────── */
 const DashboardSkeleton = () => (
-  <div style={{ padding: '2rem', maxWidth: '160rem', margin: '0 auto' }}>
+  <div style={{ padding: '2rem', maxWidth: '220rem', width: '100%', margin: '0 auto' }}>
     <div style={{ marginBottom: '2rem' }}>
       <div className="db-skeleton" style={{ height: '2.8rem', width: '18rem', marginBottom: '0.75rem', borderRadius: '8px' }} />
       <div className="db-skeleton" style={{ height: '1.4rem', width: '28rem', borderRadius: '6px' }} />
@@ -620,7 +620,6 @@ const DashboardContent = () => {
           </div>
           <div style={insightStyle}>
             <MetricRow icon={AlertTriangle} label="Needs Action" value={needsAction} color="#f97316" onClick={() => navTo('/leads', { status: 'Needs-Action' })} />
-            {/*<MetricRow icon={GitCompare} label="Conversion Rate" value={`${data.conversionRates.leadToQuote}%`} color="#8b5cf6" />*/}
           </div>
         </div>
       )
@@ -657,7 +656,6 @@ const DashboardContent = () => {
           <div style={insightStyle}>
             <MetricRow icon={AlertTriangle} label="Needs Action" value={qb.sent + qb.followUp} color="#f97316" onClick={() => navTo('/quotations', { status: 'Needs-Action' })} />
             <MetricRow icon={IndianRupee} label="Pipeline Value" value={qb.pipelineValue} color="#8b5cf6" isCurrency />
-            {/*<MetricRow icon={Target} label="Avg Quote Value" value={qb.avgQuoteValue} color="#06b6d4" isCurrency />*/}
           </div>
         </div>
       )
@@ -763,9 +761,9 @@ const DashboardContent = () => {
   if (kpis.length > 0) {
     sections.push({
       id: 'kpis', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(kpis.length, 6)},1fr)`, gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '0.75rem' }}>
           {kpis.map((k, i) => (
-            <div key={i} className="premium-card" style={{ padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div key={i} className="premium-card" style={{ padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
               <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={15} /></div>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.lbl}</p>
@@ -785,7 +783,7 @@ const DashboardContent = () => {
         <Card>
           <STitle icon={BarChart3} title="Monthly Trends" sub={selectedFY === 'all' ? 'All Time' : `FY ${selectedFY}`}
             action={<span style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '0.25rem 0.75rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>{data.trends.length} months</span>} />
-          <div style={{ height: '280px' }}>
+          <div style={{ height: '32rem' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.trends} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
                 <defs>
@@ -829,7 +827,7 @@ const DashboardContent = () => {
     const hasSidebar = showClients || showServices || showStaff;
     sections.push({
       id: 'calendar-strategic', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: hasSidebar ? '2fr 1fr' : '1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: hasSidebar ? 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))' : '1fr', gap: '1.5rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <Card><DashboardCalendar /></Card>
             {fc.length > 0 && (
@@ -1040,10 +1038,10 @@ const DashboardContent = () => {
 
     sections.push({
       id: 'revenue-forecast', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: '1.5rem' }}>
           <Card>
             <STitle icon={GitCompare} title="Revenue vs Forecast" sub="actuals vs projected" />
-            <div style={{ height: '260px' }}>
+            <div style={{ height: '30rem' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={rfData} margin={{ left: -10, right: 10, top: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1180,10 +1178,10 @@ const DashboardContent = () => {
   if (chartSlots.length > 0) {
     sections.push({
       id: 'charts', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${chartSlots.length},1fr)`, gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
           {chartSlots.includes('leadFunnel') && <Card>
             <STitle icon={PieChartIcon} title="Lead Funnel" />
-            <div style={{ height: '240px' }}>
+            <div style={{ height: '28rem' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={data.leadStatusDist} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
@@ -1205,7 +1203,7 @@ const DashboardContent = () => {
           </Card>}
           {chartSlots.includes('projPriority') && <Card>
             <STitle icon={AlertTriangle} title="Project Priorities" />
-            <div style={{ height: '240px' }}>
+            <div style={{ height: '28rem' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.projectPriorityDist} margin={{ left: -20, top: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1221,7 +1219,7 @@ const DashboardContent = () => {
           </Card>}
           {chartSlots.includes('ticketLoad') && <Card>
             <STitle icon={TicketIcon} title="Ticket Priority Load" />
-            <div style={{ height: '240px' }}>
+            <div style={{ height: '28rem' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.ticketPriorityDist} layout="vertical" margin={{ left: 0, right: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -1243,7 +1241,7 @@ const DashboardContent = () => {
   /* ── RECENT ACTIVITY + DEADLINES ── */
   sections.push({
     id: 'activity-deadlines', component: (
-      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? '2fr 1fr' : '1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))' : '1fr', gap: '1.5rem' }}>
         <Card>
           <STitle icon={Activity} title="Recent Activity" sub="live feed" />
           {/* search + tabs */}
@@ -1260,9 +1258,9 @@ const DashboardContent = () => {
               ))}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minHeight: '200px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minHeight: '22rem' }}>
             {filteredActivities.length === 0
-              ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '180px', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+              ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '20rem', gap: '0.5rem', color: 'var(--text-secondary)' }}>
                 <Search size={28} style={{ opacity: 0.3 }} />
                 <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>No matching activity</p>
               </div>
@@ -1325,7 +1323,7 @@ const DashboardContent = () => {
                 );
               })}
             </div>
-            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '0.5rem' }}>
+            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '22rem', gap: '0.5rem' }}>
               <CheckCircle2 size={36} style={{ color: '#e2e8f0' }} />
               <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>All projects on track</p>
               <p style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>No upcoming deadlines</p>
@@ -1340,7 +1338,7 @@ const DashboardContent = () => {
   /* MAIN RENDER                                              */
   /* ══════════════════════════════════════════════════════════ */
   return (
-    <div style={{ maxWidth: '160rem', margin: '0 auto' }}>
+    <div style={{ maxWidth: '220rem', width: '100%', margin: '0 auto', padding: '0 2rem' }}>
 
       {/* HEADER */}
       <header className="db-header db-no-print">

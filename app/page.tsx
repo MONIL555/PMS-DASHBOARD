@@ -459,8 +459,15 @@ const DashboardContent = () => {
   const [activitySearch, setActivitySearch] = useQueryState('q', parseAsString.withDefault(''));
   const [activityTab, setActivityTab] = useQueryState('tab', parseAsString.withDefault('All'));
 
+  const [visibleCards, setVisibleCards] = useQueryState('visibleCards', parseAsArrayOf(parseAsString).withDefault([
+    'stats', 'kpis', 'fy-comparison', 'activity-deadlines'
+  ]));
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  const [isCardFilterOpen, setIsCardFilterOpen] = useState(false);
+  const cardFilterRef = useRef<HTMLDivElement>(null);
 
   /* ─── Scaled icon sizes for this component ─── */
   const iconXs = useIconSize(10);
@@ -476,22 +483,54 @@ const DashboardContent = () => {
       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
         setIsFilterOpen(false);
       }
+      if (cardFilterRef.current && !cardFilterRef.current.contains(event.target as Node)) {
+        setIsCardFilterOpen(false);
+      }
     };
-    if (isFilterOpen) {
+    if (isFilterOpen || isCardFilterOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isFilterOpen]);
+  }, [isFilterOpen, isCardFilterOpen]);
+
+  const toggleCardFilter = (f: string) =>
+    setVisibleCards(prev => {
+      const current = prev || [];
+      return current.includes(f) ? current.filter(x => x !== f) : [...current, f];
+    });
+
+  const sectionMeta: Record<string, { title: string, icon: any }> = {
+    'stats': { title: 'Stat Cards', icon: BarChart3 },
+    'kpis': { title: 'KPI Strip', icon: TrendingUp },
+    'trends': { title: 'Monthly Trends', icon: BarChart3 },
+    'calendar-strategic': { title: 'Calendar & Strategic', icon: Calendar },
+    'pipeline': { title: 'Pipeline Funnel', icon: Target },
+    'revenue-forecast': { title: 'Revenue vs Forecast', icon: GitCompare },
+    'fy-comparison': { title: 'FY Comparison', icon: GitCompare },
+    'project-board': { title: 'Project Board', icon: Layers },
+    'charts': { title: 'Charts', icon: PieChartIcon },
+    'activity-deadlines': { title: 'Activity & Deadlines', icon: Activity },
+  };
 
   const [darkMode, setDarkMode] = useState(false);
   const [countersReady, setCountersReady] = useState(false);
   const router = useRouter();
 
-  const toggleFilter = (f: string) =>
+  const toggleFilter = (f: string) => {
     setFilters(prev => {
       const current = prev || [];
-      return current.includes(f) ? current.filter(x => x !== f) : [...current, f];
+      const isAdding = !current.includes(f);
+      
+      if (f === 'Finance' && isAdding) {
+        setVisibleCards(vcPrev => {
+          const vc = vcPrev || [];
+          return vc.includes('calendar-strategic') ? vc : [...vc, 'calendar-strategic'];
+        });
+      }
+      
+      return isAdding ? [...current, f] : current.filter(x => x !== f);
     });
+  };
 
   const load = useCallback(() => {
     setLoading(true); setCountersReady(false);
@@ -1041,38 +1080,38 @@ const DashboardContent = () => {
   // }
 
   /* ── PIPELINE FUNNEL ── */
-  if (hasLeads || hasQuotations || hasProjects) {
-    const steps = [
-      { label: 'Leads', val: data.stats.totalLeads, color: '#3b82f6', show: hasLeads },
-      { label: 'Quotations', val: data.stats.totalQuotations, color: '#f59e0b', show: hasQuotations },
-      { label: 'Projects', val: data.stats.totalActiveProjects, color: '#10b981', show: hasProjects },
-    ].filter(s => s.show);
-    sections.push({
-      id: 'pipeline', component: (
-        <Card>
-          <STitle icon={Target} title="Pipeline Funnel" sub="Lead → Quotation → Project" />
-          <div className="db-grid-3" style={{ gap: '2rem' }}>
-            {steps.map((step, i) => {
-              const pct = i === 0 ? 100 : Math.min(100, (step.val / (steps[0].val || 1)) * 100);
-              const conv = i > 0 ? ((step.val / (steps[i - 1].val || 1)) * 100).toFixed(1) : null;
-              return (
-                <div key={step.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>{step.label}</span>
-                    <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{step.val.toLocaleString()}</span>
-                  </div>
-                  <ProgressBar pct={pct} color={step.color} height={10} />
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
-                    {conv ? <><span style={{ fontWeight: 700, color: step.color }}>{conv}%</span> from {steps[i - 1].label.toLowerCase()}</> : <><span style={{ fontWeight: 700, color: '#3b82f6' }}>{data.conversionRates.leadToQuote}%</span> overall L→Q</>}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )
-    });
-  }
+  // if (hasLeads || hasQuotations || hasProjects) {
+  //   const steps = [
+  //     { label: 'Leads', val: data.stats.totalLeads, color: '#3b82f6', show: hasLeads },
+  //     { label: 'Quotations', val: data.stats.totalQuotations, color: '#f59e0b', show: hasQuotations },
+  //     { label: 'Projects', val: data.stats.totalActiveProjects, color: '#10b981', show: hasProjects },
+  //   ].filter(s => s.show);
+  //   sections.push({
+  //     id: 'pipeline', component: (
+  //       <Card>
+  //         <STitle icon={Target} title="Pipeline Funnel" sub="Lead → Quotation → Project" />
+  //         <div className="db-grid-3" style={{ gap: '2rem' }}>
+  //           {steps.map((step, i) => {
+  //             const pct = i === 0 ? 100 : Math.min(100, (step.val / (steps[0].val || 1)) * 100);
+  //             const conv = i > 0 ? ((step.val / (steps[i - 1].val || 1)) * 100).toFixed(1) : null;
+  //             return (
+  //               <div key={step.label}>
+  //                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+  //                   <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>{step.label}</span>
+  //                   <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{step.val.toLocaleString()}</span>
+  //                 </div>
+  //                 <ProgressBar pct={pct} color={step.color} height={10} />
+  //                 <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+  //                   {conv ? <><span style={{ fontWeight: 700, color: step.color }}>{conv}%</span> from {steps[i - 1].label.toLowerCase()}</> : <><span style={{ fontWeight: 700, color: '#3b82f6' }}>{data.conversionRates.leadToQuote}%</span> overall L→Q</>}
+  //                 </p>
+  //               </div>
+  //             );
+  //           })}
+  //         </div>
+  //       </Card>
+  //     )
+  //   });
+  // }
 
   /* ── REVENUE vs FORECAST ── */
   if (hasFinance && hasProjects && data.trends?.some((t: any) => t.Forecast > 0 || t.Revenue > 0)) {
@@ -1288,7 +1327,7 @@ const DashboardContent = () => {
   /* ── RECENT ACTIVITY + DEADLINES ── */
   sections.push({
     id: 'activity-deadlines', component: (
-      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))' : '1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? '2fr 1fr' : '1fr', gap: '1.5rem' }}>
         <Card>
           <STitle icon={Activity} title="Recent Activity" sub="live feed" />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -1442,8 +1481,52 @@ const DashboardContent = () => {
                 })}
                 <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }} />
                 <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.35rem' }}>
-                  <button onClick={e => { e.stopPropagation(); setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>All</button>
+                  <button onClick={e => { 
+                    e.stopPropagation(); 
+                    setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']); 
+                    setVisibleCards(vcPrev => {
+                      const vc = vcPrev || [];
+                      return vc.includes('calendar-strategic') ? vc : [...vc, 'calendar-strategic'];
+                    });
+                  }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>All</button>
                   <button onClick={e => { e.stopPropagation(); setFilters([]); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>Clear</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Card visibility filter */}
+          <div ref={cardFilterRef} style={{ position: 'relative' }}>
+            <button onClick={() => setIsCardFilterOpen(!isCardFilterOpen)} className="db-filter-btn">
+              <Layers size={iconMd} style={{ marginRight: '0.5rem', color: 'var(--text-secondary)' }} />
+              <span>Visibility</span>
+              <ChevronDown size={iconMd} style={{ marginLeft: '0.35rem', color: 'var(--text-secondary)', transition: 'transform 0.2s', transform: isCardFilterOpen ? 'rotate(180deg)' : 'none' }} />
+            </button>
+
+            {isCardFilterOpen && (
+              <div className="premium-card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: '240px', padding: '0.5rem', zIndex: 100, border: '1px solid var(--border-color)' }}>
+                <p style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-secondary)', padding: '0.4rem 0.75rem 0.5rem' }}>Cards Visibility</p>
+                {sections.map(s => {
+                  const on = visibleCards.includes(s.id);
+                  const meta = sectionMeta[s.id] || { title: s.id, icon: Layers };
+                  return (
+                    <div key={s.id} onClick={() => toggleCardFilter(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                      <div style={{ width: '1rem', height: '1rem', borderRadius: '4px', border: `2px solid ${on ? '#3b82f6' : '#e2e8f0'}`, background: on ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                        {on && <Check size={iconXs} color="white" strokeWidth={4} />}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <meta.icon size={iconMd} color="var(--text-secondary)" />
+                        <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{meta.title}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }} />
+                <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.35rem' }}>
+                  <button onClick={e => { e.stopPropagation(); setVisibleCards(sections.map(s => s.id)); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>All</button>
+                  <button onClick={e => { e.stopPropagation(); setVisibleCards([]); }} className="btn btn-secondary" style={{ flex: 1, fontSize: '0.72rem', padding: '0.4rem' }}>Clear</button>
                 </div>
               </div>
             )}
@@ -1462,7 +1545,7 @@ const DashboardContent = () => {
 
       {/* SECTIONS */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {sections.map(s => <div key={s.id}>{s.component}</div>)}
+        {sections.filter(s => visibleCards.includes(s.id)).map(s => <div key={s.id}>{s.component}</div>)}
       </div>
 
       {/* FOOTER */}

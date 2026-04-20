@@ -40,7 +40,7 @@
 
 @media (min-width: 3200px) {
   :root {
-    font-size: 20px;
+    font-size: 21px;
     --sidebar-width: 300px;
     --sidebar-width-collapsed: 105px;
   }

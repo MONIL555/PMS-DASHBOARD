@@ -116,14 +116,14 @@ const DashboardContent = () => {
     setFilters(prev => {
       const current = prev || [];
       const isAdding = !current.includes(f);
-      
+
       if (f === 'Finance' && isAdding) {
         setVisibleCards(vcPrev => {
           const vc = vcPrev || [];
           return vc.includes('calendar-strategic') ? vc : [...vc, 'calendar-strategic'];
         });
       }
-      
+
       return isAdding ? [...current, f] : current.filter(x => x !== f);
     });
   };
@@ -272,7 +272,7 @@ const DashboardContent = () => {
   const blobStyle = (color: string): React.CSSProperties => ({ position: 'absolute', top: '-1.5rem', right: '-1.5rem', width: '6rem', height: '6rem', borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none' as const });
   const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' };
   const titleStyle: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
-  const bigNumStyle: React.CSSProperties = { fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, margin: 0, fontVariantNumeric: 'tabular-nums' };
+  const bigNumStyle: React.CSSProperties = { fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1, margin: 0, fontVariantNumeric: 'tabular-nums' };
   const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.5rem', borderRadius: '8px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
 
   if (hasLeads && lb) {
@@ -284,7 +284,7 @@ const DashboardContent = () => {
             <div style={blobStyle('#3b82f6')} />
             <div style={titleRowStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <p style={titleStyle}>Leads</p>
+                <p style={titleStyle}>Leads : </p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalLeads} ready={countersReady} /></p>
               </div>
               <div style={iconBoxStyle('#eff6ff', '#3b82f6')}><Users size={iconLg} /></div>
@@ -318,7 +318,7 @@ const DashboardContent = () => {
             <div style={blobStyle('#f59e0b')} />
             <div style={titleRowStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <p style={titleStyle}>Quotations</p>
+                <p style={titleStyle}>Quotations : </p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalQuotations} ready={countersReady} /></p>
               </div>
               <div style={iconBoxStyle('#fffbeb', '#f59e0b')}><FileText size={iconLg} /></div>
@@ -354,7 +354,7 @@ const DashboardContent = () => {
             <div style={blobStyle('#10b981')} />
             <div style={titleRowStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <p style={titleStyle}>Projects</p>
+                <p style={titleStyle}>Projects : </p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalActiveProjects} ready={countersReady} /></p>
               </div>
               <div style={iconBoxStyle('#f0fdf4', '#10b981')}><Briefcase size={iconLg} /></div>
@@ -396,7 +396,7 @@ const DashboardContent = () => {
             <div style={blobStyle('#ef4444')} />
             <div style={titleRowStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <p style={titleStyle}>Tickets</p>
+                <p style={titleStyle}>Tickets : </p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalOpenTickets} ready={countersReady} /></p>
               </div>
               <div style={iconBoxStyle('#fef2f2', '#ef4444')}><TicketIcon size={iconLg} /></div>
@@ -860,7 +860,7 @@ const DashboardContent = () => {
   /* ── RECENT ACTIVITY + DEADLINES ── */
   sections.push({
     id: 'activity-deadlines', component: (
-      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? '2fr 1fr' : '1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? '2fr 1fr' : '1fr', gap: '1rem' }}>
         <Card>
           <STitle icon={Activity} title="Recent Activity" sub="live feed" />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -958,7 +958,7 @@ const DashboardContent = () => {
   /* MAIN RENDER                                                */
   /* ══════════════════════════════════════════════════════════ */
   return (
-    <div style={{ maxWidth: '220rem', width: '100%', margin: '0 auto', padding: '0 2rem' }}>
+    <div style={{ maxWidth: '220rem', width: '100%', margin: '0 auto' }}>
 
       {/* HEADER */}
       <header className="db-header db-no-print">
@@ -1014,9 +1014,9 @@ const DashboardContent = () => {
                 })}
                 <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }} />
                 <div style={{ display: 'flex', gap: '0.5rem', padding: '0 0.35rem' }}>
-                  <button onClick={e => { 
-                    e.stopPropagation(); 
-                    setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']); 
+                  <button onClick={e => {
+                    e.stopPropagation();
+                    setFilters(['Leads', 'Quotations', 'Projects', 'Tickets', 'Finance']);
                     setVisibleCards(vcPrev => {
                       const vc = vcPrev || [];
                       return vc.includes('calendar-strategic') ? vc : [...vc, 'calendar-strategic'];

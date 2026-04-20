@@ -12,12 +12,12 @@ import {
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PERMISSIONS } from '@/lib/permissions';
+import { logout } from '@/utils/api';
 
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
 }
-import { logout } from '@/utils/api';
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const { hasPermission, loading, user } = usePermissions();
@@ -32,12 +32,10 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
       router.refresh();
     } catch (err: any) {
       console.error('Logout failed:', err);
-      // Fallback redirect even if API fails
       router.push('/login');
     }
   };
 
-  // Auto-collapse on smaller screens
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth <= 1024) {
@@ -45,7 +43,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
       }
     };
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
+    handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, [setIsCollapsed]);
 
@@ -58,12 +56,11 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         height: '100vh',
         position: 'sticky',
         top: 0,
-        transition: 'width var(--transition-speed) ease'
+        transition: 'width 0.3s ease'
       }}></div>
     );
   }
 
-  // Determine if MASTERS section should be shown
   const showMasters = hasPermission(PERMISSIONS.CLIENTS_VIEW) ||
     hasPermission(PERMISSIONS.PRODUCTS_VIEW) ||
     hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) ||
@@ -101,7 +98,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
         position: isMobile ? 'fixed' : 'sticky',
         left: 0,
         top: 0,
-        transition: 'all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: 100,
         flexShrink: 0,
         boxShadow: isCollapsed ? 'none' : '4px 0 24px -15px rgba(15, 23, 42, 0.2)',
@@ -113,8 +110,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
           onClick={() => setIsCollapsed(!isCollapsed)}
           style={{
             position: 'absolute',
-            right: '-8px',
-            top: isCollapsed ? '40px' : '55px',
+            right: 'calc(-2.2rem / 2)',
+            top: '48px',
             width: '3.4rem',
             height: '3.4rem',
             borderRadius: '50%',
@@ -124,27 +121,33 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
             zIndex: 30,
-            color: 'var(--text-secondary)'
+            color: 'var(--text-secondary)',
+            transition: 'transform 0.2s, background 0.2s'
           }}
+          onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
+          onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}
         >
-          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
 
+        {/* Header/Logo */}
         <div style={{
           marginBottom: '2.5rem',
           padding: isCollapsed ? '0' : '0 0.5rem',
           textAlign: isCollapsed ? 'center' : 'left',
           overflow: 'hidden',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          flexShrink: 0 /* FIX: Prevents logo from squishing */
         }}>
           <h2 style={{
             color: 'var(--primary-color)',
             letterSpacing: '-0.06em',
             fontSize: isCollapsed ? '1.4rem' : '1.8rem',
             fontWeight: 900,
-            margin: 0
+            margin: 0,
+            transition: 'font-size 0.3s'
           }}>
             PMS{!isCollapsed && <span style={{ color: 'var(--text-primary)' }}>.ERP</span>}
           </h2>
@@ -171,7 +174,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                 <div style={{
                   height: '1px',
                   backgroundColor: 'var(--border-color)',
-                  margin: isCollapsed ? '1rem 0.5rem' : '1.5rem 1rem 0.75rem 1rem'
+                  margin: '1rem 0.25rem',
+                  flexShrink: 0 /* FIX */
                 }}></div>
               )}
               {!isCollapsed && (
@@ -180,31 +184,30 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0 1rem',
+                    justifyContent: 'space-between',
+                    padding: '0 0.5rem',
                     marginTop: '1.5rem',
                     marginBottom: '0.75rem',
                     cursor: 'pointer',
-                    userSelect: 'none'
+                    userSelect: 'none',
+                    flexShrink: 0 /* FIX: Prevents the header from squishing */
                   }}
                 >
                   <h2 style={{
                     color: 'var(--text-secondary)',
                     fontSize: '0.75rem',
-                    fontWeight: 600,
-                    textAlign: 'left',
+                    fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    margin: 0,
-                    marginRight: '1rem'
+                    margin: 0
                   }}>Masters</h2>
                   <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isMastersOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {isMastersOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </div>
                 </div>
               )}
               {(isMastersOpen || isCollapsed) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0 /* FIX: Prevents entire block from squishing */ }}>
                   {hasPermission(PERMISSIONS.CLIENTS_VIEW) && <SidebarLink to="/clients" icon={<Building2 size={20} />} label="Clients" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.PRODUCTS_VIEW) && <SidebarLink to="/products" icon={<Package size={20} />} label="Services" isCollapsed={isCollapsed} />}
                   {hasPermission(PERMISSIONS.LEAD_SOURCES_VIEW) && <SidebarLink to="/lead-sources" icon={<LinkIcon size={20} />} label="Lead Sources" isCollapsed={isCollapsed} />}
@@ -217,40 +220,41 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
           )}
         </nav>
 
-        {/* User Profile Section (Lookalike from Header) */}
+        {/* User Profile Section */}
         {user && (
           <div style={{
             marginTop: 'auto',
-            padding: isCollapsed ? '1rem 0' : '1rem 0.5rem 0.5rem 0.5rem',
+            padding: isCollapsed ? '1rem 0 0 0' : '1rem 0.5rem 0.5rem 0.5rem',
             borderTop: '1px solid var(--border-color)',
             display: 'flex',
             flexDirection: isCollapsed ? 'column' : 'row',
             alignItems: 'center',
             gap: isCollapsed ? '1rem' : '0.75rem',
-            justifyContent: isCollapsed ? 'center' : 'flex-start'
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            flexShrink: 0 /* FIX: Protects profile section */
           }}>
             {!isCollapsed && (
               <>
                 <div style={{
-                  width: '3.6rem',
-                  height: '3.6rem',
+                  width: '2.5rem',
+                  height: '2.5rem',
                   backgroundColor: '#eff6ff',
                   color: '#3b82f6',
-                  borderRadius: '0.75rem',
+                  borderRadius: '0.5rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   border: '1px solid #dbeafe',
                   flexShrink: 0
                 }}>
-                  <UserIcon size={20} />
+                  <UserIcon size={18} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{
                     margin: 0,
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
                     color: 'var(--text-primary)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -258,9 +262,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                   }}>{user.Name}</p>
                   <p style={{
                     margin: 0,
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     color: 'var(--primary-color)',
-                    fontWeight: 500,
+                    fontWeight: 600,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis'
@@ -277,18 +281,18 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
                 borderRadius: '0.5rem',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: '#64748b',
+                color: '#94a3b8',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.2s',
-                flexShrink: 0
+                flexShrink: 0 /* FIX */
               }}
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#fff1f2'; e.currentTarget.style.color = '#ef4444'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; e.currentTarget.style.color = '#ef4444'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
             >
-              <LogOut size={20} />
+              <LogOut size={18} />
             </button>
           </div>
         )}
@@ -309,18 +313,18 @@ const SidebarLink = ({ to, icon, label, isCollapsed }: { to: string, icon: React
         display: 'flex',
         alignItems: 'center',
         gap: isCollapsed ? '0' : '0.75rem',
-        padding: '0.75rem 1rem',
+        padding: isCollapsed ? '0.75rem 0' : '0.75rem 1rem',
         borderRadius: '0.75rem',
         textDecoration: 'none',
         color: isActive ? 'var(--primary-color)' : 'var(--text-secondary)',
         backgroundColor: isActive ? '#eff6ff' : 'transparent',
         transition: 'all 0.2s ease',
         fontWeight: isActive ? 700 : 600,
-        fontSize: '0.88rem',
+        fontSize: '0.85rem',
         justifyContent: isCollapsed ? 'center' : 'flex-start',
         overflow: 'hidden',
         border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
-        boxShadow: isActive ? '0 2px 8px -2px rgba(59, 130, 246, 0.15)' : 'none',
+        flexShrink: 0, /* THE MAGIC FIX: Protects the entire button from vertical squishing */
       }}
       onMouseOver={(e) => {
         if (!isActive) {
@@ -335,7 +339,7 @@ const SidebarLink = ({ to, icon, label, isCollapsed }: { to: string, icon: React
         }
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</span>
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 /* PROTECTS THE ICON */ }}>{icon}</span>
       {!isCollapsed && <span style={{ whiteSpace: 'nowrap' }}>{label}</span>}
     </Link>
   );

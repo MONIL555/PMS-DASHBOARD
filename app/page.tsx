@@ -12,12 +12,18 @@ import {
   Pause, CheckSquare,
 } from 'lucide-react';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area, ComposedChart, Line,
-  ReferenceLine, RadialBarChart, RadialBar,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { useQueryState, parseAsString, parseAsArrayOf } from 'nuqs';
+import { useIconSize, SI, AnimatedNum, DashboardSkeleton, STitle, Card, ProgressBar, StatusBadge } from '@/components/dashboard/DashboardShared';
+
+// Dynamic imports to reduce initial bundle size and speed up interactive time
+const DashboardCalendar = dynamic(() => import('@/components/dashboard/DashboardCalendar').then(m => m.DashboardCalendar), { ssr: false, loading: () => <div className="db-skeleton" style={{ height: '30rem', borderRadius: '12px' }} /> });
+const WinRateGauge = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.WinRateGauge), { ssr: false });
+const TrendsAreaChart = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.TrendsAreaChart), { ssr: false });
+const RevenueForecastChart = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.RevenueForecastChart), { ssr: false });
+const LeadFunnelChart = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.LeadFunnelChart), { ssr: false });
+const ProjectPriorityChart = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.ProjectPriorityChart), { ssr: false });
+const TicketLoadChart = dynamic(() => import('@/components/dashboard/DashboardCharts').then(m => m.TicketLoadChart), { ssr: false });
 import { fetchDashboardStats } from '@/utils/api';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -31,416 +37,6 @@ const STATUS_COLORS: Record<string, string> = {
 const PHASE_COLORS: Record<string, string> = {
   Planning: '#8b5cf6', Development: '#3b82f6', Testing: '#f59e0b', Deployment: '#06b6d4',
   'Go-Live': '#10b981', Maintenance: '#84cc16', Completed: '#22c55e', 'Not Started': '#94a3b8',
-};
-
-/* ─── RESPONSIVE ICON SIZE HOOK ──────────────────────────── */
-function useIconSize(base: number): number {
-  const [size, setSize] = useState(base);
-
-  useEffect(() => {
-    const compute = () => {
-      const w = window.innerWidth;
-      if (w >= 3840) setSize(Math.round(base * 1.5));
-      else if (w >= 3200) setSize(Math.round(base * 1.375));
-      else if (w >= 2560) setSize(Math.round(base * 1.25));
-      else if (w >= 1920) setSize(Math.round(base * 1.125));
-      else setSize(base);
-    };
-    compute();
-    window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
-  }, [base]);
-
-  return size;
-}
-
-/* ─── ICON SCALE FACTOR (for inline one-off uses) ───────── */
-function getIconScale(): number {
-  if (typeof window === 'undefined') return 1;
-  const w = window.innerWidth;
-  if (w >= 3840) return 1.5;
-  if (w >= 3200) return 1.375;
-  if (w >= 2560) return 1.25;
-  if (w >= 1920) return 1.125;
-  return 1;
-}
-
-/* ─── SCALED ICON WRAPPER ────────────────────────────────── */
-const SI = ({ icon: Icon, size = 16, ...props }: { icon: any; size?: number;[key: string]: any }) => {
-  const scaled = useIconSize(size);
-  return <Icon size={scaled} {...props} />;
-};
-
-/* ─── ANIMATED COUNTER ───────────────────────────────────── */
-function useCountUp(target: number, duration = 800, trigger = true) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (!trigger || target === 0) { setVal(target); return; }
-    let current = 0;
-    const step = target / (duration / 16);
-    const id = setInterval(() => {
-      current += step;
-      if (current >= target) { setVal(target); clearInterval(id); }
-      else setVal(Math.floor(current));
-    }, 16);
-    return () => clearInterval(id);
-  }, [target, duration, trigger]);
-  return val;
-}
-
-/* ─── SKELETON ───────────────────────────────────────────── */
-const DashboardSkeleton = () => (
-  <div style={{ padding: '2rem', maxWidth: '220rem', width: '100%', margin: '0 auto' }}>
-    <div style={{ marginBottom: '2rem' }}>
-      <div className="db-skeleton" style={{ height: '2.8rem', width: '18rem', marginBottom: '0.75rem', borderRadius: '8px' }} />
-      <div className="db-skeleton" style={{ height: '1.4rem', width: '28rem', borderRadius: '6px' }} />
-    </div>
-    <div className="db-grid-4" style={{ marginBottom: '1.5rem' }}>
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="premium-card" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div className="db-skeleton" style={{ height: '0.8rem', width: '6rem', borderRadius: '4px' }} />
-              <div className="db-skeleton" style={{ height: '1.8rem', width: '3rem', borderRadius: '6px' }} />
-            </div>
-            <div className="db-skeleton" style={{ height: '2.5rem', width: '2.5rem', borderRadius: '8px' }} />
-          </div>
-          <div className="db-skeleton" style={{ height: '0.8rem', width: '8rem', borderRadius: '4px' }} />
-        </div>
-      ))}
-    </div>
-    {[1, 2, 3].map(i => (
-      <div key={i} className="premium-card" style={{ padding: '1.75rem', marginBottom: '1.5rem' }}>
-        <div className="db-skeleton" style={{ height: '1.2rem', width: '14rem', borderRadius: '4px', marginBottom: '1.5rem' }} />
-        <div className="db-skeleton" style={{ height: '22rem', width: '100%', borderRadius: '12px' }} />
-      </div>
-    ))}
-  </div>
-);
-
-/* ─── CUSTOM TOOLTIP ─────────────────────────────────────── */
-const CTooltip = ({ active, payload, label, prefix = '' }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="premium-card" style={{ padding: '0.75rem 1rem', minWidth: '10rem', border: '1px solid var(--border-color)' }}>
-      <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{label}</p>
-      {payload.map((p: any, i: number) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
-          <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: p.color, flexShrink: 0 }} />
-          <span style={{ color: 'var(--text-secondary)' }}>{p.name}:</span>
-          <span style={{ color: 'var(--text-primary)' }}>{prefix}{typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-/* ─── WIN RATE GAUGE ─────────────────────────────────────── */
-const WinRateGauge = ({ rate, label, ready = true }: { rate: number; label: string; ready?: boolean }) => {
-  const color = rate >= 70 ? '#10b981' : rate >= 40 ? '#3b82f6' : rate >= 20 ? '#f59e0b' : '#ef4444';
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
-      <div style={{ position: 'relative', width: '100%', height: '6.25rem', display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-            <Pie
-              data={[{ value: 1 }]}
-              dataKey="value"
-              cx="50%"
-              cy="85%"
-              startAngle={180}
-              endAngle={0}
-              innerRadius="70%"
-              outerRadius="90%"
-              fill="var(--surface-hover)"
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Pie
-              data={[{ value: rate }, { value: 100 - rate }]}
-              dataKey="value"
-              cx="50%"
-              cy="85%"
-              startAngle={180}
-              endAngle={0}
-              innerRadius="70%"
-              outerRadius="90%"
-              stroke="none"
-              cornerRadius={6}
-              isAnimationActive={true}
-              animationDuration={800}
-            >
-              <Cell key="val" fill={color} />
-              <Cell key="bg" fill="transparent" />
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{ position: 'absolute', bottom: '15%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <p style={{ fontSize: '2.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, lineHeight: 1, letterSpacing: '-0.02em' }}>
-            <AnimatedNum value={Math.round(rate)} ready={ready} />
-            <span style={{ fontSize: '1rem', fontWeight: 600, marginLeft: '1px', color: 'var(--text-secondary)' }}>%</span>
-          </p>
-        </div>
-      </div>
-      <p style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.2 }}>
-        {label}
-      </p>
-    </div>
-  );
-};
-
-/* ─── SECTION TITLE ──────────────────────────────────────── */
-const STitle = ({ icon: Icon, title, sub, action }: { icon: any; title: string; sub?: string; action?: React.ReactNode }) => {
-  const iconSize = useIconSize(18);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-      <Icon size={iconSize} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-      <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
-      {sub && <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{sub}</span>}
-      {action && <div style={{ marginLeft: 'auto' }}>{action}</div>}
-    </div>
-  );
-};
-
-/* ─── CARD ───────────────────────────────────────────────── */
-const Card = ({ children, style = {}, className = '' }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) => (
-  <div className={`premium-card ${className}`} style={{ padding: '1.5rem', ...style }}>{children}</div>
-);
-
-/* ─── PROGRESS BAR ───────────────────────────────────────── */
-const ProgressBar = ({ pct, color, height = 6 }: { pct: number; color: string; height?: number }) => (
-  <div style={{ height, borderRadius: height, overflow: 'hidden', backgroundColor: '#f1f5f9', width: '100%' }}>
-    <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, backgroundColor: color, borderRadius: height, transition: 'width 0.7s ease' }} />
-  </div>
-);
-
-/* ─── BADGE ──────────────────────────────────────────────── */
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    Active: 'badge-green', Approved: 'badge-green', Converted: 'badge-green', Sent: 'badge-green',
-    'On Hold': 'badge-yellow', Pending: 'badge-yellow', 'Follow-up': 'badge-yellow', 'Follow Up': 'badge-yellow',
-    Rejected: 'badge-red', Cancelled: 'badge-red', Closed: 'badge-red',
-    Open: 'badge-blue', 'In Progress': 'badge-blue', New: 'badge-blue',
-  };
-  return <span className={`badge ${map[status] || 'badge-gray'}`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.6rem' }}>{status}</span>;
-};
-
-/* ══════════════════════════════════════════════════════════ */
-/* ─── HELPERS ───────────────────────────────────────────── */
-const AnimatedNum = ({ value, ready }: { value: number; ready: boolean }) => {
-  const display = useCountUp(value, 800, ready);
-  return <>{display.toLocaleString()}</>;
-};
-
-const DashboardCalendar = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<any[]>([]);
-  const [loadingCal, setLoadingCal] = useState(true);
-  const [popupDay, setPopupDay] = useState<number | null>(null);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
-  const [markingPayment, setMarkingPayment] = useState<string | null>(null);
-  const [calView, setCalView] = useQueryState('calView', parseAsString.withDefault('calendar'));
-  const calendarPopupRef = useRef<HTMLDivElement>(null);
-
-  const loaderSize = useIconSize(13);
-  const chevronSize = useIconSize(15);
-  const calIconSize = useIconSize(16);
-  const xIconSize = useIconSize(14);
-  const checkIconSize = useIconSize(12);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (calendarPopupRef.current && !calendarPopupRef.current.contains(event.target as Node)) {
-        setPopupDay(null);
-      }
-    };
-    if (popupDay !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [popupDay]);
-
-  const now = new Date();
-  const cm = currentDate.getMonth();
-  const cy = currentDate.getFullYear();
-  const daysInMonth = new Date(cy, cm + 1, 0).getDate();
-  const firstDay = new Date(cy, cm, 1).getDay();
-  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-  useEffect(() => {
-    setLoadingCal(true);
-    fetch(`/api/dashboard/calendar?month=${cm}&year=${cy}`)
-      .then(r => r.json()).then(d => { if (d.calendarEvents) setEvents(d.calendarEvents); })
-      .catch(console.error).finally(() => setLoadingCal(false));
-  }, [cm, cy]);
-
-  const changeMonth = (n: number) => {
-    setCurrentDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + n); return d; });
-    setPopupDay(null);
-  };
-
-  const eventsForDay = (day: number) =>
-    events.filter(e => { if (!e.date) return false; const d = new Date(e.date); return d.getDate() === day && d.getMonth() === cm && d.getFullYear() === cy; });
-
-  const evStyle = (type: string, paid?: boolean): React.CSSProperties => {
-    if (paid) return { background: '#f0fdf4', color: '#15803d', borderLeftColor: '#22c55e' };
-    if (type === 'renewal') return { background: '#faf5ff', color: '#7c3aed', borderLeftColor: '#a855f7' };
-    if (type === 'billing') return { background: '#f0fdf4', color: '#166534', borderLeftColor: '#22c55e' };
-    return { background: '#fffbeb', color: '#92400e', borderLeftColor: '#f59e0b' };
-  };
-
-  const handleCellClick = (day: number, e: React.MouseEvent) => {
-    if (!eventsForDay(day).length) return;
-    setPopupPos({ top: Math.min(e.clientY + 10, window.innerHeight - 440), left: Math.min(Math.max(10, e.clientX - 160), window.innerWidth - 350) });
-    setPopupDay(day);
-  };
-
-  const handleToggle = async (ev: any) => {
-    if (markingPayment) return;
-    setMarkingPayment(ev.id);
-    try {
-      const body: any = { projectId: ev.projectId, serviceId: ev.serviceId, cycleDate: ev.date, type: ev.type === 'renewal' ? 'renewal' : 'billing' };
-      if (!ev.isPaid) body.amount = ev.value || 0;
-      const res = await fetch('/api/projects/payment', { method: ev.isPaid ? 'DELETE' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) {
-        setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, isPaid: !ev.isPaid } : e));
-        ev.isPaid ? toast.success('Payment undone') : toast.success(`₹${(ev.value || 0).toLocaleString()} collected`);
-      }
-    } catch { toast.error('Failed to update payment status'); }
-    finally { setMarkingPayment(null); }
-  };
-
-  const billing = events.filter(e => e.type === 'billing' || e.type === 'renewal');
-  const totalBill = billing.reduce((s, e) => s + (e.value || 0), 0);
-  const collected = billing.filter(e => e.isPaid).reduce((s, e) => s + (e.value || 0), 0);
-  const outstanding = totalBill - collected;
-  const followUps = events.filter(e => e.type === 'followup').length;
-  const collectPct = totalBill > 0 ? Math.round((collected / totalBill) * 100) : 0;
-  const popupEvs = popupDay ? eventsForDay(popupDay) : [];
-  const sortedEvs = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  return (
-    <div style={{ position: 'relative' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-        <Calendar size={calIconSize} style={{ color: 'var(--text-secondary)' }} />
-        <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Operation Calendar</h2>
-        {loadingCal && <Loader2 size={loaderSize} style={{ animation: 'spin 1s linear infinite', color: '#94a3b8' }} />}
-
-        {/* view toggle */}
-        <div style={{ marginLeft: 'auto', display: 'flex', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden', background: 'var(--bg-color)' }}>
-          {(['calendar', 'list'] as const).map(v => (
-            <button key={v} onClick={() => setCalView(v)} style={{ padding: '0.4rem 0.9rem', fontSize: '0.72rem', fontWeight: 700, border: 'none', cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.15s', background: calView === v ? 'white' : 'transparent', color: calView === v ? 'var(--text-primary)' : 'var(--text-secondary)', boxShadow: calView === v ? '0 1px 4px rgba(0,0,0,0.08)' : 'none' }}>{v}</button>
-          ))}
-        </div>
-
-        {/* month nav */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronLeft size={chevronSize} /></button>
-          <span style={{ minWidth: '130px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem', color: '#3b82f6', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '20px', padding: '0.3rem 1rem' }}>{MONTHS[cm]} {cy}</span>
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronRight size={chevronSize} /></button>
-        </div>
-      </div>
-
-      {calView === 'calendar' ? (
-        <div className="db-calendar-grid">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} style={{ textAlign: 'center', fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary)', padding: '0.5rem 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
-          ))}
-          {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1; const evs = eventsForDay(day);
-            const isToday = day === now.getDate() && cm === now.getMonth() && cy === now.getFullYear();
-            return (
-              <div key={day} onClick={(e) => handleCellClick(day, e)} className={`db-calendar-cell ${isToday ? 'today' : ''} ${evs.length ? 'has-events' : ''}`}>
-                <span className="day-num">{day}</span>
-                <div className="event-dots">
-                  {evs.slice(0, 3).map((ev, idx) => (
-                    <div key={idx} className="event-dot" style={{ background: ev.isPaid ? '#22c55e' : ev.type === 'renewal' ? '#a855f7' : ev.type === 'billing' ? '#22c55e' : '#f59e0b' }} />
-                  ))}
-                  {evs.length > 3 && <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', fontWeight: 700 }}>+{evs.length - 3}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.5rem', scrollbarWidth: 'thin' }}>
-          {sortedEvs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-secondary)' }}>
-              <Calendar size={calIconSize * 2} style={{ opacity: 0.1, marginBottom: '0.75rem' }} />
-              <p style={{ fontSize: '0.82rem' }}>No events scheduled for this month</p>
-            </div>
-          ) : sortedEvs.map((ev, i) => (
-            <div key={i} className="db-event-list-item" style={{ borderLeft: `3px solid ${ev.type === 'renewal' ? '#a855f7' : ev.type === 'billing' ? '#22c55e' : '#f59e0b'}` }}>
-              <div style={{ minWidth: '45px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>{new Date(ev.date).getDate()}</div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{MONTHS[new Date(ev.date).getMonth()].slice(0, 3)}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.1rem' }}>{ev.projectTitle || ev.title || 'General Activity'}</div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ textTransform: 'capitalize' }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
-                  {ev.value && <span>· ₹{ev.value.toLocaleString()}</span>}
-                </div>
-              </div>
-              {(ev.type === 'billing' || ev.type === 'renewal') && (
-                <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-event-check ${ev.isPaid ? 'paid' : ''}`}>
-                  {markingPayment === ev.id ? <Loader2 size={checkIconSize} className="spin" /> : <Check size={checkIconSize} strokeWidth={3} />}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Stats Summary Footer */}
-      <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-        <div style={{ background: 'var(--bg-color)', padding: '0.6rem', borderRadius: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Target</p>
-          <p style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)' }}>₹{totalBill.toLocaleString()}</p>
-        </div>
-        <div style={{ background: '#f0fdf4', padding: '0.6rem', borderRadius: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Collected</p>
-          <p style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534' }}>₹{collected.toLocaleString()} <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>({collectPct}%)</span></p>
-        </div>
-        <div style={{ background: outstanding > 0 ? '#fef2f2' : 'var(--bg-color)', padding: '0.6rem', borderRadius: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: '0.6rem', fontWeight: 700, color: outstanding > 0 ? '#991b1b' : 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Due</p>
-          <p style={{ fontSize: '0.82rem', fontWeight: 800, color: outstanding > 0 ? '#991b1b' : 'var(--text-primary)' }}>₹{outstanding.toLocaleString()}</p>
-        </div>
-      </div>
-
-      {/* POPUP */}
-      {popupDay !== null && (
-        <div ref={calendarPopupRef} className="db-calendar-popup" style={{ top: popupPos.top, left: popupPos.left }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>Events on {popupDay} {MONTHS[cm]}</h3>
-            <button onClick={() => setPopupDay(null)} style={{ background: '#f8fafc', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px', color: '#64748b' }}><X size={xIconSize} /></button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {popupEvs.map((ev, i) => (
-              <div key={i} className="db-popup-ev-card" style={evStyle(ev.type, ev.isPaid)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.25rem' }}>
-                  <p style={{ fontSize: '0.78rem', fontWeight: 700, margin: 0 }}>{ev.projectTitle || ev.title}</p>
-                  <span style={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.8 }}>{ev.type === 'renewal' ? 'Project Billing' : ev.type === 'billing' ? 'Service Billing' : ev.type}</span>
-                </div>
-                {ev.clientName && <p style={{ fontSize: '0.68rem', margin: '0 0 0.5rem 0', opacity: 0.9 }}>Client: {ev.clientName}</p>}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  {ev.value ? <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>₹{ev.value.toLocaleString()}</span> : <div />}
-                  {(ev.type === 'billing' || ev.type === 'renewal') && (
-                    <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-popup-mark ${ev.isPaid ? 'paid' : ''}`}>
-                      {markingPayment === ev.id ? <Loader2 size={checkIconSize} className="spin" /> : ev.isPaid ? 'Mark Pending' : 'Mark Collected'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 };
 
 /* ─── MAIN DASHBOARD ─────────────────────────────────────── */
@@ -872,30 +468,7 @@ const DashboardContent = () => {
           <STitle icon={BarChart3} title="Monthly Trends" sub={selectedFY === 'all' ? 'All Time' : `FY ${selectedFY}`}
             action={<span style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '20px', padding: '0.25rem 0.75rem', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>{data.trends.length} months</span>} />
           <div style={{ height: '32rem' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trends} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
-                <defs>
-                  {[['leads', '#3b82f6'], ['quotes', '#f59e0b'], ['proj', '#8b5cf6'], ['rev', '#10b981'], ['fore', '#06b6d4']].map(([id, c]) => (
-                    <linearGradient key={id} id={`g-${id}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={c} stopOpacity={0.2} />
-                      <stop offset="95%" stopColor={c} stopOpacity={0} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <Tooltip content={<CTooltip />} />
-                <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-                {hasLeads && <Area type="monotone" dataKey="Leads" stroke="#3b82f6" strokeWidth={2} fill="url(#g-leads)" dot={false} activeDot={{ r: 4 }} />}
-                {hasQuotations && <Area type="monotone" dataKey="Quotations" stroke="#f59e0b" strokeWidth={2} fill="url(#g-quotes)" dot={false} activeDot={{ r: 4 }} />}
-                {hasProjects && <Area type="monotone" dataKey="Projects" stroke="#8b5cf6" strokeWidth={2} fill="url(#g-proj)" dot={false} activeDot={{ r: 4 }} />}
-                {hasProjects && hasFinance && <>
-                  <Area type="monotone" dataKey="Revenue" stroke="#10b981" strokeWidth={2} fill="url(#g-rev)" dot={false} activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="Forecast" stroke="#06b6d4" strokeWidth={2} fill="url(#g-fore)" dot={false} activeDot={{ r: 4 }} strokeDasharray="5 3" />
-                </>}
-              </AreaChart>
-            </ResponsiveContainer>
+            <TrendsAreaChart data={data.trends} hasLeads={hasLeads} hasQuotations={hasQuotations} hasProjects={hasProjects} hasFinance={hasFinance} />
           </div>
         </Card>
       )
@@ -1128,19 +701,7 @@ const DashboardContent = () => {
           <Card>
             <STitle icon={GitCompare} title="Revenue vs Forecast" sub="actuals vs projected" />
             <div style={{ height: '30rem' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={rfData} margin={{ left: -10, right: 10, top: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <Tooltip content={<CTooltip prefix="₹" />} />
-                  <Legend verticalAlign="top" height={32} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
-                  <ReferenceLine y={0} stroke="#e2e8f0" />
-                  <Bar dataKey="Revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} opacity={0.9} />
-                  <Bar dataKey="Forecast" name="Forecast" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={16} opacity={0.55} />
-                  <Line type="monotone" dataKey="Gap" name="Gap" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-                </ComposedChart>
-              </ResponsiveContainer>
+              <RevenueForecastChart rfData={rfData} />
             </div>
           </Card>
           <Card>
@@ -1268,15 +829,7 @@ const DashboardContent = () => {
           {chartSlots.includes('leadFunnel') && <Card>
             <STitle icon={PieChartIcon} title="Lead Funnel" />
             <div style={{ height: '28rem' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={data.leadStatusDist} cx="50%" cy="50%" innerRadius={52} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                    {data.leadStatusDist.map((e: any, i: number) => <Cell key={i} fill={STATUS_COLORS[e.name] || '#94a3b8'} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <LeadFunnelChart data={data.leadStatusDist} STATUS_COLORS={STATUS_COLORS} />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
               {data.leadStatusDist.map((e: any, i: number) => (
@@ -1290,33 +843,13 @@ const DashboardContent = () => {
           {chartSlots.includes('projPriority') && <Card>
             <STitle icon={AlertTriangle} title="Project Priorities" />
             <div style={{ height: '28rem' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.projectPriorityDist} margin={{ left: -20, top: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                  <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                  <Bar dataKey="value" name="Projects" radius={[6, 6, 0, 0]} barSize={32}>
-                    {data.projectPriorityDist.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <ProjectPriorityChart data={data.projectPriorityDist} CHART_COLORS={CHART_COLORS} />
             </div>
           </Card>}
           {chartSlots.includes('ticketLoad') && <Card>
             <STitle icon={TicketIcon} title="Ticket Priority Load" />
             <div style={{ height: '28rem' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.ticketPriorityDist} layout="vertical" margin={{ left: 0, right: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} width={72} />
-                  <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 8px 20px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                  <Bar dataKey="value" name="Tickets" radius={[0, 6, 6, 0]} barSize={24}>
-                    {data.ticketPriorityDist.map((_: any, i: number) => <Cell key={i} fill={(['#ef4444', '#f59e0b', '#3b82f6', '#94a3b8'][i]) || '#ef4444'} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <TicketLoadChart data={data.ticketPriorityDist} />
             </div>
           </Card>}
         </div>

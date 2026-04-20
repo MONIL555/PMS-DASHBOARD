@@ -88,15 +88,32 @@ const formatActivities = (leads: any[], quotes: any[], projs: any[], tickets: an
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
+// Simple server-side cache for Dashboard stats to ensure sub-second response times
+let statsCache: { data: any, timestamp: number } | null = null;
+const STATS_CACHE_TTL = 1000 * 60 * 2; // 2 minutes
+
 export async function GET(request: Request) {
     try {
         await connectDB();
-        await autoCleanupStaleItems();
+        
+        // --- BACKGROUND CLEANUP (Fire and Forget) ---
+        // We do NOT await this, so it doesn't block the dashboard load.
+        autoCleanupStaleItems().catch(err => console.error("Background cleanup failed:", err));
+
         const auth = await verifyPermission(PERMISSIONS.DASHBOARD_VIEW);
         if (!auth.authorized) return NextResponse.json({ error: auth.message }, { status: auth.status });
 
         const { searchParams } = new URL(request.url);
         const fy = searchParams.get('fy');
+        const forceRefresh = searchParams.get('refresh') === 'true';
+
+        // --- CACHE CHECK ---
+        const now = Date.now();
+        const cacheKey = fy || 'current';
+        if (!forceRefresh && statsCache && (now - statsCache.timestamp < STATS_CACHE_TTL) && statsCache.data.fy === fy) {
+            return NextResponse.json(statsCache.data.payload);
+        }
+
         const fyRange = getFYRange(fy);
         const dateFilter = fyRange.filter;
         const isFY = fyRange.isFY;
@@ -327,7 +344,7 @@ export async function GET(request: Request) {
         const ticketPriorityMap: Record<string, number> = {};
         ticketOpenPriorityAgg.forEach((s: any) => { ticketPriorityMap[s._id || 'Medium'] = s.count; });
 
-        return NextResponse.json({
+        const payload = {
             stats: { 
                 totalLeads: leadCount, 
                 totalQuotations: quoteCount, 
@@ -405,7 +422,15 @@ export async function GET(request: Request) {
             },
             recentActivities: formatActivities(recentLeads, recentQuotes, recentProjects, recentTickets),
             upcomingDeadlines: upcomingProjects.map((p: any) => ({ id: p.Project_ID, name: p.Project_Name, deadline: p.Start_Details.End_Date }))
-        });
+        };
+
+        // Cache the result
+        statsCache = {
+            data: { fy, payload },
+            timestamp: now
+        };
+
+        return NextResponse.json(payload);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

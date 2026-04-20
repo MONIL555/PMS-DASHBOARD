@@ -114,9 +114,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
           style={{
             position: 'absolute',
             right: '-8px',
-            top: isCollapsed ? '49px' : '75px',
-            width: '2.4rem',
-            height: '2.4rem',
+            top: isCollapsed ? '40px' : '55px',
+            width: '3.4rem',
+            height: '3.4rem',
             borderRadius: '50%',
             backgroundColor: 'white',
             border: '1px solid var(--border-color)',
@@ -322,15 +322,15 @@ const SidebarLink = ({ to, icon, label, isCollapsed }: { to: string, icon: React
         border: isActive ? '1px solid #bfdbfe' : '1px solid transparent',
         boxShadow: isActive ? '0 2px 8px -2px rgba(59, 130, 246, 0.15)' : 'none',
       }}
-      onMouseOver={(e) => { 
-        if(!isActive) {
-          e.currentTarget.style.backgroundColor = 'var(--surface-hover)'; 
+      onMouseOver={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = 'var(--surface-hover)';
           e.currentTarget.style.color = 'var(--text-primary)';
         }
       }}
-      onMouseOut={(e) => { 
-        if(!isActive) {
-          e.currentTarget.style.backgroundColor = 'transparent'; 
+      onMouseOut={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.color = 'var(--text-secondary)';
         }
       }}

@@ -33,6 +33,44 @@ const PHASE_COLORS: Record<string, string> = {
   'Go-Live': '#10b981', Maintenance: '#84cc16', Completed: '#22c55e', 'Not Started': '#94a3b8',
 };
 
+/* ─── RESPONSIVE ICON SIZE HOOK ──────────────────────────── */
+function useIconSize(base: number): number {
+  const [size, setSize] = useState(base);
+
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      if (w >= 3840) setSize(Math.round(base * 1.5));
+      else if (w >= 3200) setSize(Math.round(base * 1.375));
+      else if (w >= 2560) setSize(Math.round(base * 1.25));
+      else if (w >= 1920) setSize(Math.round(base * 1.125));
+      else setSize(base);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, [base]);
+
+  return size;
+}
+
+/* ─── ICON SCALE FACTOR (for inline one-off uses) ───────── */
+function getIconScale(): number {
+  if (typeof window === 'undefined') return 1;
+  const w = window.innerWidth;
+  if (w >= 3840) return 1.5;
+  if (w >= 3200) return 1.375;
+  if (w >= 2560) return 1.25;
+  if (w >= 1920) return 1.125;
+  return 1;
+}
+
+/* ─── SCALED ICON WRAPPER ────────────────────────────────── */
+const SI = ({ icon: Icon, size = 16, ...props }: { icon: any; size?: number;[key: string]: any }) => {
+  const scaled = useIconSize(size);
+  return <Icon size={scaled} {...props} />;
+};
+
 /* ─── ANIMATED COUNTER ───────────────────────────────────── */
 function useCountUp(target: number, duration = 800, trigger = true) {
   const [val, setVal] = useState(0);
@@ -84,11 +122,11 @@ const DashboardSkeleton = () => (
 const CTooltip = ({ active, payload, label, prefix = '' }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="premium-card" style={{ padding: '0.75rem 1rem', minWidth: '160px', border: '1px solid var(--border-color)' }}>
+    <div className="premium-card" style={{ padding: '0.75rem 1rem', minWidth: '10rem', border: '1px solid var(--border-color)' }}>
       <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{label}</p>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: p.color, flexShrink: 0 }} />
+          <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: p.color, flexShrink: 0 }} />
           <span style={{ color: 'var(--text-secondary)' }}>{p.name}:</span>
           <span style={{ color: 'var(--text-primary)' }}>{prefix}{typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</span>
         </div>
@@ -103,7 +141,7 @@ const WinRateGauge = ({ rate, label, ready = true }: { rate: number; label: stri
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '200px' }}>
-      <div style={{ position: 'relative', width: '100%', height: '100px', display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: '100%', height: '6.25rem', display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 0, left: 0, right: 0, bottom: 0 }}>
             <Pie
@@ -153,14 +191,17 @@ const WinRateGauge = ({ rate, label, ready = true }: { rate: number; label: stri
 };
 
 /* ─── SECTION TITLE ──────────────────────────────────────── */
-const STitle = ({ icon: Icon, title, sub, action }: { icon: any; title: string; sub?: string; action?: React.ReactNode }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-    <Icon size={18} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-    <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
-    {sub && <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{sub}</span>}
-    {action && <div style={{ marginLeft: 'auto' }}>{action}</div>}
-  </div>
-);
+const STitle = ({ icon: Icon, title, sub, action }: { icon: any; title: string; sub?: string; action?: React.ReactNode }) => {
+  const iconSize = useIconSize(18);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+      <Icon size={iconSize} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+      <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
+      {sub && <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{sub}</span>}
+      {action && <div style={{ marginLeft: 'auto' }}>{action}</div>}
+    </div>
+  );
+};
 
 /* ─── CARD ───────────────────────────────────────────────── */
 const Card = ({ children, style = {}, className = '' }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) => (
@@ -201,6 +242,12 @@ const DashboardCalendar = () => {
   const [markingPayment, setMarkingPayment] = useState<string | null>(null);
   const [calView, setCalView] = useQueryState('calView', parseAsString.withDefault('calendar'));
   const calendarPopupRef = useRef<HTMLDivElement>(null);
+
+  const loaderSize = useIconSize(13);
+  const chevronSize = useIconSize(15);
+  const calIconSize = useIconSize(16);
+  const xIconSize = useIconSize(14);
+  const checkIconSize = useIconSize(12);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -277,9 +324,9 @@ const DashboardCalendar = () => {
     <div style={{ position: 'relative' }}>
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-        <Calendar size={16} style={{ color: 'var(--text-secondary)' }} />
+        <Calendar size={calIconSize} style={{ color: 'var(--text-secondary)' }} />
         <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Operation Calendar</h2>
-        {loadingCal && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: '#94a3b8' }} />}
+        {loadingCal && <Loader2 size={loaderSize} style={{ animation: 'spin 1s linear infinite', color: '#94a3b8' }} />}
 
         {/* view toggle */}
         <div style={{ marginLeft: 'auto', display: 'flex', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden', background: 'var(--bg-color)' }}>
@@ -290,9 +337,9 @@ const DashboardCalendar = () => {
 
         {/* month nav */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronLeft size={15} /></button>
+          <button onClick={() => changeMonth(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronLeft size={chevronSize} /></button>
           <span style={{ minWidth: '130px', textAlign: 'center', fontWeight: 700, fontSize: '0.85rem', color: '#3b82f6', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '20px', padding: '0.3rem 1rem' }}>{MONTHS[cm]} {cy}</span>
-          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronRight size={15} /></button>
+          <button onClick={() => changeMonth(1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.35rem', borderRadius: '6px', color: 'var(--text-secondary)', display: 'flex' }}><ChevronRight size={chevronSize} /></button>
         </div>
       </div>
 
@@ -322,7 +369,7 @@ const DashboardCalendar = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '0.5rem', scrollbarWidth: 'thin' }}>
           {sortedEvs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-secondary)' }}>
-              <Calendar size={32} style={{ opacity: 0.1, marginBottom: '0.75rem' }} />
+              <Calendar size={calIconSize * 2} style={{ opacity: 0.1, marginBottom: '0.75rem' }} />
               <p style={{ fontSize: '0.82rem' }}>No events scheduled for this month</p>
             </div>
           ) : sortedEvs.map((ev, i) => (
@@ -340,7 +387,7 @@ const DashboardCalendar = () => {
               </div>
               {(ev.type === 'billing' || ev.type === 'renewal') && (
                 <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-event-check ${ev.isPaid ? 'paid' : ''}`}>
-                  {markingPayment === ev.id ? <Loader2 size={12} className="spin" /> : <Check size={12} strokeWidth={3} />}
+                  {markingPayment === ev.id ? <Loader2 size={checkIconSize} className="spin" /> : <Check size={checkIconSize} strokeWidth={3} />}
                 </button>
               )}
             </div>
@@ -369,7 +416,7 @@ const DashboardCalendar = () => {
         <div ref={calendarPopupRef} className="db-calendar-popup" style={{ top: popupPos.top, left: popupPos.left }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
             <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>Events on {popupDay} {MONTHS[cm]}</h3>
-            <button onClick={() => setPopupDay(null)} style={{ background: '#f8fafc', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px', color: '#64748b' }}><X size={14} /></button>
+            <button onClick={() => setPopupDay(null)} style={{ background: '#f8fafc', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px', color: '#64748b' }}><X size={xIconSize} /></button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {popupEvs.map((ev, i) => (
@@ -383,7 +430,7 @@ const DashboardCalendar = () => {
                   {ev.value ? <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>₹{ev.value.toLocaleString()}</span> : <div />}
                   {(ev.type === 'billing' || ev.type === 'renewal') && (
                     <button onClick={() => handleToggle(ev)} disabled={!!markingPayment} className={`db-popup-mark ${ev.isPaid ? 'paid' : ''}`}>
-                      {markingPayment === ev.id ? <Loader2 size={12} className="spin" /> : ev.isPaid ? 'Mark Pending' : 'Mark Collected'}
+                      {markingPayment === ev.id ? <Loader2 size={checkIconSize} className="spin" /> : ev.isPaid ? 'Mark Pending' : 'Mark Collected'}
                     </button>
                   )}
                 </div>
@@ -407,7 +454,6 @@ const DashboardContent = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Using nuqs for state management
   const [selectedFY, setSelectedFY] = useQueryState('fy', parseAsString.withDefault(getCurrentFY()));
   const [filters, setFilters] = useQueryState('filters', parseAsArrayOf(parseAsString).withDefault(['Leads', 'Quotations', 'Projects', 'Tickets']));
   const [activitySearch, setActivitySearch] = useQueryState('q', parseAsString.withDefault(''));
@@ -415,6 +461,15 @@ const DashboardContent = () => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  /* ─── Scaled icon sizes for this component ─── */
+  const iconXs = useIconSize(10);
+  const iconSm = useIconSize(13);
+  const iconMd = useIconSize(15);
+  const iconLg = useIconSize(18);
+  const iconXl = useIconSize(20);
+  const icon2xl = useIconSize(28);
+  const icon3xl = useIconSize(36);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -458,7 +513,6 @@ const DashboardContent = () => {
     return { start: `${startYear}-04-01`, end: `${endYear}-03-31` };
   }, [selectedFY]);
 
-  /* velocity & health (Top of component) */
   const revenueVelocity = useMemo(() => {
     if (!data?.trends || data.trends.length < 6) return null;
     const t = data.trends;
@@ -503,9 +557,7 @@ const DashboardContent = () => {
       const q = activitySearch.toLowerCase();
       list = list.filter((a: any) => a.title?.toLowerCase().includes(q) || a.id?.toLowerCase().includes(q) || a.status?.toLowerCase().includes(q));
     }
-    if (activityTab === 'All') {
-      return list.slice(0, 10);
-    }
+    if (activityTab === 'All') return list.slice(0, 10);
     return list;
   }, [data, activityTab, activitySearch]);
 
@@ -518,10 +570,10 @@ const DashboardContent = () => {
   if (loading) return <DashboardSkeleton />;
   if (!data) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>
-      <AlertTriangle size={32} style={{ color: '#ef4444' }} />
+      <AlertTriangle size={icon3xl} style={{ color: '#ef4444' }} />
       <p style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem' }}>Error loading dashboard data.</p>
       <button onClick={load} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-        <RefreshCw size={13} /> Retry
+        <RefreshCw size={iconMd} /> Retry
       </button>
     </div>
   );
@@ -532,10 +584,8 @@ const DashboardContent = () => {
     return { startDate: `${sy}-04-01`, endDate: `${ey}-03-31` };
   };
 
-
-
   /* ══════════════════════════════════════════════════════════ */
-  /* BUILD SECTIONS                                           */
+  /* BUILD SECTIONS                                             */
   /* ══════════════════════════════════════════════════════════ */
   const sections: Array<{ id: string; component: React.ReactNode }> = [];
 
@@ -544,18 +594,18 @@ const DashboardContent = () => {
     <div
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(); } : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.35rem',
+        display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.5rem',
         borderRadius: '6px', cursor: onClick ? 'pointer' : 'default',
         transition: 'background 0.15s', minWidth: 0, overflow: 'hidden'
       }}
       onMouseEnter={onClick ? (e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'; } : undefined}
       onMouseLeave={onClick ? (e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; } : undefined}
     >
-      <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={10} style={{ color }} />
+      <div style={{ width: '1.6rem', height: '1.6rem', borderRadius: '6px', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={iconMd} style={{ color }} />
       </div>
-      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{label}</span>
-      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{label}</span>
+      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
         {isCurrency ? `₹${typeof value === 'number' ? value.toLocaleString() : value}` : typeof value === 'number' ? value.toLocaleString() : value}
       </span>
     </div>
@@ -571,7 +621,7 @@ const DashboardContent = () => {
     router.push(`${path}?${p.toString()}`);
   };
 
-  /* ── STAT CARDS (Enhanced BI Panels) ── */
+  /* ── STAT CARDS ── */
   const lb = data.leadBreakdown;
   const qb = data.quotationBreakdown;
   const pb = data.projectBreakdown;
@@ -579,17 +629,16 @@ const DashboardContent = () => {
 
   const biCards: Array<{ id: string; cat: string; component: React.ReactNode }> = [];
 
-  /* Card section style helpers for uniform layout */
-  const cardStyle: React.CSSProperties = { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 };
-  const headerStyle: React.CSSProperties = { padding: '0.85rem 1rem 0.6rem', cursor: 'pointer' };
-  const dividerStyle: React.CSSProperties = { height: '1px', background: 'var(--border-color)', margin: '0 0.75rem' };
-  const gridSectionStyle = (cols: number): React.CSSProperties => ({ padding: '0.4rem 0.5rem', display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '0.1rem' });
-  const insightStyle: React.CSSProperties = { borderTop: '1px solid var(--border-color)', padding: '0.4rem 0.5rem', marginTop: 'auto' };
-  const blobStyle = (color: string): React.CSSProperties => ({ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none' as const });
-  const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' };
-  const titleStyle: React.CSSProperties = { fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
-  const bigNumStyle: React.CSSProperties = { fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, margin: 0, fontVariantNumeric: 'tabular-nums' };
-  const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.4rem', borderRadius: '8px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
+  const cardStyle: React.CSSProperties = { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100%' };
+  const headerStyle: React.CSSProperties = { padding: '1rem 1.15rem 0.8rem', cursor: 'pointer' };
+  const dividerStyle: React.CSSProperties = { height: '1px', background: 'var(--border-color)', margin: '0 0.85rem' };
+  const gridSectionStyle = (cols: number): React.CSSProperties => ({ padding: '0.6rem', display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: '0.2rem' });
+  const insightStyle: React.CSSProperties = { borderTop: '1px solid var(--border-color)', padding: '0.6rem', marginTop: 'auto' };
+  const blobStyle = (color: string): React.CSSProperties => ({ position: 'absolute', top: '-1.5rem', right: '-1.5rem', width: '6rem', height: '6rem', borderRadius: '50%', background: color, opacity: 0.06, pointerEvents: 'none' as const });
+  const titleRowStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' };
+  const titleStyle: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 };
+  const bigNumStyle: React.CSSProperties = { fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, margin: 0, fontVariantNumeric: 'tabular-nums' };
+  const iconBoxStyle = (bg: string, fg: string): React.CSSProperties => ({ background: bg, padding: '0.5rem', borderRadius: '8px', color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' });
 
   if (hasLeads && lb) {
     const needsAction = lb.new + lb.inProgress;
@@ -603,11 +652,11 @@ const DashboardContent = () => {
                 <p style={titleStyle}>Leads</p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalLeads} ready={countersReady} /></p>
               </div>
-              <div style={iconBoxStyle('#eff6ff', '#3b82f6')}><Users size={16} /></div>
+              <div style={iconBoxStyle('#eff6ff', '#3b82f6')}><Users size={iconLg} /></div>
             </div>
             {leadVelocity != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(leadVelocity) >= 0 ? '#16a34a' : '#dc2626', marginTop: '-0.15rem' }}>
-                <Zap size={9} />{Number(leadVelocity) >= 0 ? '+' : ''}{leadVelocity}% velocity
+                <Zap size={iconXs} />{Number(leadVelocity) >= 0 ? '+' : ''}{leadVelocity}% velocity
               </div>
             )}
           </div>
@@ -637,11 +686,11 @@ const DashboardContent = () => {
                 <p style={titleStyle}>Quotations</p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalQuotations} ready={countersReady} /></p>
               </div>
-              <div style={iconBoxStyle('#fffbeb', '#f59e0b')}><FileText size={16} /></div>
+              <div style={iconBoxStyle('#fffbeb', '#f59e0b')}><FileText size={iconLg} /></div>
             </div>
             {data.stats.quoteGrowth && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: data.stats.quoteGrowth.startsWith('-') ? '#dc2626' : '#16a34a', marginTop: '-0.15rem' }}>
-                {data.stats.quoteGrowth.startsWith('-') ? <ArrowDownRight size={9} /> : <ArrowUpRight size={9} />}{data.stats.quoteGrowth} vs prev. FY
+                {data.stats.quoteGrowth.startsWith('-') ? <ArrowDownRight size={iconXs} /> : <ArrowUpRight size={iconXs} />}{data.stats.quoteGrowth} vs prev. FY
               </div>
             )}
           </div>
@@ -673,11 +722,11 @@ const DashboardContent = () => {
                 <p style={titleStyle}>Projects</p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalActiveProjects} ready={countersReady} /></p>
               </div>
-              <div style={iconBoxStyle('#f0fdf4', '#10b981')}><Briefcase size={16} /></div>
+              <div style={iconBoxStyle('#f0fdf4', '#10b981')}><Briefcase size={iconLg} /></div>
             </div>
             {revenueVelocity != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: Number(revenueVelocity) >= 0 ? '#16a34a' : '#dc2626', marginTop: '-0.15rem' }}>
-                <Zap size={9} />{Number(revenueVelocity) >= 0 ? '+' : ''}{revenueVelocity}% velocity
+                <Zap size={iconXs} />{Number(revenueVelocity) >= 0 ? '+' : ''}{revenueVelocity}% velocity
               </div>
             )}
           </div>
@@ -715,7 +764,7 @@ const DashboardContent = () => {
                 <p style={titleStyle}>Tickets</p>
                 <p style={bigNumStyle}><AnimatedNum value={data.stats.totalOpenTickets} ready={countersReady} /></p>
               </div>
-              <div style={iconBoxStyle('#fef2f2', '#ef4444')}><TicketIcon size={16} /></div>
+              <div style={iconBoxStyle('#fef2f2', '#ef4444')}><TicketIcon size={iconLg} /></div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '-0.15rem' }}>
               Open Queue
@@ -764,7 +813,7 @@ const DashboardContent = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '0.75rem' }}>
           {kpis.map((k, i) => (
             <div key={i} className="premium-card" style={{ padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-              <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={15} /></div>
+              <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={iconMd} /></div>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.lbl}</p>
                 <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{k.val}</p>
@@ -834,16 +883,16 @@ const DashboardContent = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
                 {fc.map((c, i) => (
                   <div key={i} style={{ background: 'white', border: '1px solid var(--border-color)', borderLeft: `4.5px solid ${c.borderColor}`, borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '60px', height: '60px', borderRadius: '50%', background: c.borderColor, opacity: 0.04, pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', top: '-0.625rem', right: '-0.625rem', width: '3.75rem', height: '3.75rem', borderRadius: '50%', background: c.borderColor, opacity: 0.04, pointerEvents: 'none' }} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                       <p style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>{c.lbl}</p>
-                      <div style={{ background: c.iconBg, padding: '0.5rem', borderRadius: '10px', color: c.iconColor }}><c.icon size={17} /></div>
+                      <div style={{ background: c.iconBg, padding: '0.5rem', borderRadius: '10px', color: c.iconColor }}><c.icon size={iconLg} /></div>
                     </div>
                     <p style={{ fontSize: '1.9rem', fontWeight: 800, color: c.vc, marginBottom: '0.25rem', fontVariantNumeric: 'tabular-nums' }}>{c.val}</p>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>{c.sub}</p>
                     {c.rate && selectedFY !== 'all' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', fontWeight: 700, color: c.rate.startsWith('-') ? '#ef4444' : '#10b981' }}>
-                        {c.rate.startsWith('-') ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
+                        {c.rate.startsWith('-') ? <ArrowDownRight size={iconMd} /> : <ArrowUpRight size={iconMd} />}
                         <span>{c.rate} vs previous FY</span>
                       </div>
                     )}
@@ -918,80 +967,78 @@ const DashboardContent = () => {
     });
   }
 
-  /* ── SCORECARDS (Win Rate + Health) ── */
-  if (hasLeads || hasQuotations || hasProjects) {
-    const hHue = Math.round((billingHealth / 100) * 120); // 0 (red) to 120 (green)
-    const hColor = `hsl(${hHue}, 75%, 45%)`;
-    const hBg = `hsl(${hHue}, 80%, 97%)`;
+  /* ── SCORECARDS ── */
+  // if (hasLeads || hasQuotations || hasProjects) {
+  //   const hHue = Math.round((billingHealth / 100) * 120);
+  //   const hColor = `hsl(${hHue}, 75%, 45%)`;
+  //   const hBg = `hsl(${hHue}, 80%, 97%)`;
 
-    sections.push({
-      id: 'scorecards', component: (
-        <div className="db-grid-3">
-          {hasLeads && (
-            <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
-              <STitle icon={Award} title="Lead Performance" sub="acquisition" />
-              <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
-                <WinRateGauge rate={winRate} label="of leads converted" ready={countersReady} />
-              </div>
-              <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
-                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                  <span style={{ color: 'var(--primary-color)' }}>{data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0}</span> conv. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalLeads} total</span>
-                </p>
-              </div>
-            </Card>
-          )}
+  //   sections.push({
+  //     id: 'scorecards', component: (
+  //       <div className="db-grid-3">
+  //         {hasLeads && (
+  //           <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
+  //             <STitle icon={Award} title="Lead Performance" sub="acquisition" />
+  //             <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+  //               <WinRateGauge rate={winRate} label="of leads converted" ready={countersReady} />
+  //             </div>
+  //             <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
+  //               <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+  //                 <span style={{ color: 'var(--primary-color)' }}>{data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0}</span> conv. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalLeads} total</span>
+  //               </p>
+  //             </div>
+  //           </Card>
+  //         )}
 
-          {hasQuotations && hasProjects && (
-            <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
-              <STitle icon={Star} title="Sales Conversion" sub="deal flow" />
-              <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
-                <WinRateGauge rate={quoteConvRate} label="quotes → projects" ready={countersReady} />
-              </div>
-              <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
-                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                  <span style={{ color: 'var(--success-color)' }}>{data.stats.totalActiveProjects}</span> proj. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalQuotations} quotes</span>
-                </p>
-              </div>
-            </Card>
-          )}
+  //         {hasQuotations && hasProjects && (
+  //           <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem' }}>
+  //             <STitle icon={Star} title="Sales Conversion" sub="deal flow" />
+  //             <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+  //               <WinRateGauge rate={quoteConvRate} label="quotes → projects" ready={countersReady} />
+  //             </div>
+  //             <div style={{ marginTop: '1.5rem', padding: '0.6rem 1rem', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center' }}>
+  //               <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+  //                 <span style={{ color: 'var(--success-color)' }}>{data.stats.totalActiveProjects}</span> proj. · <span style={{ color: 'var(--text-secondary)' }}>{data.stats.totalQuotations} quotes</span>
+  //               </p>
+  //             </div>
+  //           </Card>
+  //         )}
 
-          <Card style={{ padding: '1.5rem', borderTop: `4px solid ${hColor}` }}>
-            <STitle icon={Target} title="Pipeline Velocity" sub="health score" />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', background: hBg, padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '3.6rem', fontWeight: 800, color: hColor, lineHeight: 1, letterSpacing: '-0.04em' }}>
-                <AnimatedNum value={billingHealth} ready={countersReady} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: hColor, margin: 0, textTransform: 'uppercase' }}>
-                  {billingHealth >= 75 ? 'Excellent' : billingHealth >= 50 ? 'Healthy' : 'Action Needed'}
-                </p>
-                <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '0.1rem' }}>Overall Effectiveness</p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-              {[
-                { lbl: 'Lead Conversion', val: `${data.conversionRates.leadToQuote}%`, max: 50, score: Math.min(parseFloat(data.conversionRates.leadToQuote) || 0, 50), color: '#3b82f6' },
-                { lbl: 'Sales Closing', val: `${data.conversionRates.quoteToProject}%`, max: 30, score: Math.min((parseFloat(data.conversionRates.quoteToProject) || 0) * (10 / 3), 30), color: '#f59e0b' },
-                { lbl: 'Delivery Pace', val: `${data.conversionRates.avgCompletionTime}d`, max: 20, score: Math.max(0, 20 - ((data.conversionRates.avgCompletionTime || 999) / 30) * 10), color: '#10b981' },
-              ].map((row, i) => (
-                <div key={i}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{row.lbl}</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{row.val}</span>
-                  </div>
-                  <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-hover)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color, borderRadius: '3px', transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )
-    });
-  }
+  //         <Card style={{ padding: '1.5rem', borderTop: `4px solid ${hColor}` }}>
+  //           <STitle icon={Target} title="Pipeline Velocity" sub="health score" />
+  //           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', background: hBg, padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+  //             <div style={{ fontSize: '3.6rem', fontWeight: 800, color: hColor, lineHeight: 1, letterSpacing: '-0.04em' }}>
+  //               <AnimatedNum value={billingHealth} ready={countersReady} />
+  //             </div>
+  //             <div style={{ flex: 1 }}>
+  //               <p style={{ fontSize: '0.85rem', fontWeight: 800, color: hColor, margin: 0, textTransform: 'uppercase' }}>
+  //                 {billingHealth >= 75 ? 'Excellent' : billingHealth >= 50 ? 'Healthy' : 'Action Needed'}
+  //               </p>
+  //               <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '0.1rem' }}>Overall Effectiveness</p>
+  //             </div>
+  //           </div>
+  //           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+  //             {[
+  //               { lbl: 'Lead Conversion', val: `${data.conversionRates.leadToQuote}%`, max: 50, score: Math.min(parseFloat(data.conversionRates.leadToQuote) || 0, 50), color: '#3b82f6' },
+  //               { lbl: 'Sales Closing', val: `${data.conversionRates.quoteToProject}%`, max: 30, score: Math.min((parseFloat(data.conversionRates.quoteToProject) || 0) * (10 / 3), 30), color: '#f59e0b' },
+  //               { lbl: 'Delivery Pace', val: `${data.conversionRates.avgCompletionTime}d`, max: 20, score: Math.max(0, 20 - ((data.conversionRates.avgCompletionTime || 999) / 30) * 10), color: '#10b981' },
+  //             ].map((row, i) => (
+  //               <div key={i}>
+  //                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', alignItems: 'center' }}>
+  //                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{row.lbl}</span>
+  //                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{row.val}</span>
+  //                 </div>
+  //                 <div style={{ height: '6px', borderRadius: '3px', background: 'var(--surface-hover)', overflow: 'hidden' }}>
+  //                   <div style={{ height: '100%', width: `${(row.score / row.max) * 100}%`, backgroundColor: row.color, borderRadius: '3px', transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)' }} />
+  //                 </div>
+  //               </div>
+  //             ))}
+  //           </div>
+  //         </Card>
+  //       </div>
+  //     )
+  //   });
+  // }
 
   /* ── PIPELINE FUNNEL ── */
   if (hasLeads || hasQuotations || hasProjects) {
@@ -1118,7 +1165,7 @@ const DashboardContent = () => {
                       <td style={{ textAlign: 'right' }}>
                         {row.rate
                           ? <span className={`badge ${isPos ? 'badge-green' : isNeg ? 'badge-red' : 'badge-gray'}`} style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                            {isPos ? <ArrowUpRight size={10} /> : isNeg ? <ArrowDownRight size={10} /> : <Minus size={10} />}{row.rate}
+                            {isPos ? <ArrowUpRight size={iconXs} /> : isNeg ? <ArrowDownRight size={iconXs} /> : <Minus size={iconXs} />}{row.rate}
                           </span>
                           : <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>}
                       </td>
@@ -1195,7 +1242,7 @@ const DashboardContent = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
               {data.leadStatusDist.map((e: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLORS[e.name] || '#94a3b8' }} />
+                  <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: STATUS_COLORS[e.name] || '#94a3b8' }} />
                   <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{e.name}: {e.value}</span>
                 </div>
               ))}
@@ -1244,13 +1291,12 @@ const DashboardContent = () => {
       <div style={{ display: 'grid', gridTemplateColumns: hasProjects ? 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))' : '1fr', gap: '1.5rem' }}>
         <Card>
           <STitle icon={Activity} title="Recent Activity" sub="live feed" />
-          {/* search + tabs */}
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
-              <Search size={13} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+              <Search size={iconMd} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
               <input value={activitySearch} onChange={e => setActivitySearch(e.target.value)} placeholder="Search activity…"
                 style={{ width: '100%', padding: '0.5rem 2.5rem 0.5rem 2.25rem', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.78rem', color: 'var(--text-primary)', background: 'var(--bg-color)', outline: 'none', fontFamily: 'inherit' }} />
-              {activitySearch && <button onClick={() => setActivitySearch('')} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}><X size={12} /></button>}
+              {activitySearch && <button onClick={() => setActivitySearch('')} style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}><X size={iconSm} /></button>}
             </div>
             <div style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-color)' }}>
               {(['All', 'Lead', 'Quotation', 'Project', 'Ticket'] as const).map(tab => (
@@ -1261,7 +1307,7 @@ const DashboardContent = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minHeight: '22rem' }}>
             {filteredActivities.length === 0
               ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '20rem', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                <Search size={28} style={{ opacity: 0.3 }} />
+                <Search size={icon2xl} style={{ opacity: 0.3 }} />
                 <p style={{ fontSize: '0.85rem', fontWeight: 500 }}>No matching activity</p>
               </div>
               : filteredActivities.map((act: any, idx: number) => {
@@ -1272,14 +1318,16 @@ const DashboardContent = () => {
                   else router.push('/tickets');
                 };
                 const iconMap: Record<string, React.ReactNode> = {
-                  Lead: <Users size={16} color="#3b82f6" />, Quotation: <FileText size={16} color="#f59e0b" />,
-                  Project: <Briefcase size={16} color="#10b981" />, Ticket: <TicketIcon size={16} color="#ef4444" />,
+                  Lead: <Users size={iconLg} color="#3b82f6" />,
+                  Quotation: <FileText size={iconLg} color="#f59e0b" />,
+                  Project: <Briefcase size={iconLg} color="#10b981" />,
+                  Ticket: <TicketIcon size={iconLg} color="#ef4444" />,
                 };
                 return (
                   <div key={idx} onClick={goto} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 0.75rem', borderRadius: '10px', cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.15s' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-color)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'transparent'; }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'white', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '10px', background: 'white', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                       {iconMap[act.type]}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1291,7 +1339,7 @@ const DashboardContent = () => {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{formatDateDDMMYYYY(act.date)}</span>
-                      <ExternalLink size={11} style={{ color: '#e2e8f0' }} />
+                      <ExternalLink size={iconSm} style={{ color: '#e2e8f0' }} />
                     </div>
                   </div>
                 );
@@ -1314,7 +1362,7 @@ const DashboardContent = () => {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{p.id}</span>
                       {isOver
-                        ? <span className="badge badge-red" style={{ fontSize: '0.62rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><TrendingDown size={9} /> Overdue {Math.abs(days)}d</span>
+                        ? <span className="badge badge-red" style={{ fontSize: '0.62rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><TrendingDown size={iconXs} /> Overdue {Math.abs(days)}d</span>
                         : <span className={`badge ${urgent ? 'badge-yellow' : 'badge-gray'}`} style={{ fontSize: '0.62rem' }}>{days}d left</span>
                       }
                     </div>
@@ -1324,7 +1372,7 @@ const DashboardContent = () => {
               })}
             </div>
             : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '22rem', gap: '0.5rem' }}>
-              <CheckCircle2 size={36} style={{ color: '#e2e8f0' }} />
+              <CheckCircle2 size={icon3xl} style={{ color: '#e2e8f0' }} />
               <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>All projects on track</p>
               <p style={{ fontSize: '0.72rem', color: '#cbd5e1' }}>No upcoming deadlines</p>
             </div>
@@ -1335,7 +1383,7 @@ const DashboardContent = () => {
   });
 
   /* ══════════════════════════════════════════════════════════ */
-  /* MAIN RENDER                                              */
+  /* MAIN RENDER                                                */
   /* ══════════════════════════════════════════════════════════ */
   return (
     <div style={{ maxWidth: '220rem', width: '100%', margin: '0 auto', padding: '0 2rem' }}>
@@ -1355,36 +1403,36 @@ const DashboardContent = () => {
             <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="db-filter-btn">
               <div style={{ display: 'flex', marginRight: '0.5rem' }}>
                 {filters.slice(0, 4).map((f, i) => (
-                  <div key={f} style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', border: '2px solid white', marginLeft: i > 0 ? '-6px' : '0', boxShadow: '0 1px 4px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 - i, position: 'relative' }}>
-                    {f === 'Leads' && <Users size={8} color="#3b82f6" />}
-                    {f === 'Quotations' && <FileText size={8} color="#f59e0b" />}
-                    {f === 'Projects' && <Briefcase size={8} color="#10b981" />}
-                    {f === 'Tickets' && <TicketIcon size={8} color="#ef4444" />}
-                    {f === 'Finance' && <Banknote size={8} color="#8b5cf6" />}
+                  <div key={f} style={{ width: '1.125rem', height: '1.125rem', borderRadius: '50%', background: 'white', border: '2px solid white', marginLeft: i > 0 ? '-6px' : '0', boxShadow: '0 1px 4px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 - i, position: 'relative' }}>
+                    {f === 'Leads' && <Users size={iconXs} color="#3b82f6" />}
+                    {f === 'Quotations' && <FileText size={iconXs} color="#f59e0b" />}
+                    {f === 'Projects' && <Briefcase size={iconXs} color="#10b981" />}
+                    {f === 'Tickets' && <TicketIcon size={iconXs} color="#ef4444" />}
+                    {f === 'Finance' && <Banknote size={iconXs} color="#8b5cf6" />}
                   </div>
                 ))}
               </div>
               <span>{filters.length === 5 ? 'All Domains' : `${filters.length} active`}</span>
-              <ChevronDown size={13} style={{ marginLeft: '0.35rem', color: 'var(--text-secondary)', transition: 'transform 0.2s', transform: isFilterOpen ? 'rotate(180deg)' : 'none' }} />
+              <ChevronDown size={iconMd} style={{ marginLeft: '0.35rem', color: 'var(--text-secondary)', transition: 'transform 0.2s', transform: isFilterOpen ? 'rotate(180deg)' : 'none' }} />
             </button>
 
             {isFilterOpen && (
               <div className="premium-card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: '230px', padding: '0.5rem', zIndex: 100, border: '1px solid var(--border-color)' }}>
                 <p style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-secondary)', padding: '0.4rem 0.75rem 0.5rem' }}>Toggle sections</p>
                 {[
-                  { id: 'Leads', icon: <Users size={13} />, color: '#3b82f6', desc: 'Leads & Inquiries' },
-                  { id: 'Quotations', icon: <FileText size={13} />, color: '#f59e0b', desc: 'Quotes & Proposals' },
-                  { id: 'Projects', icon: <Briefcase size={13} />, color: '#10b981', desc: 'Active Projects' },
-                  { id: 'Tickets', icon: <TicketIcon size={13} />, color: '#ef4444', desc: 'Support Tickets' },
-                  { id: 'Finance', icon: <Banknote size={13} />, color: '#8b5cf6', desc: 'Financial Metrics' },
+                  { id: 'Leads', icon: <Users size={iconMd} />, color: '#3b82f6', desc: 'Leads & Inquiries' },
+                  { id: 'Quotations', icon: <FileText size={iconMd} />, color: '#f59e0b', desc: 'Quotes & Proposals' },
+                  { id: 'Projects', icon: <Briefcase size={iconMd} />, color: '#10b981', desc: 'Active Projects' },
+                  { id: 'Tickets', icon: <TicketIcon size={iconMd} />, color: '#ef4444', desc: 'Support Tickets' },
+                  { id: 'Finance', icon: <Banknote size={iconMd} />, color: '#8b5cf6', desc: 'Financial Metrics' },
                 ].map(f => {
                   const on = filters.includes(f.id);
                   return (
                     <div key={f.id} onClick={() => toggleFilter(f.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.75rem', borderRadius: '8px', cursor: 'pointer', transition: 'background 0.15s' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-color)'}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${on ? f.color : '#e2e8f0'}`, background: on ? f.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                        {on && <Check size={9} color="white" strokeWidth={4} />}
+                      <div style={{ width: '1rem', height: '1rem', borderRadius: '4px', border: `2px solid ${on ? f.color : '#e2e8f0'}`, background: on ? f.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                        {on && <Check size={iconXs} color="white" strokeWidth={4} />}
                       </div>
                       <div>
                         <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{f.id}</p>
@@ -1419,7 +1467,7 @@ const DashboardContent = () => {
 
       {/* FOOTER */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '2.5rem', fontSize: '0.72rem', color: '#94a3b8' }} className="db-no-print">
-        <Info size={11} />
+        <Info size={iconSm} />
         <span>Data refreshes on page load · FY runs April – March · All values in INR (₹)</span>
       </div>
     </div>

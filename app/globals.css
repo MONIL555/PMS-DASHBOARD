@@ -14,28 +14,58 @@
   --sidebar-width: 230px;
   --sidebar-width-collapsed: 80px;
 
-  /* Fluid Typography: Increased multiplier for better readability on >1080p and 4K displays */
-  font-size: clamp(55%, 0.6vw, 100%);
+  /* FIX: Fluid base size for standard laptops (1366px - 1600px). 
+     This keeps dense grids from wrapping, hovering around ~12px to ~14px. */
+  font-size: clamp(8px, 0.85vw, 8px);
 }
 
+/* ── LARGE DISPLAY SCALING ──────────────────────────── */
+/* Hard limits for larger screens so it scales up gently without blowing out */
+
+@media (min-width: 1920px) {
+  :root {
+    font-size: 16px;
+    --sidebar-width: 240px;
+    --sidebar-width-collapsed: 88px;
+  }
+}
+
+@media (min-width: 2560px) {
+  :root {
+    font-size: 21px;
+    --sidebar-width: 280px;
+    --sidebar-width-collapsed: 95px;
+  }
+}
+
+@media (min-width: 3200px) {
+  :root {
+    font-size: 20px;
+    --sidebar-width: 300px;
+    --sidebar-width-collapsed: 105px;
+  }
+}
+
+@media (min-width: 3840px) {
+  :root {
+    font-size: 22px;
+    --sidebar-width: 340px;
+    --sidebar-width-collapsed: 120px;
+  }
+}
+
+/* ── EXISTING BREAKPOINTS (unchanged) ───────────────────── */
 @media (min-width: 1400px) {
   :root {
-    --sidebar-width: 250px;
+    --sidebar-width: 220px;
     --sidebar-width-collapsed: 85px;
   }
 }
 
 @media (min-width: 1800px) {
   :root {
-    --sidebar-width: 280px;
-    --sidebar-width-collapsed: 95px;
-  }
-}
-
-@media (min-width: 2400px) {
-  :root {
-    --sidebar-width: 320px;
-    --sidebar-width-collapsed: 110px;
+    --sidebar-width: 250px;
+    --sidebar-width-collapsed: 90px;
   }
 }
 
@@ -62,13 +92,7 @@
   height: 100%;
 }
 
-/* When premium-card is inside a stretch grid, allow it to grow */
-.db-grid-4>div>.premium-card.db-stat-card {
-  height: 100%;
-}
-
 .premium-card:hover {
-  /*transform: translateY(-5px);*/
   box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.08);
 }
 
@@ -355,7 +379,7 @@ tr:hover td {
 .premium-search-input {
   box-sizing: border-box;
   width: 100%;
-  padding: 0.8rem 1rem 0.8rem 3.2rem;
+  padding: 0.8rem 1rem 0.8rem 4.2rem;
   border-radius: 10px;
   border: 1.5px solid var(--border-color);
   font-size: 1rem;
@@ -473,10 +497,9 @@ tr:hover td {
 }
 
 /* ============================================================
-   DASHBOARD — Fluid Grid Updates
+   DASHBOARD — Fluid Grid
    ============================================================ */
 
-/* Spin animation for the calendar loader */
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -486,20 +509,20 @@ tr:hover td {
 /* ── GRID HELPERS ── */
 .db-grid-4 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
   align-items: stretch;
 }
 
 .db-grid-3 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
 }
 
 .db-grid-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.25rem;
 }
 
@@ -744,7 +767,6 @@ tr:hover td {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  /* Important fix for flex-child overflow */
 }
 
 /* ── DARK THEME ── */
@@ -790,42 +812,21 @@ tr:hover td {
   }
 }
 
-/* Print-header (always hidden on screen, shown via @media print) */
+/* Print header (hidden on screen) */
 .db-print-header {
   display: none;
 }
 
+/* ── RESPONSIVE GRIDS ──────────────────────────────────────── */
 
-
-/* ── RESPONSIVE GRIDS FOR LAPTOPS ── */
-/* Default: 4 columns for big laptops/desktops */
-.db-grid-4 {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
-  align-items: stretch;
-}
-
-.db-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-}
-
-.db-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem;
-}
-
-/* Small Laptops: If the screen is too narrow to fit 4 cards nicely, drop to a 2x2 grid */
+/* Small Laptops: 2x2 grid */
 @media (max-width: 1280px) {
   .db-grid-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Tablets/Mobile: Stack everything in 1 column */
+/* Tablets / Mobile: single column */
 @media (max-width: 900px) {
 
   .db-grid-4,

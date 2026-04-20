@@ -244,7 +244,7 @@ const Projects = () => {
             className="premium-search-input"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
-            style={{ padding: '0.45rem 1rem 0.45rem 2.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
+            style={{ padding: '0.45rem 1rem 0.45rem 3.4rem', borderRadius: '8px', fontSize: '0.85rem', height: '36px', width: '100%' }}
           />
         </div>
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
-import SystemConfig from '@/models/SystemConfig';
+// SystemConfig import removed — recipients now stored per-event on NotificationConfig
 import NotificationConfig from '@/models/NotificationConfig';
 
 export async function POST(req: Request) {
@@ -73,9 +73,8 @@ export async function POST(req: Request) {
        await project.save();
     }
 
-    // Fetch admin WhatsApp number from Global System Settings (instead of env var)
-    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
-    const internalNumber = globalSettings?.Admin_WhatsApp || '';
+    // Fetch internal recipients from the trigger (consolidated list)
+    const internalRecipients = billingTrigger.Internal_Recipients || [];
 
     // Prepare WhatsApp Message Content
     const clientRef: any = project.Client_Reference; // Populated
@@ -113,9 +112,11 @@ This is an automated notification from PMS.`;
     };
     
     try {
-        // --- ADMIN / US LOGIC (ACTIVE) ---
-        if (internalNumber) {
-           await sendWhatsApp(internalNumber, messageText);
+        // --- INTERNAL RECIPIENTS (consolidated list) ---
+        for (const recipient of internalRecipients) {
+          if (recipient.whatsapp) {
+            await sendWhatsApp(recipient.whatsapp, messageText);
+          }
         }
         
         // --- CLIENT LOGIC (COMMENTED OUT AS REQUESTED) ---

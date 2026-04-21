@@ -4,6 +4,7 @@ export interface ISystemConfig extends Document {
   Config_Key: string;
   Admin_Email: string;
   Admin_WhatsApp: string;
+  Last_Cron_Run: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +24,10 @@ const SystemConfigSchema = new Schema<ISystemConfig>({
     type: String,
     trim: true,
     default: ''
+  },
+  Last_Cron_Run: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

@@ -58,9 +58,8 @@ export async function POST(req: Request) {
     });
     console.log(`[WhatsApp Followup] Tracking updated for Lead: ${leadId}`);
 
-    // Fetch admin WhatsApp from Global Settings
-    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
-    const internalNumber = globalSettings?.Admin_WhatsApp || '';
+    // Fetch internal recipients from the trigger (consolidated list)
+    const internalRecipients = followupTrigger.Internal_Recipients || [];
 
     const clientRef: any = lead.Client_Reference;
     const productRef: any = lead.Product_Reference;
@@ -105,8 +104,11 @@ This is an automated reminder from PMS.`;
     };
 
     try {
-      if (internalNumber) {
-        await sendWhatsApp(internalNumber, messageText);
+      // Send to each internal recipient who has a WhatsApp number defined
+      for (const recipient of internalRecipients) {
+        if (recipient.whatsapp) {
+          await sendWhatsApp(recipient.whatsapp, messageText);
+        }
       }
     } catch (err: any) {
       return NextResponse.json({ error: `WhatsApp failed: ${err.message}` }, { status: 500 });

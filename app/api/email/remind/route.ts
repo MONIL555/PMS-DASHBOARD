@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
-import SystemConfig from '@/models/SystemConfig';
+// SystemConfig import removed — recipients now stored per-event on NotificationConfig
 import NotificationConfig from '@/models/NotificationConfig';
 import { sendEmail } from '@/lib/emailTransport';
 
@@ -76,9 +76,8 @@ export async function POST(req: Request) {
       await project.save();
     }
 
-    // Fetch admin email from Global System Settings
-    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
-    const adminEmail = globalSettings?.Admin_Email || '';
+    // Fetch internal recipients from the trigger (consolidated list)
+    const internalRecipients = billingTrigger.Internal_Recipients || [];
 
     const clientRef: any = project.Client_Reference;
 
@@ -102,9 +101,11 @@ export async function POST(req: Request) {
     `;
 
     try {
-      // --- ADMIN EMAIL (ACTIVE) ---
-      if (adminEmail) {
-        await sendEmail(adminEmail, subject, htmlBody);
+      // --- INTERNAL RECIPIENTS EMAIL (consolidated list) ---
+      for (const recipient of internalRecipients) {
+        if (recipient.email) {
+          await sendEmail(recipient.email, subject, htmlBody);
+        }
       }
 
       // --- CLIENT EMAIL (COMMENTED OUT AS PER WHATSAPP PATTERN) ---

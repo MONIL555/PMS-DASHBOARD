@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
-import SystemConfig from '@/models/SystemConfig';
+// SystemConfig import removed — recipients now stored per-event on NotificationConfig
 import NotificationConfig from '@/models/NotificationConfig';
 
 export async function POST(req: Request) {
@@ -65,9 +65,8 @@ export async function POST(req: Request) {
     if (schedule === 'Monthly') installmentAmount = totalCosting / 12;
     else if (schedule === 'Quarterly') installmentAmount = totalCosting / 4;
 
-    // Fetch admin WhatsApp from Global Settings
-    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
-    const internalNumber = globalSettings?.Admin_WhatsApp || '';
+    // Fetch internal recipients from the trigger (consolidated list)
+    const internalRecipients = costingTrigger.Internal_Recipients || [];
 
     const clientRef: any = project.Client_Reference;
     
@@ -105,8 +104,11 @@ This is an automated reminder from PMS.`;
     };
 
     try {
-      if (internalNumber) {
-        await sendWhatsApp(internalNumber, messageText);
+      // Send to each internal recipient who has a WhatsApp number defined
+      for (const recipient of internalRecipients) {
+        if (recipient.whatsapp) {
+          await sendWhatsApp(recipient.whatsapp, messageText);
+        }
       }
     } catch (err: any) {
       return NextResponse.json({ error: `WhatsApp failed: ${err.message}` }, { status: 500 });

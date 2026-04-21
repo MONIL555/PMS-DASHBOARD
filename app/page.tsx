@@ -164,25 +164,25 @@ const DashboardContent = () => {
     return before === 0 ? null : ((recent - before) / before * 100).toFixed(1);
   }, [data]);
 
-  const billingHealth = useMemo(() => {
-    if (!data) return 0;
-    const lr = parseFloat(data.conversionRates.leadToQuote) || 0;
-    const qr = parseFloat(data.conversionRates.quoteToProject) || 0;
-    const d = data.conversionRates.avgCompletionTime || 999;
-    return Math.round(Math.min(100, Math.min(lr, 50) + Math.min(qr * (10 / 3), 30) + Math.max(0, 20 - (d / 30) * 10)));
-  }, [data]);
+  // const billingHealth = useMemo(() => {
+  //   if (!data) return 0;
+  //   const lr = parseFloat(data.conversionRates.leadToQuote) || 0;
+  //   const qr = parseFloat(data.conversionRates.quoteToProject) || 0;
+  //   const d = data.conversionRates.avgCompletionTime || 999;
+  //   return Math.round(Math.min(100, Math.min(lr, 50) + Math.min(qr * (10 / 3), 30) + Math.max(0, 20 - (d / 30) * 10)));
+  // }, [data]);
 
-  const winRate = useMemo(() => {
-    if (!data) return 0;
-    const conv = data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0;
-    return data.stats.totalLeads > 0 ? (conv / data.stats.totalLeads) * 100 : 0;
-  }, [data]);
+  // const winRate = useMemo(() => {
+  //   if (!data) return 0;
+  //   const conv = data.leadStatusDist?.find((s: any) => s.name === 'Converted')?.value || 0;
+  //   return data.stats.totalLeads > 0 ? (conv / data.stats.totalLeads) * 100 : 0;
+  // }, [data]);
 
-  const quoteConvRate = useMemo(() => {
-    if (!data) return 0;
-    const q = data.stats.totalQuotations || 0; const p = data.stats.totalActiveProjects || 0;
-    return q > 0 ? (p / q) * 100 : 0;
-  }, [data]);
+  // const quoteConvRate = useMemo(() => {
+  //   if (!data) return 0;
+  //   const q = data.stats.totalQuotations || 0; const p = data.stats.totalActiveProjects || 0;
+  //   return q > 0 ? (p / q) * 100 : 0;
+  // }, [data]);
 
   const filteredActivities = useMemo(() => {
     if (!data) return [];
@@ -436,29 +436,29 @@ const DashboardContent = () => {
   }
 
   /* ── KPI STRIP ── */
-  const kpis = [
-    { show: hasLeads && hasQuotations, lbl: 'Lead → Quote : With Conversion Time', val: `${data.conversionRates.leadToQuote}% / ${data.conversionRates.avgLeadToQuoteTime}d`, icon: TrendingUp, color: '#3b82f6', bg: '#eff6ff' },
-    { show: hasQuotations && hasProjects, lbl: 'Quote → Project : With Conversion Time', val: `${data.conversionRates.quoteToProject}% / ${data.conversionRates.avgQuoteToProjectTime}d`, icon: Target, color: '#f59e0b', bg: '#fffbeb' },
-    { show: hasProjects, lbl: 'Avg Project Duration', val: `${data.conversionRates.avgCompletionTime}d`, icon: Clock, color: '#10b981', bg: '#f0fdf4' },
-  ].filter(k => k.show);
+  // const kpis = [
+  //   { show: hasLeads && hasQuotations, lbl: 'Lead → Quote : With Conversion Time', val: `${data.conversionRates.leadToQuote}% / ${data.conversionRates.avgLeadToQuoteTime}d`, icon: TrendingUp, color: '#3b82f6', bg: '#eff6ff' },
+  //   { show: hasQuotations && hasProjects, lbl: 'Quote → Project : With Conversion Time', val: `${data.conversionRates.quoteToProject}% / ${data.conversionRates.avgQuoteToProjectTime}d`, icon: Target, color: '#f59e0b', bg: '#fffbeb' },
+  //   { show: hasProjects, lbl: 'Avg Project Duration', val: `${data.conversionRates.avgCompletionTime}d`, icon: Clock, color: '#10b981', bg: '#f0fdf4' },
+  // ].filter(k => k.show);
 
-  if (kpis.length > 0) {
-    sections.push({
-      id: 'kpis', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '0.75rem' }}>
-          {kpis.map((k, i) => (
-            <div key={i} className="premium-card" style={{ padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-              <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={iconMd} /></div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.lbl}</p>
-                <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{k.val}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    });
-  }
+  // if (kpis.length > 0) {
+  //   sections.push({
+  //     id: 'kpis', component: (
+  //       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '0.75rem' }}>
+  //         {kpis.map((k, i) => (
+  //           <div key={i} className="premium-card" style={{ padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+  //             <div style={{ background: k.bg, padding: '0.5rem', borderRadius: '8px', color: k.color, flexShrink: 0 }}><k.icon size={iconMd} /></div>
+  //             <div style={{ minWidth: 0 }}>
+  //               <p style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-secondary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.lbl}</p>
+  //               <p style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{k.val}</p>
+  //             </div>
+  //           </div>
+  //         ))}
+  //       </div>
+  //     )
+  //   });
+  // }
 
   /* ── MONTHLY TRENDS ── */
   if (hasLeads || hasQuotations || hasProjects || hasFinance) {
@@ -488,7 +488,7 @@ const DashboardContent = () => {
     const hasSidebar = showClients || showServices || showStaff;
     sections.push({
       id: 'calendar-strategic', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: hasSidebar ? 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))' : '1fr', gap: '1.5rem' }}>
+        <div className={hasSidebar ? "db-grid-70-30" : ""} style={{ display: hasSidebar ? undefined : 'grid', gridTemplateColumns: hasSidebar ? undefined : '1fr', gap: '1.5rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <Card><DashboardCalendar /></Card>
             {fc.length > 0 && (
@@ -697,7 +697,7 @@ const DashboardContent = () => {
 
     sections.push({
       id: 'revenue-forecast', component: (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: '1.5rem' }}>
+        <div className="db-grid-70-30">
           <Card>
             <STitle icon={GitCompare} title="Revenue vs Forecast" sub="actuals vs projected" />
             <div style={{ height: '30rem' }}>

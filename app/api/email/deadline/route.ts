@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Project from '@/models/Project';
-import SystemConfig from '@/models/SystemConfig';
+// SystemConfig import removed — recipients now stored per-event on NotificationConfig
 import NotificationConfig from '@/models/NotificationConfig';
 import { sendEmail } from '@/lib/emailTransport';
 
@@ -50,9 +50,8 @@ export async function POST(req: Request) {
     project.Deadline_Alert!.Last_Email_Sent_Date = today;
     await project.save();
 
-    // Fetch admin email from Global Settings
-    const globalSettings = await SystemConfig.findOne({ Config_Key: 'global_notification_settings' });
-    const adminEmail = globalSettings?.Admin_Email || '';
+    // Fetch internal recipients from the trigger (consolidated list)
+    const internalRecipients = deadlineTrigger.Internal_Recipients || [];
 
     const endDate = project.Start_Details?.End_Date;
     const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
@@ -78,8 +77,11 @@ export async function POST(req: Request) {
     `;
 
     try {
-      if (adminEmail) {
-        await sendEmail(adminEmail, subject, htmlBody);
+      // Send to each internal recipient who has an email defined
+      for (const recipient of internalRecipients) {
+        if (recipient.email) {
+          await sendEmail(recipient.email, subject, htmlBody);
+        }
       }
     } catch (err: any) {
       return NextResponse.json({ error: `Email failed: ${err.message}` }, { status: 500 });

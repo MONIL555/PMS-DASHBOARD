@@ -44,10 +44,7 @@ export const PERMISSIONS = {
   PRODUCTS_DELETE: 'products_delete',
 
   // Settings & Configuration
-  PROJECT_TYPES_VIEW: 'project_types_view',
-  PROJECT_TYPES_CREATE: 'project_types_create',
-  PROJECT_TYPES_EDIT: 'project_types_edit',
-  PROJECT_TYPES_DELETE: 'project_types_delete',
+
 
   LEAD_SOURCES_VIEW: 'lead_sources_view',
   LEAD_SOURCES_CREATE: 'lead_sources_create',
@@ -116,10 +113,7 @@ export const PERMISSION_GROUPS = {
     { id: PERMISSIONS.PRODUCTS_DELETE, label: 'Delete Services' },
   ],
   Settings: [
-    { id: PERMISSIONS.PROJECT_TYPES_VIEW, label: 'View Project Types' },
-    { id: PERMISSIONS.PROJECT_TYPES_CREATE, label: 'Create Project Types' },
-    { id: PERMISSIONS.PROJECT_TYPES_EDIT, label: 'Edit Project Types' },
-    { id: PERMISSIONS.PROJECT_TYPES_DELETE, label: 'Delete Project Types' },
+
     { id: PERMISSIONS.LEAD_SOURCES_VIEW, label: 'View Lead Sources' },
     { id: PERMISSIONS.LEAD_SOURCES_CREATE, label: 'Create Lead Sources' },
     {id: PERMISSIONS.LEAD_SOURCES_EDIT, label: 'Edit Lead Sources'},

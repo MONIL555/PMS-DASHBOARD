@@ -6,6 +6,8 @@ export interface INotificationConfig extends Document {
   Event_Name: string;
   IsEnabled: boolean;
   Channels: ('Email' | 'WhatsApp')[];
+  // New per‑event internal recipient lists
+  Internal_Recipients: { name: string; whatsapp?: string; email?: string }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,14 @@ const NotificationConfigSchema = new Schema<INotificationConfig, INotificationCo
     type: Boolean,
     default: true
   },
+  Internal_Recipients: {
+    type: [{
+      name: { type: String, required: true },
+      whatsapp: { type: String },
+      email: { type: String }
+    }],
+    default: []
+  },
   Channels: {
     type: [String],
     enum: ['Email', 'WhatsApp'],
@@ -47,5 +57,10 @@ NotificationConfigSchema.pre('save', async function() {
     this.Trigger_ID = `NOT-${counter.seq.toString().padStart(4, '0')}`;
   }
 });
+
+// Force schema refresh in development to avoid CastError after structure change
+if (process.env.NODE_ENV === 'development' && mongoose.models.NotificationConfig) {
+  delete mongoose.models.NotificationConfig;
+}
 
 export default mongoose.models.NotificationConfig as INotificationConfigModel || mongoose.model<INotificationConfig, INotificationConfigModel>('NotificationConfig', NotificationConfigSchema);

@@ -37,7 +37,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(updatedConfig);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[Notification API] Error:', error);
+    let message = "An error occurred.";
+    if (error.name === 'ValidationError') message = "Validation failed. Please check your inputs.";
+    else if (error.name === 'CastError') message = "Invalid data format provided.";
+    else if (error.code === 11000) message = "A duplicate record already exists.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -57,6 +62,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ message: "Configuration deleted successfully" });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[Notification API] Error:', error);
+    let message = "An error occurred.";
+    if (error.name === 'ValidationError') message = "Validation failed. Please check your inputs.";
+    else if (error.name === 'CastError') message = "Invalid data format provided.";
+    else if (error.code === 11000) message = "A duplicate record already exists.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

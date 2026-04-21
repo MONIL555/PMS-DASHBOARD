@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import Role from '@/models/Role'; // Ensure Role is loaded for populate
+import Role from '@/models/Role';
 import bcrypt from 'bcryptjs';
 import { signToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { shouldDispatch, runDispatch } from '@/lib/dispatchNotifications';
 
 export async function POST(req: Request) {
   try {
@@ -53,6 +54,18 @@ export async function POST(req: Request) {
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 30 // 30 days
+    });
+
+    // ── Fire-and-forget notification dispatch on admin login ─────────────────
+    // Checks if it's been ≥6h since last dispatch; if so, runs in background.
+    // We do NOT await this Promise — the login response is returned instantly.
+    shouldDispatch('login').then((ok) => {
+      if (ok) {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        runDispatch(baseUrl).catch((err) =>
+          console.error('[Login Dispatch] Background dispatch failed:', err)
+        );
+      }
     });
 
     return NextResponse.json({ message: 'Login successful' });
